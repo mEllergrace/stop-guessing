@@ -10,3 +10,4 @@ venv/
 # Public CSA reference materials are cited, never committed.
 # The blank AI-CAIQ template is a LOCAL BACKUP and is copy-only — see IMPLEMENTATION_PLAN.md §12.
 docs/ai-caiq/reference/*.xlsx
+.venv/

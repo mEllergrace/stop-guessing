@@ -1,0 +1,41 @@
+{
+  "_note": "Pinned facts about CSA's blank AI-CAIQ template. The template itself is COPY-ONLY and is not committed here \u2014 it is a local backup of a CSA artifact and is not recoverable from GitHub. Never modify or regenerate it. See IMPLEMENTATION_PLAN.md \u00a712.",
+  "source_basename": "AI_CAIQv1.1.0.xlsx",
+  "sha256": "3476859d1a3495f246b19905a89e5f29b6f777e3fd4d2a941d79260170861645",
+  "a1": "{\"specification_name\":\"AI Controls Matrix\",\"specification_version\":\"1.1.0\",\"caiq_version\":\"1.1.0\"}",
+  "specification_name": "AI Controls Matrix",
+  "specification_version": "1.1.0",
+  "caiq_version": "1.1.0",
+  "sheet_names": [
+    "Introduction",
+    "AI-CAIQv1.1.0",
+    "LLM Taxonomy",
+    "Change Log"
+  ],
+  "data_sheet": "AI-CAIQv1.1.0",
+  "dimensions": "A1:L324",
+  "editable_columns": [
+    3,
+    4,
+    5,
+    6
+  ],
+  "valid_answers": [
+    "Yes",
+    "No",
+    "NA"
+  ],
+  "valid_owners": [
+    "Owned by CSP",
+    "Owned by MP",
+    "Owned by OSP",
+    "Owned by AP",
+    "Owned by AIC",
+    "Shared across the supply chain",
+    "Shared CSP-MP",
+    "Shared MP-OSP",
+    "Shared OSP-AP",
+    "Shared AP-AIC",
+    "Not Determined"
+  ]
+}

@@ -1,0 +1,1103 @@
+{
+  "_cases": 73,
+  "_invocations": 219,
+  "_note": "Observed behaviour of the vendored no-noodles hooks. Recorded, not asserted. A diff here is a finding: either upstream changed or the dispatcher diverged.",
+  "_stop_guessing_version": "0.1.0",
+  "outcomes": {
+    "cred-benign-echo::check_before_build.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "cred-benign-echo::no_noodle.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "cred-benign-echo::risk_gate.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "cred-benign-env-set::check_before_build.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "cred-benign-env-set::no_noodle.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "cred-benign-env-set::risk_gate.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "cred-cat-dotenv::check_before_build.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "cred-cat-dotenv::no_noodle.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "cred-cat-dotenv::risk_gate.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "cred-echo-apikey::check_before_build.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "cred-echo-apikey::no_noodle.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "cred-echo-apikey::risk_gate.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "cred-echo-secret::check_before_build.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "cred-echo-secret::no_noodle.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "cred-echo-secret::risk_gate.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "cred-echo-token::check_before_build.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "cred-echo-token::no_noodle.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "cred-echo-token::risk_gate.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "cred-env-grep::check_before_build.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "cred-env-grep::no_noodle.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "cred-env-grep::risk_gate.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "cred-printenv::check_before_build.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "cred-printenv::no_noodle.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "cred-printenv::risk_gate.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "pass-edit::check_before_build.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "pass-edit::no_noodle.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "pass-edit::risk_gate.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "pass-glob::check_before_build.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "pass-glob::no_noodle.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "pass-glob::risk_gate.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "pass-grep::check_before_build.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "pass-grep::no_noodle.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "pass-grep::risk_gate.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "pass-read::check_before_build.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "pass-read::no_noodle.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "pass-read::risk_gate.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "pass-task::check_before_build.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "pass-task::no_noodle.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "pass-task::risk_gate.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "pass-webfetch::check_before_build.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "pass-webfetch::no_noodle.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "pass-webfetch::risk_gate.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r1-b64-capital-D-2nd::check_before_build.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r1-b64-capital-D-2nd::no_noodle.sh": {
+      "exit_code": 2,
+      "stderr": "",
+      "stdout": "NO-NOODLE: base64 decode is ad-hoc data handling, and I have seen this shape (base64-decode) 1 time(s) already in this project. One is exploration; twice is a script. Write the script (with a test) and run that, or use a skill's documented command. If this genuinely is a distinct one-off, append '# noodle-ok'. See the no-noodle skill.\n"
+    },
+    "r1-b64-capital-D-2nd::risk_gate.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r1-b64-decode-1st::check_before_build.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r1-b64-decode-1st::no_noodle.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r1-b64-decode-1st::risk_gate.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r1-b64-decode-2nd::check_before_build.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r1-b64-decode-2nd::no_noodle.sh": {
+      "exit_code": 2,
+      "stderr": "",
+      "stdout": "NO-NOODLE: base64 decode is ad-hoc data handling, and I have seen this shape (base64-decode) 1 time(s) already in this project. One is exploration; twice is a script. Write the script (with a test) and run that, or use a skill's documented command. If this genuinely is a distinct one-off, append '# noodle-ok'. See the no-noodle skill.\n"
+    },
+    "r1-b64-decode-2nd::risk_gate.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r1-b64-long-2nd::check_before_build.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r1-b64-long-2nd::no_noodle.sh": {
+      "exit_code": 2,
+      "stderr": "",
+      "stdout": "NO-NOODLE: base64 decode is ad-hoc data handling, and I have seen this shape (base64-decode) 1 time(s) already in this project. One is exploration; twice is a script. Write the script (with a test) and run that, or use a skill's documented command. If this genuinely is a distinct one-off, append '# noodle-ok'. See the no-noodle skill.\n"
+    },
+    "r1-b64-long-2nd::risk_gate.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r1-benign-git::check_before_build.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r1-benign-git::no_noodle.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r1-benign-git::risk_gate.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r1-benign-grep::check_before_build.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r1-benign-grep::no_noodle.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r1-benign-grep::risk_gate.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r1-benign-ls::check_before_build.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r1-benign-ls::no_noodle.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r1-benign-ls::risk_gate.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r1-curl-no-pipe::check_before_build.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r1-curl-no-pipe::no_noodle.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r1-curl-no-pipe::risk_gate.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r1-escape-noodle-ok-b64::check_before_build.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r1-escape-noodle-ok-b64::no_noodle.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r1-escape-noodle-ok-b64::risk_gate.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r1-escape-noodle-ok::check_before_build.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r1-escape-noodle-ok::no_noodle.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r1-escape-noodle-ok::risk_gate.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r1-fetch-pipe-jq-2nd::check_before_build.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r1-fetch-pipe-jq-2nd::no_noodle.sh": {
+      "exit_code": 2,
+      "stderr": "",
+      "stdout": "NO-NOODLE: a curl/wget piped into a parser is an ad-hoc data probe, and I have seen this shape (fetch-pipe-parser) 1 time(s) already in this project. One is exploration; twice is a script. Write the script (with a test) and run that, or use a skill's documented command. If this genuinely is a distinct one-off, append '# noodle-ok'. See the no-noodle skill.\n"
+    },
+    "r1-fetch-pipe-jq-2nd::risk_gate.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r1-fetch-pipe-node-2nd::check_before_build.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r1-fetch-pipe-node-2nd::no_noodle.sh": {
+      "exit_code": 2,
+      "stderr": "",
+      "stdout": "NO-NOODLE: a curl/wget piped into a parser is an ad-hoc data probe, and I have seen this shape (fetch-pipe-parser) 1 time(s) already in this project. One is exploration; twice is a script. Write the script (with a test) and run that, or use a skill's documented command. If this genuinely is a distinct one-off, append '# noodle-ok'. See the no-noodle skill.\n"
+    },
+    "r1-fetch-pipe-node-2nd::risk_gate.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r1-fetch-pipe-python-1st::check_before_build.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r1-fetch-pipe-python-1st::no_noodle.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r1-fetch-pipe-python-1st::risk_gate.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r1-fetch-pipe-python-2nd::check_before_build.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r1-fetch-pipe-python-2nd::no_noodle.sh": {
+      "exit_code": 2,
+      "stderr": "",
+      "stdout": "NO-NOODLE: a curl/wget piped into a parser is an ad-hoc data probe, and I have seen this shape (fetch-pipe-parser) 1 time(s) already in this project. One is exploration; twice is a script. Write the script (with a test) and run that, or use a skill's documented command. If this genuinely is a distinct one-off, append '# noodle-ok'. See the no-noodle skill.\n"
+    },
+    "r1-fetch-pipe-python-2nd::risk_gate.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r1-mention-in-echo::check_before_build.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r1-mention-in-echo::no_noodle.sh": {
+      "exit_code": 2,
+      "stderr": "",
+      "stdout": "NO-NOODLE: base64 decode is ad-hoc data handling, and I have seen this shape (base64-decode) 1 time(s) already in this project. One is exploration; twice is a script. Write the script (with a test) and run that, or use a skill's documented command. If this genuinely is a distinct one-off, append '# noodle-ok'. See the no-noodle skill.\n"
+    },
+    "r1-mention-in-echo::risk_gate.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r1-mention-in-grep::check_before_build.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r1-mention-in-grep::no_noodle.sh": {
+      "exit_code": 2,
+      "stderr": "",
+      "stdout": "NO-NOODLE: a curl/wget piped into a parser is an ad-hoc data probe, and I have seen this shape (fetch-pipe-parser) 1 time(s) already in this project. One is exploration; twice is a script. Write the script (with a test) and run that, or use a skill's documented command. If this genuinely is a distinct one-off, append '# noodle-ok'. See the no-noodle skill.\n"
+    },
+    "r1-mention-in-grep::risk_gate.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r1-pipe-to-sh-not-guarded::check_before_build.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r1-pipe-to-sh-not-guarded::no_noodle.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r1-pipe-to-sh-not-guarded::risk_gate.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r1-project-b-1st::check_before_build.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r1-project-b-1st::no_noodle.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r1-project-b-1st::risk_gate.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r1-wget-pipe-perl-2nd::check_before_build.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r1-wget-pipe-perl-2nd::no_noodle.sh": {
+      "exit_code": 2,
+      "stderr": "",
+      "stdout": "NO-NOODLE: a curl/wget piped into a parser is an ad-hoc data probe, and I have seen this shape (fetch-pipe-parser) 1 time(s) already in this project. One is exploration; twice is a script. Write the script (with a test) and run that, or use a skill's documented command. If this genuinely is a distinct one-off, append '# noodle-ok'. See the no-noodle skill.\n"
+    },
+    "r1-wget-pipe-perl-2nd::risk_gate.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r1-wget-pipe-ruby-2nd::check_before_build.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r1-wget-pipe-ruby-2nd::no_noodle.sh": {
+      "exit_code": 2,
+      "stderr": "",
+      "stdout": "NO-NOODLE: a curl/wget piped into a parser is an ad-hoc data probe, and I have seen this shape (fetch-pipe-parser) 1 time(s) already in this project. One is exploration; twice is a script. Write the script (with a test) and run that, or use a skill's documented command. If this genuinely is a distinct one-off, append '# noodle-ok'. See the no-noodle skill.\n"
+    },
+    "r1-wget-pipe-ruby-2nd::risk_gate.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r4-empty-content::check_before_build.sh": {
+      "exit_code": 2,
+      "stderr": "",
+      "stdout": "CHECK-BEFORE-BUILD: new file <TMP> \u2014 do not create it until you have checked\nwhether an existing WORKFLOW BLOCK, script, or command already covers this (or could grow\na flag/option to cover it). Invoking a defined block beats writing a script that\nreimplements it \u2014 that mistake costs the build AND the run.\n\nThis hook found no name-matching candidates under workflows/, scripts/ or\n.claude/commands/. That is NOT clearance: it matched on filename tokens only.\nCheck by PURPOSE too.\n\nIf it is genuinely new, add '# build-ok: <what you searched, and why each hit is unusable>'\n(must name a searched path, >=60 chars) and retry. See ~/.claude/skills/no-noodle.md rule 4.\n"
+    },
+    "r4-empty-content::no_noodle.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r4-empty-content::risk_gate.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r4-long-marker-no-path::check_before_build.sh": {
+      "exit_code": 2,
+      "stderr": "",
+      "stdout": "CHECK-BEFORE-BUILD: the build-ok marker on <TMP> does not show its work.\nIt must name what was actually searched and why the hits are unusable, e.g.\n  # build-ok: searched workflows/ (no block covers X); scripts/ (nearest is Y \u2014 wrong because Z)\nA bare marker is a self-signed waiver; that is exactly how seven parallel scripts\nwere created and run on 2026-07-30 with enforcement ON.\n\n"
+    },
+    "r4-long-marker-no-path::no_noodle.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r4-long-marker-no-path::risk_gate.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r4-nested-scripts::check_before_build.sh": {
+      "exit_code": 2,
+      "stderr": "",
+      "stdout": "CHECK-BEFORE-BUILD: new file <TMP> \u2014 do not create it until you have checked\nwhether an existing WORKFLOW BLOCK, script, or command already covers this (or could grow\na flag/option to cover it). Invoking a defined block beats writing a script that\nreimplements it \u2014 that mistake costs the build AND the run.\n\nThis hook found no name-matching candidates under workflows/, scripts/ or\n.claude/commands/. That is NOT clearance: it matched on filename tokens only.\nCheck by PURPOSE too.\n\nIf it is genuinely new, add '# build-ok: <what you searched, and why each hit is unusable>'\n(must name a searched path, >=60 chars) and retry. See ~/.claude/skills/no-noodle.md rule 4.\n"
+    },
+    "r4-nested-scripts::no_noodle.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r4-nested-scripts::risk_gate.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r4-not-guarded-ext::check_before_build.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r4-not-guarded-ext::no_noodle.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r4-not-guarded-ext::risk_gate.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r4-outside-scripts::check_before_build.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r4-outside-scripts::no_noodle.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r4-outside-scripts::risk_gate.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r4-scripts-js-nomarker::check_before_build.sh": {
+      "exit_code": 2,
+      "stderr": "",
+      "stdout": "CHECK-BEFORE-BUILD: new file <TMP> \u2014 do not create it until you have checked\nwhether an existing WORKFLOW BLOCK, script, or command already covers this (or could grow\na flag/option to cover it). Invoking a defined block beats writing a script that\nreimplements it \u2014 that mistake costs the build AND the run.\n\nThis hook found no name-matching candidates under workflows/, scripts/ or\n.claude/commands/. That is NOT clearance: it matched on filename tokens only.\nCheck by PURPOSE too.\n\nIf it is genuinely new, add '# build-ok: <what you searched, and why each hit is unusable>'\n(must name a searched path, >=60 chars) and retry. See ~/.claude/skills/no-noodle.md rule 4.\n"
+    },
+    "r4-scripts-js-nomarker::no_noodle.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r4-scripts-js-nomarker::risk_gate.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r4-scripts-py-nomarker::check_before_build.sh": {
+      "exit_code": 2,
+      "stderr": "",
+      "stdout": "CHECK-BEFORE-BUILD: new file <TMP> \u2014 do not create it until you have checked\nwhether an existing WORKFLOW BLOCK, script, or command already covers this (or could grow\na flag/option to cover it). Invoking a defined block beats writing a script that\nreimplements it \u2014 that mistake costs the build AND the run.\n\nThis hook found no name-matching candidates under workflows/, scripts/ or\n.claude/commands/. That is NOT clearance: it matched on filename tokens only.\nCheck by PURPOSE too.\n\nIf it is genuinely new, add '# build-ok: <what you searched, and why each hit is unusable>'\n(must name a searched path, >=60 chars) and retry. See ~/.claude/skills/no-noodle.md rule 4.\n"
+    },
+    "r4-scripts-py-nomarker::no_noodle.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r4-scripts-py-nomarker::risk_gate.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r4-scripts-rb-nomarker::check_before_build.sh": {
+      "exit_code": 2,
+      "stderr": "",
+      "stdout": "CHECK-BEFORE-BUILD: new file <TMP> \u2014 do not create it until you have checked\nwhether an existing WORKFLOW BLOCK, script, or command already covers this (or could grow\na flag/option to cover it). Invoking a defined block beats writing a script that\nreimplements it \u2014 that mistake costs the build AND the run.\n\nThis hook found no name-matching candidates under workflows/, scripts/ or\n.claude/commands/. That is NOT clearance: it matched on filename tokens only.\nCheck by PURPOSE too.\n\nIf it is genuinely new, add '# build-ok: <what you searched, and why each hit is unusable>'\n(must name a searched path, >=60 chars) and retry. See ~/.claude/skills/no-noodle.md rule 4.\n"
+    },
+    "r4-scripts-rb-nomarker::no_noodle.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r4-scripts-rb-nomarker::risk_gate.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r4-scripts-sh-nomarker::check_before_build.sh": {
+      "exit_code": 2,
+      "stderr": "",
+      "stdout": "CHECK-BEFORE-BUILD: new file <TMP> \u2014 do not create it until you have checked\nwhether an existing WORKFLOW BLOCK, script, or command already covers this (or could grow\na flag/option to cover it). Invoking a defined block beats writing a script that\nreimplements it \u2014 that mistake costs the build AND the run.\n\nThis hook found no name-matching candidates under workflows/, scripts/ or\n.claude/commands/. That is NOT clearance: it matched on filename tokens only.\nCheck by PURPOSE too.\n\nIf it is genuinely new, add '# build-ok: <what you searched, and why each hit is unusable>'\n(must name a searched path, >=60 chars) and retry. See ~/.claude/skills/no-noodle.md rule 4.\n"
+    },
+    "r4-scripts-sh-nomarker::no_noodle.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r4-scripts-sh-nomarker::risk_gate.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r4-scripts-ts-nomarker::check_before_build.sh": {
+      "exit_code": 2,
+      "stderr": "",
+      "stdout": "CHECK-BEFORE-BUILD: new file <TMP> \u2014 do not create it until you have checked\nwhether an existing WORKFLOW BLOCK, script, or command already covers this (or could grow\na flag/option to cover it). Invoking a defined block beats writing a script that\nreimplements it \u2014 that mistake costs the build AND the run.\n\nThis hook found no name-matching candidates under workflows/, scripts/ or\n.claude/commands/. That is NOT clearance: it matched on filename tokens only.\nCheck by PURPOSE too.\n\nIf it is genuinely new, add '# build-ok: <what you searched, and why each hit is unusable>'\n(must name a searched path, >=60 chars) and retry. See ~/.claude/skills/no-noodle.md rule 4.\n"
+    },
+    "r4-scripts-ts-nomarker::no_noodle.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r4-scripts-ts-nomarker::risk_gate.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r4-short-marker::check_before_build.sh": {
+      "exit_code": 2,
+      "stderr": "",
+      "stdout": "CHECK-BEFORE-BUILD: the build-ok marker on <TMP> does not show its work.\nIt must name what was actually searched and why the hits are unusable, e.g.\n  # build-ok: searched workflows/ (no block covers X); scripts/ (nearest is Y \u2014 wrong because Z)\nA bare marker is a self-signed waiver; that is exactly how seven parallel scripts\nwere created and run on 2026-07-30 with enforcement ON.\n\n"
+    },
+    "r4-short-marker::no_noodle.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r4-short-marker::risk_gate.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r4-test-exempt-js::check_before_build.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r4-test-exempt-js::no_noodle.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r4-test-exempt-js::risk_gate.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r4-test-exempt-prefix::check_before_build.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r4-test-exempt-prefix::no_noodle.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r4-test-exempt-prefix::risk_gate.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r4-test-exempt-suffix::check_before_build.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r4-test-exempt-suffix::no_noodle.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r4-test-exempt-suffix::risk_gate.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r4-test-exempt-ts::check_before_build.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r4-test-exempt-ts::no_noodle.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r4-test-exempt-ts::risk_gate.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r4-valid-marker-slashes::check_before_build.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r4-valid-marker-slashes::no_noodle.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r4-valid-marker-slashes::risk_gate.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r4-valid-marker::check_before_build.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r4-valid-marker::no_noodle.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r4-valid-marker::risk_gate.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r4-workflow-json-marker::check_before_build.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r4-workflow-json-marker::no_noodle.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r4-workflow-json-marker::risk_gate.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r4-workflow-json::check_before_build.sh": {
+      "exit_code": 2,
+      "stderr": "",
+      "stdout": "CHECK-BEFORE-BUILD: new file <TMP> \u2014 do not create it until you have checked\nwhether an existing WORKFLOW BLOCK, script, or command already covers this (or could grow\na flag/option to cover it). Invoking a defined block beats writing a script that\nreimplements it \u2014 that mistake costs the build AND the run.\n\nThis hook found no name-matching candidates under workflows/, scripts/ or\n.claude/commands/. That is NOT clearance: it matched on filename tokens only.\nCheck by PURPOSE too.\n\nIf it is genuinely new, add '# build-ok: <what you searched, and why each hit is unusable>'\n(must name a searched path, >=60 chars) and retry. See ~/.claude/skills/no-noodle.md rule 4.\n"
+    },
+    "r4-workflow-json::no_noodle.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "r4-workflow-json::risk_gate.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "risk-cat-aws-creds::check_before_build.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "risk-cat-aws-creds::no_noodle.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "risk-cat-aws-creds::risk_gate.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "risk-cat-ssh-key::check_before_build.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "risk-cat-ssh-key::no_noodle.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "risk-cat-ssh-key::risk_gate.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "risk-chmod-777::check_before_build.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "risk-chmod-777::no_noodle.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "risk-chmod-777::risk_gate.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "risk-curl-sh::check_before_build.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "risk-curl-sh::no_noodle.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "risk-curl-sh::risk_gate.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "risk-dd::check_before_build.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "risk-dd::no_noodle.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "risk-dd::risk_gate.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "risk-diskutil::check_before_build.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "risk-diskutil::no_noodle.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "risk-diskutil::risk_gate.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "risk-egress-post::check_before_build.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "risk-egress-post::no_noodle.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "risk-egress-post::risk_gate.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "risk-egress-s3::check_before_build.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "risk-egress-s3::no_noodle.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "risk-egress-s3::risk_gate.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "risk-egress-scp::check_before_build.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "risk-egress-scp::no_noodle.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "risk-egress-scp::risk_gate.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "risk-force-push::check_before_build.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "risk-force-push::no_noodle.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "risk-force-push::risk_gate.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "risk-kill-init::check_before_build.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "risk-kill-init::no_noodle.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "risk-kill-init::risk_gate.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "risk-mkfs::check_before_build.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "risk-mkfs::no_noodle.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "risk-mkfs::risk_gate.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "risk-nc-listen::check_before_build.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "risk-nc-listen::no_noodle.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "risk-nc-listen::risk_gate.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "risk-npm-publish::check_before_build.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "risk-npm-publish::no_noodle.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "risk-npm-publish::risk_gate.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "risk-ok-marker::check_before_build.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "risk-ok-marker::no_noodle.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "risk-ok-marker::risk_gate.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "risk-reset-hard::check_before_build.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "risk-reset-hard::no_noodle.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "risk-reset-hard::risk_gate.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "risk-rm-rf-home::check_before_build.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "risk-rm-rf-home::no_noodle.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "risk-rm-rf-home::risk_gate.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "risk-rm-rf-project::check_before_build.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "risk-rm-rf-project::no_noodle.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "risk-rm-rf-project::risk_gate.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "risk-rm-rf-root::check_before_build.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "risk-rm-rf-root::no_noodle.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "risk-rm-rf-root::risk_gate.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "risk-sudo-rm::check_before_build.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "risk-sudo-rm::no_noodle.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    "risk-sudo-rm::risk_gate.sh": {
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": ""
+    }
+  }
+}
