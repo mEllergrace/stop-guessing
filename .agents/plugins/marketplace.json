@@ -1,0 +1,14 @@
+{
+  "name": "stop-guessing",
+  "owner": {
+    "name": "mEllergrace"
+  },
+  "description": "Chain of custody and data provenance for agentic AI.",
+  "plugins": [
+    {
+      "name": "stop-guessing",
+      "source": "./stop-guessing",
+      "version": "0.1.0"
+    }
+  ]
+}

@@ -177,3 +177,80 @@ def run(deleg: Delegation, artifacts: list[str], *, timeout: int = 120) -> dict:
 def _clean_env() -> dict:
     """Only the allowlist survives — a delegated handler inherits no credentials."""
     return {k: v for k, v in os.environ.items() if k in ENV_ALLOWLIST}
+
+
+# ── signing (bar posture) ────────────────────────────────────────────────────
+
+SIG_SUFFIX = ".sig.json"
+
+
+def sign_script(script: str | Path, key: bytes, keyid: str) -> dict:
+    """Bind a signature to the script's CONTENT, not its path.
+
+    Under `bar` a script must be signed with a key the model cannot reach. Signing the digest
+    rather than the filename means editing the script invalidates the signature — moving or
+    renaming it does not, which is the correct pair of behaviours: identity follows content.
+    """
+    import hashlib
+    import hmac
+    import json
+
+    p = Path(script)
+    digest = file_digest(p)
+    if digest is None:
+        raise DelegationRefused(f"cannot digest {p}")
+    sig = hmac.new(key, f"sg-script-v1:{digest}".encode(), hashlib.sha256).hexdigest()
+    record = {"scheme": "hmac-sha256", "keyid": keyid, "script_digest": digest, "sig": sig}
+    Path(str(p) + SIG_SUFFIX).write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
+    return record
+
+
+def verify_script(script: str | Path, key: bytes) -> tuple[bool, str]:
+    """Returns (ok, reason). A missing or malformed signature is a finding, never a crash."""
+    import hashlib
+    import hmac
+    import json
+
+    p = Path(script)
+    sig_path = Path(str(p) + SIG_SUFFIX)
+    if not sig_path.is_file():
+        return False, f"no signature beside {p.name}"
+    try:
+        rec = json.loads(sig_path.read_text(encoding="utf-8"))
+        expected_digest = rec["script_digest"]
+        claimed = rec["sig"]
+    except (json.JSONDecodeError, KeyError, OSError) as exc:
+        return False, f"malformed signature: {exc}"
+
+    actual_digest = file_digest(p)
+    if actual_digest != expected_digest:
+        return False, (f"{p.name} changed since signing (signed {expected_digest[:16]}…, "
+                       f"now {str(actual_digest)[:16]}…)")
+    want = hmac.new(key, f"sg-script-v1:{expected_digest}".encode(), hashlib.sha256).hexdigest()
+    if not hmac.compare_digest(want, claimed):
+        return False, "signature does not verify under the supplied key"
+    return True, f"verified under keyid {rec.get('keyid')}"
+
+
+def emit_for_model(output: str, mode: str = "full", *, artifact_id: str = "") -> dict:
+    """What actually reaches model context.
+
+    Under `bar` the model receives a handle and a summary — never the bytes. The handle is what a
+    later delegated script consumes, so work continues without the data ever entering context.
+    """
+    lines = output.splitlines()
+    if mode == "full":
+        return {"mode": "full", "content": output}
+    summary = {
+        "mode": mode,
+        "handle": artifact_id or f"sha256:{bytes_digest(output.encode())[:16]}",
+        "lines": len(lines),
+        "bytes": len(output.encode()),
+        "digest": bytes_digest(output.encode()),
+    }
+    if mode == "summary":
+        summary["first_line_shape"] = (
+            "".join("N" if c.isdigit() else "A" if c.isalpha() else c for c in lines[0][:60])
+            if lines else ""
+        )
+    return summary

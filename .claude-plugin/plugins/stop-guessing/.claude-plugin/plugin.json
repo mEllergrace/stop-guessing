@@ -1,0 +1,20 @@
+{
+  "name": "stop-guessing",
+  "version": "0.1.0",
+  "description": "Chain of custody and data provenance for agentic AI. Aligned to CSA AICM v1.1.0.",
+  "author": {
+    "name": "mEllergrace"
+  },
+  "license": "Apache-2.0",
+  "keywords": [
+    "provenance",
+    "chain-of-custody",
+    "aicm",
+    "csa",
+    "audit",
+    "in-toto"
+  ],
+  "commands": "./commands/",
+  "skills": "./skills/",
+  "hooks": "./hooks/hooks.json"
+}

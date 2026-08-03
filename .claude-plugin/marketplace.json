@@ -1,0 +1,15 @@
+{
+  "name": "stop-guessing",
+  "owner": {
+    "name": "mEllergrace"
+  },
+  "description": "Chain of custody and data provenance for agentic AI. Aligned to CSA AICM v1.1.0.",
+  "plugins": [
+    {
+      "name": "stop-guessing",
+      "source": "./.claude-plugin/plugins/stop-guessing",
+      "description": "Records data flow, not just actions. Feeds accumulated custody state back into the permission decision.",
+      "version": "0.1.0"
+    }
+  ]
+}
