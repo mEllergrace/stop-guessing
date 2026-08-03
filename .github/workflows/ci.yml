@@ -31,7 +31,10 @@ jobs:
       - name: Project page is not stale
         run: |
           if [ -f pyproject.toml ] && [ -f docs/index.html ]; then
-            python -m stop_guessing.cli.main page check; rc=$?
+            # `|| rc=$?` — a TESTED context. `cmd; rc=$?` under `bash -e` kills the step
+            # before the guard can read the code, which is how this failed the first time.
+            rc=0
+            python -m stop_guessing.cli.main page check || rc=$?
             # 0 = fresh, 1 = STALE (fail the build), 2 = no chain key (CI has none, so skip).
             # Exit 2 is a distinct code precisely so "cannot verify" never reads as "verified".
             if [ $rc -eq 1 ]; then exit 1; fi
