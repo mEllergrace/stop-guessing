@@ -398,3 +398,288 @@ def prove_sufficiency_refuses_to_overclaim() -> ProofResult:
     r.observe("the gate distinguishes 'a ledger exists' from 'the ledger answers the question'")
     r.evidence = {"regimes": len(rich["regimes"]), "questions": rich["questions_total"]}
     return r
+
+
+# ── M4 helpers ───────────────────────────────────────────────────────────────
+
+
+def _policy_set():
+    from stop_guessing.policy.engine import load
+    return load(repo_root() / "policy" / "coc.policy.d")
+
+
+def _artifact_ctx(path: str, first_touch: bool):
+    from stop_guessing.artifacts.classify import classify_path
+    c = classify_path(path)
+    return {"id": f"art_{abs(hash(path)) % 10**8}", "labels": sorted(c.labels),
+            "classified": c.classified, "first_touch": first_touch,
+            "is_ledger": "stop-guessing" in path and "ledger" in path}, c
+
+
+# ── CLAIM-08 — steer ASKS on first touch, it does not deny read #1 ───────────
+
+
+@proof("CLAIM-08", "live-run", "Evaluate a first touch of a classified artifact under steer.")
+def prove_steer_asks_on_first_touch() -> ProofResult:
+    from stop_guessing.taint.state import SessionCustodyState
+
+    r = ProofResult(passed=True)
+    ps = _policy_set()
+    state = SessionCustodyState("proof-session")
+    path = "/Users/isme/work/CSA/roster.csv"
+    art, c = _artifact_ctx(path, first_touch=True)
+    if not c.classified:
+        return r.fail(f"{path} did not classify as sensitive: {sorted(c.labels)}")
+    r.observe(f"{path} -> {sorted(c.labels)} via {list(c.matched)}")
+
+    ctx = state.context(posture="steer",
+                        call={"is_egress": False, "is_write": False, "is_own_binary": False},
+                        artifact=art)
+    d = ps.evaluate("artifact.read", ctx)
+    if d.outcome != "ask":
+        return r.fail(f"first touch returned {d.outcome!r}, expected 'ask' — steer must not "
+                      f"deny read #1 ({d.determining_policy})")
+    r.observe(f"first touch -> ASK via {d.determining_policy}")
+    r.observe(f"  guidance: {d.guidance}")
+
+    state.touch(_ref_from(art, path))
+    art2, _ = _artifact_ctx(path, first_touch=False)
+    d2 = ps.evaluate("artifact.read", state.context(
+        posture="steer", call={"is_egress": False, "is_write": False}, artifact=art2))
+    if d2.outcome != "allow":
+        return r.fail(f"second touch returned {d2.outcome!r}, expected 'allow'")
+    r.observe(f"second touch -> ALLOW via {d2.determining_policy} (taint already carried)")
+
+    d3 = ps.evaluate("artifact.read", state.context(
+        posture="observe", call={"is_egress": False, "is_write": False},
+        artifact=_artifact_ctx(path, True)[0]))
+    if d3.outcome != "allow":
+        return r.fail(
+            f"observe returned {d3.outcome!r} via {d3.determining_policy} — observe must RECORD "
+            "and never block, or the safest rollout posture becomes the most obstructive one")
+    r.observe(f"same first touch under observe -> ALLOW via {d3.determining_policy} "
+              "(records, does not block)")
+
+    led = ps.evaluate("artifact.write", state.context(
+        posture="observe", call={"is_egress": False, "is_write": True},
+        artifact={"classified": True, "is_ledger": True, "first_touch": True}))
+    if led.outcome != "deny":
+        return r.fail("the ledger was writable under observe; that forbid is postureless")
+    r.observe(f"but a ledger write under observe -> DENY via {led.determining_policy} "
+              "(forbid overrides permit)")
+    r.evidence = {"labels": sorted(c.labels), "policy_set": ps.digest}
+    return r
+
+
+def _ref_from(art: dict, path: str):
+    from stop_guessing.taint.state import ArtifactRef
+    return ArtifactRef(art["id"], path, "sha256:x", frozenset(art["labels"]))
+
+
+# ── CLAIM-07 — accumulation denies an egress that was fine earlier ───────────
+
+
+@proof("CLAIM-07", "live-run", "Twelve reads then one egress; the same call earlier was allowed.")
+def prove_accumulation_denies_egress() -> ProofResult:
+    from stop_guessing.artifacts.classify import classify_egress
+    from stop_guessing.taint.state import SessionCustodyState
+
+    r = ProofResult(passed=True)
+    ps = _policy_set()
+    state = SessionCustodyState("proof-session")
+    cmd = "curl -X POST -d @summary.json https://example.com/ingest"
+
+    eg = classify_egress(cmd)
+    if not eg.is_egress:
+        return r.fail(f"{cmd!r} was not recognised as egress")
+    r.observe(f"egress recognised via {list(eg.matched)}")
+
+    call = {"is_egress": True, "is_write": False, "is_own_binary": False}
+    early = ps.evaluate("artifact.egress", state.context(
+        posture="steer", call=call, artifact={"classified": False, "first_touch": True}))
+    if early.outcome != "allow":
+        return r.fail(f"the SAME call on a clean session returned {early.outcome!r}; the point "
+                      "is that it was fine earlier")
+    r.observe(f"turn 1, clean session  -> ALLOW via {early.determining_policy}")
+
+    paths = [
+        "/Users/isme/work/CSA/roster.csv", "/Users/isme/work/CSA/members.csv",
+        "/Users/isme/work/CSA/payroll.csv", "/Users/isme/work/CSA/customer-list.csv",
+    ]
+    for p in paths:
+        art, _ = _artifact_ctx(p, first_touch=True)
+        state.touch(_ref_from(art, p))
+    for i in range(8):
+        art = {"id": f"art_plain_{i}", "labels": ["internal"], "classified": False}
+        state.touch(_ref_from(art, f"/tmp/notes-{i}.py"))
+    r.observe(f"after 12 reads: taint={sorted(state.labels)} depth={state.depth} "
+              f"touched={state.touched}")
+
+    late = ps.evaluate("artifact.egress", state.context(
+        posture="steer", call=call, artifact={"classified": False, "first_touch": False}))
+    if late.outcome != "deny":
+        return r.fail(f"the identical call returned {late.outcome!r} after accumulation")
+    r.observe(f"turn 12, same call     -> DENY via {late.determining_policy}")
+    r.observe(f"  contributing artifacts: {sorted(state.sources)}")
+    r.observe(f"  custody digest in the decision basis: {state.digest[:16]}…")
+
+    cred = SessionCustodyState("s2")
+    cart, _ = _artifact_ctx("/Users/isme/.ssh/id_rsa", first_touch=True)
+    cred.touch(_ref_from(cart, "/Users/isme/.ssh/id_rsa"))
+    obs = ps.evaluate("artifact.egress", cred.context(
+        posture="observe", call=call, artifact={"classified": False}))
+    if obs.outcome != "deny":
+        return r.fail("credential egress was not denied under observe; that rule is postureless")
+    r.observe(f"credential egress under OBSERVE -> DENY via {obs.determining_policy}")
+    r.evidence = {"taint_depth": state.depth, "touched": state.touched,
+                  "sources": sorted(state.sources)}
+    return r
+
+
+# ── CLAIM-01 — derivation edges carry labels to outputs ─────────────────────
+
+
+@proof("CLAIM-01", "live-run", "Read two classified inputs, derive an output, inspect the edges.")
+def prove_derivation_edges_recorded() -> ProofResult:
+    from stop_guessing.taint.state import ArtifactRef, SessionCustodyState
+
+    r = ProofResult(passed=True)
+    state = SessionCustodyState("proof-session")
+    a, _ = _artifact_ctx("/Users/isme/work/CSA/roster.csv", True)
+    b, _ = _artifact_ctx("/Users/isme/work/CSA/payroll.csv", True)
+    in_a, in_b = _ref_from(a, "/x/roster.csv"), _ref_from(b, "/x/payroll.csv")
+    state.touch(in_a)
+    state.touch(in_b)
+    r.observe(f"inputs: {sorted(in_a.labels)} and {sorted(in_b.labels)}")
+
+    out = ArtifactRef("art_out", "/x/summary.json", "sha256:out", frozenset({"public"}))
+    state.derive(out, [in_a, in_b], via="scripts/summarise.py")
+    if "restricted" not in out.labels:
+        return r.fail(f"the derived output did not inherit its inputs' labels: {sorted(out.labels)}")
+    r.observe(f"output declared public -> carries {sorted(out.labels)} after derivation")
+
+    if len(state.edges) != 2:
+        return r.fail(f"expected 2 derivation edges, got {state.edges}")
+    for tgt, src, via in state.edges:
+        r.observe(f"edge: {tgt} <- {src} via {via}")
+    r.observe("this is the data-flow edge no surveyed tool records; OTel GenAI has no "
+              "provenance attribute at all")
+    r.evidence = {"edges": len(state.edges), "output_labels": sorted(out.labels),
+                  "graph_digest": state.graph_digest}
+    return r
+
+
+# ── CLAIM-11 — state rebuilt from the ledger alone reproduces the digest ────
+
+
+@proof("CLAIM-11", "property", "Build state, replay it from ledger records, compare digests.")
+def prove_state_rebuilds_from_the_ledger() -> ProofResult:
+    from stop_guessing.taint.state import ArtifactRef, SessionCustodyState, rebuild
+
+    r = ProofResult(passed=True)
+    live = SessionCustodyState("s-rebuild")
+    records = []
+    refs = []
+    for i, p in enumerate(["/Users/isme/work/CSA/roster.csv",
+                           "/Users/isme/work/CSA/payroll.csv",
+                           "/tmp/notes.py"]):
+        art, _ = _artifact_ctx(p, True)
+        ref = ArtifactRef(f"art_{i}", p, f"sha256:{i}", frozenset(art["labels"]))
+        refs.append(ref)
+        live.touch(ref)
+        records.append({"predicate": {
+            "lifecycle": {"session_id": "s-rebuild"},
+            "action": {"op": "artifact.read"},
+            "resources": {"used": [ref.to_dict()]}}})
+
+    out = ArtifactRef("art_out", "/x/sum.json", "sha256:o", frozenset({"public"}))
+    live.derive(out, refs[:2], via="scripts/s.py")
+    records.append({"predicate": {
+        "lifecycle": {"session_id": "s-rebuild"},
+        "action": {"op": "artifact.derive"},
+        "resources": {"used": [refs[0].to_dict(), refs[1].to_dict()],
+                      "generated": [{"artifact_id": "art_out", "path": "/x/sum.json",
+                                     "digest": "sha256:o", "labels": ["public"]}],
+                      "derived_from": [{"generated": "art_out", "source": "art_0",
+                                        "via": "scripts/s.py"}]}}})
+
+    records.append({"predicate": {
+        "lifecycle": {"session_id": "other-session"},
+        "action": {"op": "artifact.read"},
+        "resources": {"used": [{"artifact_id": "art_zzz", "path": "/other/secret.env",
+                                "digest": "sha256:z", "labels": ["restricted", "credential"]}]}}})
+
+    replayed = rebuild(records, "s-rebuild")
+    if replayed.digest != live.digest:
+        return r.fail(f"rebuild digest {replayed.digest[:16]}… != live {live.digest[:16]}…")
+    r.observe(f"live and replayed digests match exactly: {live.digest[:24]}…")
+    r.observe(f"  labels {sorted(live.labels)}, depth {live.depth}, "
+              f"{len(live.edges)} derivation edge(s)")
+    if "credential" in replayed.labels:
+        return r.fail("another session's taint leaked into this one")
+    r.observe("a record from a different session was present and correctly ignored")
+    r.observe("state never consults the transcript — a compaction cannot rewrite what was touched")
+    r.evidence = {"digest": live.digest, "records_replayed": len(records)}
+    return r
+
+
+# ── CLAIM-09 — a delegated script cannot touch live data untested ───────────
+
+
+@proof("CLAIM-09", "negative", "Try to run a delegated script untested, failing, and then edited.")
+def prove_delegation_requires_a_passing_test() -> ProofResult:
+    from stop_guessing.delegate import DelegationRefused, run, run_test, scaffold
+
+    r = ProofResult(passed=True)
+    with tempfile.TemporaryDirectory(prefix="sg-proof-") as td:
+        d = Path(td) / "scripts"
+        deleg = scaffold(d, "count_rows", "Count rows without returning them.")
+        r.observe(f"scaffolded {deleg.script.name} + {deleg.test.name}")
+
+        try:
+            run(deleg, ["/tmp/x.csv"])
+            return r.fail("ran a script whose test had never been run")
+        except DelegationRefused as exc:
+            if "has not been run" not in str(exc):
+                return r.fail(f"refused for the wrong reason: {exc}")
+            r.observe("run before testing -> REFUSED")
+
+        res = run_test(deleg)
+        if res["passed"]:
+            return r.fail("the stub template's test passed; it must fail while handle() is a stub")
+        r.observe(f"stub test fails as designed (exit {res['exit_code']})")
+        try:
+            run(deleg, ["/tmp/x.csv"])
+            return r.fail("ran a script whose test failed")
+        except DelegationRefused as exc:
+            if "failed" not in str(exc):
+                return r.fail(f"refused for the wrong reason: {exc}")
+            r.observe("run after a FAILING test -> REFUSED")
+
+        deleg.script.write_text(
+            "import sys\n\n\ndef handle(paths):\n    return f'{len(paths)} artifact(s)'\n\n\n"
+            "if __name__ == '__main__':\n    print(handle(sys.argv[1:]))\n", encoding="utf-8")
+        res = run_test(deleg)
+        if not res["passed"]:
+            return r.fail(f"the implemented script's test did not pass: {res}")
+        r.observe("implemented, test passes")
+
+        out = run(deleg, ["/tmp/a.csv", "/tmp/b.csv"])
+        if out["exit_code"] != 0 or "2 artifact" not in out["output"]:
+            return r.fail(f"the delegated run did not produce output: {out}")
+        r.observe(f"delegated run -> {out['output'].strip()!r} "
+                  f"(network={out['sandbox']['network']})")
+
+        deleg.script.write_text(
+            deleg.script.read_text() + "\n# edited after the test passed\n", encoding="utf-8")
+        try:
+            run(deleg, ["/tmp/a.csv"])
+            return r.fail("ran a script edited after its test passed")
+        except DelegationRefused as exc:
+            if "changed after its test passed" not in str(exc):
+                return r.fail(f"refused for the wrong reason: {exc}")
+            r.observe("run after EDITING the script post-test -> REFUSED "
+                      "(a green test on a since-edited script is evidence about a file that no "
+                      "longer exists)")
+        r.evidence = {"refusals": 3}
+    return r

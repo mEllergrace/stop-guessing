@@ -27,7 +27,10 @@ claims:
   - DSP-20
   - DSP-05
   - LOG-AG-01
-  proofs: []
+  proofs:
+  - sg:9:8e229db09d9d3bb6
+  - sg:15:bf273856e947ee23
+  last_proved: '2026-08-03T17:01:51.773Z'
 - id: CLAIM-02
   statement: A keyed chain defeats truncate-and-recompute. Without the session key held in the OS keychain,
     a forged chain that is internally consistent still fails verification.
@@ -40,7 +43,8 @@ claims:
   - LOG-03
   proofs:
   - sg:0:0407b42c97ccb566
-  last_proved: '2026-08-03T16:47:19.041Z'
+  - sg:16:e56ac532d76e2b76
+  last_proved: '2026-08-03T17:01:54.230Z'
 - id: CLAIM-03
   statement: The sink refuses to append onto a broken or truncated chain, rather than burying the break
     under new entries.
@@ -52,7 +56,8 @@ claims:
   - LOG-10
   proofs:
   - sg:1:2da04769bddc3d6b
-  last_proved: '2026-08-03T16:47:19.107Z'
+  - sg:17:abd9cb98a7931aac
+  last_proved: '2026-08-03T17:01:54.285Z'
 - id: CLAIM-04
   statement: Sealing archives a segment and chains the next segment to the sealed digest; no ledger rotation
     ever truncates history.
@@ -65,7 +70,8 @@ claims:
   - LOG-12
   proofs:
   - sg:2:3a6ad16a3f7b631b
-  last_proved: '2026-08-03T16:47:19.250Z'
+  - sg:18:0a53a808e1826a22
+  last_proved: '2026-08-03T17:01:54.415Z'
 - id: CLAIM-05
   statement: 'A record missing the `alterations` key is refused at write, while `alterations: []` is accepted
     — an empty list asserts nothing was altered, a missing key means nobody looked.'
@@ -77,7 +83,8 @@ claims:
   - LOG-03
   proofs:
   - sg:6:610ab1d78e9b6ffe
-  last_proved: '2026-08-03T16:54:04.782Z'
+  - sg:19:b8eed958f59d640e
+  last_proved: '2026-08-03T17:01:54.449Z'
 - id: CLAIM-06
   statement: '`verify --sufficiency` reports `incomplete` and names the unpopulated evidence regime rather
     than claiming sufficiency it cannot back.'
@@ -90,7 +97,8 @@ claims:
   - LOG-03
   proofs:
   - sg:8:9551f0c4ea887cb2
-  last_proved: '2026-08-03T16:54:24.066Z'
+  - sg:20:f6901d9c28fd2f28
+  last_proved: '2026-08-03T17:01:54.480Z'
 - id: CLAIM-07
   statement: Accumulated session taint denies an egress that the identical call would have been allowed
     to make earlier in the same session, and the denial names the contributing artifacts.
@@ -102,7 +110,10 @@ claims:
   aicm:
   - DSP-20
   - LOG-AG-02
-  proofs: []
+  proofs:
+  - sg:10:cdcded901bb91310
+  - sg:21:c4083ff4ff402621
+  last_proved: '2026-08-03T17:01:54.518Z'
 - id: CLAIM-08
   statement: '`steer` asks on first touch of a classified artifact and offers a recorded script delegation;
     it does not deny the first read.'
@@ -112,7 +123,11 @@ claims:
   milestone: M4
   aicm:
   - DSP-20
-  proofs: []
+  proofs:
+  - sg:11:91dce7bd46ffc824
+  - sg:14:0472ec5ce6c5572b
+  - sg:22:57dd6789598beda0
+  last_proved: '2026-08-03T17:01:54.552Z'
 - id: CLAIM-09
   statement: A delegated script cannot touch live data until its paired test has passed, and cannot run
     at all if its digest changed after the test passed.
@@ -124,7 +139,10 @@ claims:
   aicm:
   - CCC-01
   - DSP-20
-  proofs: []
+  proofs:
+  - sg:12:3fd44ffa4a757a26
+  - sg:23:a008c5fa1d367385
+  last_proved: '2026-08-03T17:01:55.187Z'
 - id: CLAIM-10
   statement: Under `bar` the model receives only a handle or summary, and an unsigned script is refused.
   surface:
@@ -146,7 +164,10 @@ claims:
   milestone: M4
   aicm:
   - LOG-AG-01
-  proofs: []
+  proofs:
+  - sg:13:695d1c9e82cc3c52
+  - sg:24:416ccaf0c2ca251b
+  last_proved: '2026-08-03T17:01:55.220Z'
 - id: CLAIM-12
   statement: 'The recorder is not reachable by the agent it records: PATH-shadowing the CLI, direct ledger
     writes, hook-script substitution and daemon kill are each refused or detected.'
@@ -171,7 +192,8 @@ claims:
   - SEF-01
   proofs:
   - sg:3:52bf36fd30c28c8e
-  last_proved: '2026-08-03T16:47:19.269Z'
+  - sg:25:6dffdc5026b552d8
+  last_proved: '2026-08-03T17:01:55.243Z'
 - id: CLAIM-14
   statement: The carried AI-CAIQ version is inspected on every run by parsing cell A1's JSON blob, not
     by trusting the sheet name, and a drifted workbook refuses regeneration.
@@ -185,7 +207,8 @@ claims:
   - STA-09
   proofs:
   - sg:4:276bdc000eb55277
-  last_proved: '2026-08-03T16:47:19.739Z'
+  - sg:26:fadb8b44cbf92e38
+  last_proved: '2026-08-03T17:01:55.681Z'
 - id: CLAIM-15
   statement: The blank AI-CAIQ template is never modified. A fill leaves its digest and mtime unchanged,
     and an altered template refuses regeneration.
@@ -208,7 +231,8 @@ claims:
   - CCC-01
   proofs:
   - sg:5:c95b7b06e158da45
-  last_proved: '2026-08-03T16:48:50.006Z'
+  - sg:27:ec2b4becd7c77e29
+  last_proved: '2026-08-03T17:03:24.585Z'
 - id: CLAIM-17
   statement: Every no-noodles surface keeps working after supersession — the three escape markers, the
     config chain, `grant_session_trust.sh`, `/no-noodle`, `/noodle-options`, and `risk_summary.py` parsing

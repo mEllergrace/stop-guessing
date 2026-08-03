@@ -1,0 +1,37 @@
+# Accumulation. The case no other tool handles: twelve innocuous reads, then one egress.
+policies:
+  - id: forbid-tainted-egress
+    effect: forbid
+    postures: [steer, bar]
+    reason: >-
+      This session holds classified taint and this call sends data outward. The same call earlier
+      in the session would have been permitted; what changed is what the session now carries.
+    when:
+      call.is_egress: {is_true: true}
+      session.taint_depth: {gte: 1}
+
+  - id: forbid-credential-egress-always
+    effect: forbid
+    reason: Credential material never leaves the host, under any posture including observe.
+    when:
+      call.is_egress: {is_true: true}
+      session.taint: {contains: credential}
+
+  - id: forbid-accumulation-threshold
+    effect: forbid
+    postures: [steer, bar]
+    reason: >-
+      This session has accumulated classified material from several distinct artifacts. Each read
+      was individually unremarkable; together they are a dataset.
+    when:
+      session.taint_depth: {gte: 4}
+      artifact.classified: {is_true: true}
+
+  - id: forbid-ledger-write
+    effect: forbid
+    reason: >-
+      The evidence ledger is deny-listed under EVERY posture, including observe. The recorder
+      must not be reachable by the agent it records.
+    when:
+      artifact.is_ledger: {is_true: true}
+      call.is_write: {is_true: true}

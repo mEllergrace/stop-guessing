@@ -1,0 +1,33 @@
+# Base permissions. Deny-by-default means something must permit, so this file is what makes the
+# tool usable at all — and it is deliberately narrow.
+policies:
+  - id: allow-unclassified
+    effect: permit
+    reason: The artifact carries no classification; ordinary work proceeds unrecorded-as-custody.
+    when:
+      artifact.classified: {is_false: true}
+
+  - id: allow-non-data-ops
+    effect: permit
+    actions: [session.open, session.close, prompt.submit, policy.load, caiq.inspect,
+              custody.checkpoint, recorder.selfcheck, proof.run, ledger.seal]
+    reason: Housekeeping ops touch no artifact.
+    when: {}
+
+  - id: allow-own-cli
+    effect: permit
+    reason: >-
+      The STOP-GUESSING binary itself, recognised by resolved absolute path and pinned digest —
+      never by PATH lookup, which is precisely the Berkeley RDI fake-curl attack.
+    when:
+      call.is_own_binary: {is_true: true}
+
+  - id: observe-records-does-not-block
+    effect: permit
+    postures: [observe]
+    reason: >-
+      Observe records everything and blocks nothing. Without this, deny-by-default catches
+      classified artifacts under observe too — which would make the safest rollout posture the
+      most obstructive one. The postureless forbids (credential egress, ledger write) still
+      apply, because forbid overrides permit regardless of order.
+    when: {}

@@ -1,0 +1,76 @@
+# Artifact classification rules.
+#
+# Shape deliberately mirrors no-noodles' risk-rules.json — {pattern, ..., reason} — so anyone who
+# has read one can read the other. Unlike that engine, ALL matching rules apply and their labels
+# join: an artifact that is both a credential store and CSA material carries both, because
+# first-match-wins would silently drop the second obligation.
+#
+# `source` is recorded in every classification record, so a label can always be traced to the rule
+# that applied it rather than appearing by fiat.
+
+version: 1
+
+rules:
+  - id: csa-material
+    pattern: '/work/CSA/|cloudsecurityalliance|/CSA/'
+    labels: [confidential, csa-material]
+    reason: CSA working material — the wall is against external leakage, not local movement.
+
+  - id: credentials
+    pattern: '(^|/)\.env$|(^|/)\.env\.|/\.ssh/|/\.aws/credentials|(^|/)id_(rsa|ed25519)$|\.pem$|\.p12$'
+    labels: [restricted, credential]
+    reason: Credential material. Never leaves the host, never enters model context.
+
+  - id: keys-and-tokens
+    pattern: 'secret|token|apikey|api_key|password|passwd|keyfile'
+    labels: [restricted, credential]
+    reason: Named like a secret. Classified on the name alone; contents are never read to decide.
+
+  - id: roster-and-people
+    pattern: 'roster|attendee|member|employee|payroll|contact.*\.csv|people.*\.csv'
+    labels: [restricted, pii]
+    reason: Person-level records.
+
+  - id: customer-data
+    pattern: 'customer|client|patient|student|subscriber'
+    labels: [confidential, pii]
+    reason: Customer or subject data.
+
+  - id: regulated-exports
+    pattern: '\.(sql|dump|bak)$|dump\.|backup.*\.(tar|zip|gz)$'
+    labels: [confidential, regulated]
+    reason: Bulk export or dump — high blast radius if it moves.
+
+  - id: ledger-self
+    pattern: '/\.stop-guessing/|stop-guessing/ledger|proofs\.jsonl'
+    labels: [restricted, credential]
+    reason: >-
+      Our own evidence. Deny-listed under EVERY posture including observe: the recorder must not
+      be reachable by the agent it records.
+
+  - id: source-code
+    pattern: '\.(py|ts|js|go|rs|sh)$'
+    labels: [internal]
+    reason: Project source. Internal, not classified — reading code is the job.
+
+# Commands whose shape means data is leaving. Egress is judged on the COMMAND, not the artifact,
+# because the artifact is often already in the model's context by then.
+egress_patterns:
+  - id: http-post
+    pattern: 'curl[^|]*(-X\s*(POST|PUT|PATCH)|--data|-d\s|-F\s|--upload-file)|wget[^|]*--post'
+    reason: Outbound HTTP carrying a body.
+  - id: object-storage
+    pattern: '\b(aws\s+s3|gsutil|az\s+storage|rclone|s3cmd)\b.*\b(cp|sync|mv|put)\b'
+    reason: Object-storage upload.
+  - id: remote-copy
+    pattern: '\b(scp|rsync|sftp)\b.*:'
+    reason: Remote copy to a host.
+  - id: git-push
+    pattern: 'git\s+push'
+    reason: Pushing to a remote.
+  - id: pipe-to-network
+    pattern: '\|\s*(nc|ncat|netcat|socat)\b'
+    reason: Piping into a network tool.
+  - id: mail
+    pattern: '\b(mail|sendmail|mutt|msmtp)\b'
+    reason: Outbound mail.

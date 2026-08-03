@@ -1,0 +1,31 @@
+# The steer posture. It ASKS on first touch and DENIES on accumulation — it does not deny read #1.
+# Denying the first read taxes exploration and does nothing about read #12, which is where the
+# actual risk lives.
+policies:
+  - id: classified-first-touch
+    effect: ask
+    postures: [steer]
+    reason: >-
+      This artifact is classified. Opening it directly puts its contents into the model's
+      context, which is the delegation this posture exists to avoid.
+    guidance: delegate
+    when:
+      artifact.classified: {is_true: true}
+      artifact.first_touch: {is_true: true}
+
+  - id: classified-subsequent-touch
+    effect: permit
+    postures: [steer]
+    reason: Already touched this session; the taint is already recorded and carried.
+    when:
+      artifact.classified: {is_true: true}
+      artifact.first_touch: {is_false: true}
+
+  - id: delegated-script-permitted
+    effect: permit
+    postures: [steer, bar]
+    reason: >-
+      Handling is delegated to a deterministic script whose paired test passed before it touched
+      live data. The model receives the output, not the file.
+    when:
+      call.delegated_script.test_passed: {is_true: true}

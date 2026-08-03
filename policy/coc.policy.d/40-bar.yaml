@@ -1,0 +1,21 @@
+# The bar posture: the model does not open classified artifacts at all. Only signed scripts do,
+# and the model receives handles and summaries.
+policies:
+  - id: forbid-direct-classified-read
+    effect: forbid
+    postures: [bar]
+    reason: >-
+      Under `bar` the model does not open classified artifacts. Use a signed script; you will
+      receive a handle and a summary.
+    guidance: signed-script
+    when:
+      artifact.classified: {is_true: true}
+      call.delegated_script.signed: {is_false: true}
+
+  - id: permit-signed-script
+    effect: permit
+    postures: [bar]
+    reason: Signed script under a key the model cannot reach.
+    when:
+      call.delegated_script.signed: {is_true: true}
+      call.delegated_script.test_passed: {is_true: true}
