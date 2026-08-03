@@ -110,8 +110,10 @@ def test_committed_page_matches_the_current_attestation():
     committed = (repo_root() / "docs" / "index.html").read_text(encoding="utf-8")
     try:
         expected = cmd_page._render(args)
-    except Exception as exc:  # no chain key available in CI
-        pytest.skip(f"cannot render: {exc}")
+    except cmd_page.NoChainKey:
+        # CI has no chain key, and rendering unkeyed would report 0/21 — a lie about the
+        # project rather than a stale page. The gate refuses instead of disagreeing quietly.
+        pytest.skip("no chain key; page freshness is verified where the key lives")
     assert committed == expected, (
         "docs/index.html is stale — run `stop-guessing page build` and commit the result"
     )

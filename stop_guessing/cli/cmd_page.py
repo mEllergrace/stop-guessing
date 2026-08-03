@@ -375,10 +375,25 @@ def _key(args):
     return got[0] if got else None
 
 
+class NoChainKey(Exception):
+    """Cannot render or check without the key.
+
+    Rendering unkeyed would silently produce a page reporting 0/21 — technically what an unkeyed
+    verifier can see, and a lie about the project. `prove` refuses for the same reason; so does
+    this. A gate that cannot verify must say so, not quietly disagree.
+    """
+
+
 def _render(args) -> str:
     import yaml
 
     key = _key(args)
+    if key is None:
+        raise NoChainKey(
+            "no chain key available. Without it the attestation reports 0 proven, and a page "
+            "rendered from that would misstate the project. Set STOP_GUESSING_CHAIN_KEY or "
+            "pass --keyfile."
+        )
     attest = runner.attest_self(key)
     claims = runner.load_claims()
     caiq_path = repo_root() / "docs" / "ai-caiq" / "stop-guessing.yaml"
@@ -387,7 +402,11 @@ def _render(args) -> str:
 
 
 def cmd_build(args) -> int:
-    html_out = _render(args)
+    try:
+        html_out = _render(args)
+    except NoChainKey as exc:
+        print(f"REFUSED: {exc}")
+        return 2
     PAGE.write_text(html_out, encoding="utf-8")
     print(f"wrote {PAGE.relative_to(repo_root())} ({len(html_out)} bytes)")
     return 0
@@ -399,7 +418,11 @@ def cmd_check(args) -> int:
         print("FAIL: docs/index.html is missing")
         return 1
     current = PAGE.read_text(encoding="utf-8")
-    expected = _render(args)
+    try:
+        expected = _render(args)
+    except NoChainKey as exc:
+        print(f"SKIPPED: {exc}")
+        return 2
     if current == expected:
         print("PASS: the page matches the current attestation")
         return 0

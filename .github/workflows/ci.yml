@@ -31,8 +31,10 @@ jobs:
       - name: Project page is not stale
         run: |
           if [ -f pyproject.toml ] && [ -f docs/index.html ]; then
-            python -m stop_guessing.cli.main page check || \
-              echo "page check needs a chain key; skipped in CI"
+            python -m stop_guessing.cli.main page check; rc=$?
+            # 0 = fresh, 1 = STALE (fail the build), 2 = no chain key (CI has none, so skip).
+            # Exit 2 is a distinct code precisely so "cannot verify" never reads as "verified".
+            if [ $rc -eq 1 ]; then exit 1; fi
           else echo "no page yet"; fi
       - name: AI-CAIQ evidence gate
         run: |
