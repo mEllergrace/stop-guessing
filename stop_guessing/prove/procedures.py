@@ -1276,26 +1276,44 @@ def prove_every_surface_runs() -> ProofResult:
             return r.fail(f"console script {alias} was not installed")
     r.observe("console scripts present: stop-guessing, coc-prov, coc (aliases kept forever)")
 
-    # 2. The hook, driven exactly as Claude Code drives it: JSON on stdin
+    # 2. The hook, driven exactly as Claude Code drives it: JSON on stdin.
+    #    HERMETIC: its own CLAUDE_CONFIG_DIR. Without one this read the maintainer's accumulated
+    #    real state, so a previously-touched artifact came back `allow` instead of `ask` and the
+    #    proof failed for a reason that had nothing to do with the claim. Same hermeticity trap
+    #    that bit CLAIM-17 and no-noodles' own tests before it.
+    import os as _os
+    import tempfile as _tf
+
+    box = _tf.mkdtemp(prefix="sg-surface-")
+    env = {**_os.environ, "CLAUDE_CONFIG_DIR": str(Path(box) / "claude")}
+    classified = Path(box) / "roster.csv"
+    classified.write_text("name,email\nA,a@x\n", encoding="utf-8")
     cases = [
-        ("Read", {"file_path": "/Users/isme/work/CSA/roster.csv"}, "ask"),
+        ("Read", {"file_path": str(classified)}, "ask"),
         ("Bash", {"command": "ls -la"}, None),
-        ("Read", {"file_path": "/tmp/ordinary.txt"}, None),
+        ("Read", {"file_path": str(Path(box) / "ordinary.md")}, None),
     ]
     for tool, inp, want in cases:
         payload = json.dumps({"tool_name": tool, "tool_input": inp,
                               "session_id": f"surface-{tool}"}).encode()
         res = subprocess.run(  # noqa: S603
             [sys.executable, "-m", "stop_guessing.cli.hook_gate"],
-            input=payload, capture_output=True, cwd=str(root), timeout=60)
+            input=payload, capture_output=True, cwd=str(root), env=env, timeout=60)
         if res.returncode != 0:
             return r.fail(f"the hook exited {res.returncode} on {tool}")
         out = res.stdout.decode().strip()
         got = json.loads(out)["hookSpecificOutput"]["permissionDecision"] if out else None
         if got != want:
             return r.fail(f"hook on {tool} {inp} gave {got!r}, expected {want!r}")
-    r.observe(f"hook: {len(cases)} payloads driven on stdin exactly as Claude Code drives it")
+    r.observe(f"hook: {len(cases)} payloads driven on stdin exactly as Claude Code drives it, "
+              "in a hermetic CLAUDE_CONFIG_DIR")
     r.observe("  classified Read -> ask; benign Bash -> silent; ordinary Read -> silent")
+    led = Path(env["CLAUDE_CONFIG_DIR"]) / "stop-guessing" / "ledger" / "custody.jsonl"
+    if not led.is_file():
+        return r.fail("the hook wrote no custody record — the deployed path records nothing")
+    recs = [json.loads(x) for x in led.read_text().splitlines()]
+    r.observe(f"  and wrote {len(recs)} keyed custody record(s): "
+              f"{', '.join(sorted({x['op'] for x in recs}))}")
 
     # 3. Plugin manifests, both ecosystems, versions agreeing with VERSION
     version = (root / "VERSION").read_text().strip()

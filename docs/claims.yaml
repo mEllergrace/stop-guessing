@@ -35,7 +35,13 @@ claims:
   - sg:83:372de70d047ff5b9
   - sg:105:f03f044029f90661
   - sg:126:6823cebf0934135d
-  last_proved: '2026-08-03T23:03:22.708Z'
+  - sg:147:9bebca7095710e7b
+  - sg:168:673efa781a5886af
+  - sg:189:6da7e8855e27abf3
+  - sg:210:b32620de15f05a8a
+  last_proved: '2026-08-03T23:29:35.628Z'
+  must_touch:
+  - stop_guessing.taint.state
 - id: CLAIM-02
   statement: A keyed chain defeats truncate-and-recompute. Without the session key held in the OS keychain,
     a forged chain that is internally consistent still fails verification.
@@ -55,7 +61,13 @@ claims:
   - sg:104:4d2940da495253fb
   - sg:106:67301075d4081408
   - sg:127:90665017475bfab1
-  last_proved: '2026-08-03T23:03:24.905Z'
+  - sg:148:bf16ebd320021812
+  - sg:169:48b4d0685cddb97c
+  - sg:190:2c686e6a0a4325ea
+  - sg:211:b0c734a6d6203dd9
+  last_proved: '2026-08-03T23:29:38.035Z'
+  must_touch:
+  - stop_guessing.ledger.chain
 - id: CLAIM-03
   statement: The sink refuses to append onto a broken or truncated chain, rather than burying the break
     under new entries.
@@ -73,7 +85,13 @@ claims:
   - sg:85:48f0430177edc288
   - sg:107:9bfba4a8ddb2ec11
   - sg:128:a3575e7244198146
-  last_proved: '2026-08-03T23:03:24.969Z'
+  - sg:149:3a457b22d02d5d00
+  - sg:170:0cac8deabbdeb2be
+  - sg:191:1d4bb4d51ca47470
+  - sg:212:8d2949464058f0d6
+  last_proved: '2026-08-03T23:29:38.114Z'
+  must_touch:
+  - stop_guessing.ledger.sink
 - id: CLAIM-04
   statement: Sealing archives a segment and chains the next segment to the sealed digest; no ledger rotation
     ever truncates history.
@@ -92,7 +110,13 @@ claims:
   - sg:86:b5337a996a62e16a
   - sg:108:5d16da9224a94243
   - sg:129:a40cc07b84e640b9
-  last_proved: '2026-08-03T23:03:25.118Z'
+  - sg:150:c7d8c1f4e3ba922f
+  - sg:171:668aeb3d76ddd965
+  - sg:192:d59dee5e3cfdf13f
+  - sg:213:9702a206fa3a6787
+  last_proved: '2026-08-03T23:29:38.266Z'
+  must_touch:
+  - stop_guessing.ledger.segments
 - id: CLAIM-05
   statement: 'A record missing the `alterations` key is refused at write, while `alterations: []` is accepted
     — an empty list asserts nothing was altered, a missing key means nobody looked.'
@@ -110,7 +134,13 @@ claims:
   - sg:87:c94def619838883c
   - sg:109:acb948b3df0aa8af
   - sg:130:25e4577eb8595e25
-  last_proved: '2026-08-03T23:03:25.150Z'
+  - sg:151:09827d850c759c55
+  - sg:172:5926dd73b82f20ac
+  - sg:193:6533b7a7ff0dc797
+  - sg:214:b56d0a70c597d937
+  last_proved: '2026-08-03T23:29:38.332Z'
+  must_touch:
+  - stop_guessing.ledger.entry
 - id: CLAIM-06
   statement: '`verify --sufficiency` reports `incomplete` and names the unpopulated evidence regime rather
     than claiming sufficiency it cannot back.'
@@ -129,7 +159,13 @@ claims:
   - sg:88:cad0d4f39c0423ca
   - sg:110:d3eefe3d8c5969ee
   - sg:131:3c75b8d92bea016e
-  last_proved: '2026-08-03T23:03:25.184Z'
+  - sg:152:f5dd0f16ab185e0b
+  - sg:173:6ce0b01108cbc4b8
+  - sg:194:38e25eb804466a9c
+  - sg:215:4ecc0ca415f27b19
+  last_proved: '2026-08-03T23:29:38.420Z'
+  must_touch:
+  - stop_guessing.verify.sufficiency
 - id: CLAIM-07
   statement: Accumulated session taint denies an egress that the identical call would have been allowed
     to make earlier in the same session, the denial names the contributing artifacts, and this holds through
@@ -151,7 +187,14 @@ claims:
   - sg:89:8dca168b634a4a7a
   - sg:111:13f68a28ef715fe1
   - sg:132:08c49efbc4792ac9
-  last_proved: '2026-08-03T23:03:29.844Z'
+  - sg:153:917bc028692cdd65
+  - sg:174:13f58e0526f7181d
+  - sg:195:7e21be5aabc730de
+  - sg:216:41e4f43c86d8a50c
+  last_proved: '2026-08-03T23:29:42.951Z'
+  must_touch:
+  - stop_guessing.policy.engine
+  - stop_guessing.taint.state
 - id: CLAIM-08
   statement: '`steer` asks on first touch of a classified artifact and offers a recorded script delegation;
     it does not deny the first read.'
@@ -170,7 +213,13 @@ claims:
   - sg:90:cd1c463b43b49e9b
   - sg:112:a7e34cfc13937ef6
   - sg:133:00724de667c9dc66
-  last_proved: '2026-08-03T23:03:29.874Z'
+  - sg:154:2aafc34476d15d60
+  - sg:175:ae266bdaf3bcce83
+  - sg:196:658be324c2a38ac1
+  - sg:217:3d31aa054b4df3be
+  last_proved: '2026-08-03T23:29:43.065Z'
+  must_touch:
+  - stop_guessing.policy.engine
 - id: CLAIM-09
   statement: A delegated script cannot touch live data until its paired test has passed, and cannot run
     at all if its digest changed after the test passed.
@@ -190,7 +239,13 @@ claims:
   - sg:91:36b979feb38418df
   - sg:113:8271ad88f2fcd9c6
   - sg:134:b89516016bf65808
-  last_proved: '2026-08-03T23:03:30.518Z'
+  - sg:155:b39ce17aaccb624b
+  - sg:176:dd3e103543a5f403
+  - sg:197:1ed5320c1a29c0e4
+  - sg:218:fe0f5eee9fdb542d
+  last_proved: '2026-08-03T23:29:43.769Z'
+  must_touch:
+  - stop_guessing.delegate
 - id: CLAIM-10
   statement: Under `bar` the model receives only a handle or summary, and an unsigned script is refused.
   surface:
@@ -208,7 +263,14 @@ claims:
   - sg:92:6902ec516d57670f
   - sg:114:84532e35fc44e02c
   - sg:135:ea77e9f3504abbcd
-  last_proved: '2026-08-03T23:03:30.814Z'
+  - sg:156:0410d01f11f7a67b
+  - sg:177:c0fc068544402740
+  - sg:198:2ebfa924ad6244b2
+  - sg:219:8f64ef8ae036aae4
+  last_proved: '2026-08-03T23:29:44.133Z'
+  must_touch:
+  - stop_guessing.delegate
+  - stop_guessing.policy.engine
 - id: CLAIM-11
   statement: Session custody state rebuilt from the ledger alone reproduces the pre-compaction digest
     exactly; state never depends on the transcript.
@@ -227,7 +289,13 @@ claims:
   - sg:93:54ce9ee1eb33a583
   - sg:115:cc549d5db81c8ff4
   - sg:136:ae6777b79a874b77
-  last_proved: '2026-08-03T23:03:30.839Z'
+  - sg:157:a78ba58daf102321
+  - sg:178:9c1838c2a12106d0
+  - sg:199:212dc98c4040544f
+  - sg:220:fef931a8337f03f0
+  last_proved: '2026-08-03T23:29:44.209Z'
+  must_touch:
+  - stop_guessing.taint.state
 - id: CLAIM-12
   statement: 'The recorder is not reachable by the agent it records: PATH-shadowing the CLI, direct ledger
     writes, hook-script substitution and daemon kill are each refused or detected.'
@@ -246,7 +314,13 @@ claims:
   - sg:94:ebdc80663fd930b2
   - sg:116:7bb23be2c7b89862
   - sg:137:1475b3b8f35b12c9
-  last_proved: '2026-08-03T23:03:30.927Z'
+  - sg:158:990028f1af93efe0
+  - sg:179:633e78abdb22cde9
+  - sg:200:5b4e409881f95024
+  - sg:221:c0f53e4491dfaf77
+  last_proved: '2026-08-03T23:29:44.401Z'
+  must_touch:
+  - stop_guessing.recorder.guard
 - id: CLAIM-13
   statement: Execution claims made by the agent are reconciled against the hook-side dispatch ledger;
     a fabricated or replayed claim is detected and escalated to a human.
@@ -266,7 +340,13 @@ claims:
   - sg:95:107e1bada3f0fcc1
   - sg:117:5f7c32de14792236
   - sg:138:0da49d2557aa5fbb
-  last_proved: '2026-08-03T23:03:30.954Z'
+  - sg:159:d2f56027459525a6
+  - sg:180:7bd687cabc9b8fae
+  - sg:201:42177fa99ba5562a
+  - sg:222:2c44c57502077f4b
+  last_proved: '2026-08-03T23:29:44.485Z'
+  must_touch:
+  - stop_guessing.ledger.reconcile
 - id: CLAIM-14
   statement: The carried AI-CAIQ version is inspected on every run by parsing cell A1's JSON blob, not
     by trusting the sheet name, and a drifted workbook refuses regeneration.
@@ -286,7 +366,13 @@ claims:
   - sg:96:562d8d258251e9fe
   - sg:118:47340dfd38fcee2d
   - sg:139:4d6cc018d40c3a62
-  last_proved: '2026-08-03T23:03:31.473Z'
+  - sg:160:8732eae8813b1682
+  - sg:181:1d0e1089dc62847e
+  - sg:202:e4c30c95efb6cf33
+  - sg:223:503487865ccbe701
+  last_proved: '2026-08-03T23:29:46.381Z'
+  must_touch:
+  - stop_guessing.caiq.workbook
 - id: CLAIM-15
   statement: The blank AI-CAIQ template is never modified. A fill leaves its digest and mtime unchanged,
     and an altered template refuses regeneration.
@@ -304,7 +390,13 @@ claims:
   - sg:97:681acaa39a9bc201
   - sg:119:1fe284b51575c9ed
   - sg:140:7f5318eb71a53338
-  last_proved: '2026-08-03T23:03:32.824Z'
+  - sg:161:031e2e8d26da6042
+  - sg:182:316038988f1c15b5
+  - sg:203:35588c7155777fa3
+  - sg:224:261113f46c0a132c
+  last_proved: '2026-08-03T23:29:51.523Z'
+  must_touch:
+  - stop_guessing.caiq.fill
 - id: CLAIM-16
   statement: 'Superseding no-noodles is byte-compatible: every payload in the corpus produces an identical
     (exit_code, stdout) through the dispatcher as through the standalone hooks.'
@@ -322,7 +414,10 @@ claims:
   - sg:98:8a99aa4cd2400d35
   - sg:120:784ba55dad12416e
   - sg:141:eae4b631af0c4b7e
-  last_proved: '2026-08-03T23:04:57.683Z'
+  - sg:204:9ea6d3672f1cbb6c
+  - sg:225:80c4d796e03c26e4
+  last_proved: '2026-08-03T23:31:17.407Z'
+  witness_mode: subprocess
 - id: CLAIM-17
   statement: Every no-noodles surface keeps working after supersession — the three escape markers, the
     config chain, `grant_session_trust.sh`, `/no-noodle`, `/noodle-options`, and `risk_summary.py` parsing
@@ -342,7 +437,12 @@ claims:
   - sg:99:403b00f65c083d2b
   - sg:121:130f6e84f40cfa26
   - sg:142:05dc402d846c94bc
-  last_proved: '2026-08-03T23:05:08.846Z'
+  - sg:163:4522da66473b0891
+  - sg:184:c86849434d37f2ca
+  - sg:205:3e8f79273c4d99e8
+  - sg:226:6a59e2af4b4ca71b
+  last_proved: '2026-08-03T23:31:35.296Z'
+  witness_mode: subprocess
 - id: CLAIM-18
   statement: 'No statically detectable network call site exists in the shipped Python package except the
     named opt-in anchoring exception, and CI performs no fetch. This is a source audit, not a proof of
@@ -362,7 +462,13 @@ claims:
   - sg:100:45b3fff47c6680f0
   - sg:122:6e1971822861b99a
   - sg:143:d9c2d5aed3fb3892
-  last_proved: '2026-08-03T23:05:08.941Z'
+  - sg:164:0a17213da88916a0
+  - sg:185:722aa012e9e81176
+  - sg:206:e376384aa84cb442
+  - sg:227:395621be5822edd0
+  last_proved: '2026-08-03T23:31:35.556Z'
+  must_touch:
+  - stop_guessing.recorder.network
 - id: CLAIM-19
   statement: A full uninstall removes hooks and registrations while preserving the accumulated ledger
     and observation log.
@@ -379,7 +485,12 @@ claims:
   - sg:101:5769cff7b0eb1e4f
   - sg:123:fe58b9416b23b75a
   - sg:144:49c57b3bf0dd9d97
-  last_proved: '2026-08-03T23:05:15.063Z'
+  - sg:165:16a2dc1cdba5042c
+  - sg:186:c824e180049dd2b9
+  - sg:207:6c0a670149e7e8b4
+  - sg:228:81382ed63fbaed5e
+  last_proved: '2026-08-03T23:31:41.529Z'
+  witness_mode: subprocess
 - id: CLAIM-20
   statement: Every distributed surface — plugin, skill, slash-command and CLI — has been exercised by
     at least one live-run proof recorded in this toolchain's own ledger.
@@ -400,7 +511,10 @@ claims:
   - sg:102:1a57e64be953671e
   - sg:124:24bb2fd033133be1
   - sg:145:0f1d057757915f05
-  last_proved: '2026-08-03T23:05:17.906Z'
+  - sg:208:0bfb428b6e0f581c
+  - sg:229:ffe959c28f930b9c
+  last_proved: '2026-08-03T23:31:57.609Z'
+  witness_mode: subprocess
 - id: CLAIM-21
   statement: This toolchain's own AI-CAIQ was filled from proofs produced by this toolchain, as the last
     step, and every answer's evidence resolves to a verified ledger record.
@@ -420,4 +534,11 @@ claims:
   - sg:103:e8b6c17e04be0f76
   - sg:125:6861749dc0b73d3f
   - sg:146:87d4975ef6102f15
-  last_proved: '2026-08-03T23:05:19.002Z'
+  - sg:167:af6bb479c89079c9
+  - sg:188:95a9e64d9906694a
+  - sg:209:971e683e2e94b943
+  - sg:230:8e3a080457b52971
+  last_proved: '2026-08-03T23:32:33.218Z'
+  must_touch:
+  - stop_guessing.caiq.answers
+  - stop_guessing.caiq.fill

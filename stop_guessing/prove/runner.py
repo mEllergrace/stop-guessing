@@ -19,6 +19,7 @@ from pathlib import Path
 
 from stop_guessing.ledger.chain import ChainKey
 from stop_guessing.ledger.sink import load, record
+from stop_guessing.prove import witness as _witness
 from stop_guessing.prove.registry import Procedure, ProofResult, all_procedures, get
 from stop_guessing.version import __version__, repo_root
 
@@ -89,10 +90,22 @@ def run_one(
     if proc is None:
         return RunOutcome(claim_id, False, None, [], "no procedure registered")
 
+    # Run under instrumentation (#31): a procedure that executes nothing and returns
+    # passed=True is not a proof, and all 21 could be mutated that way undetected.
     try:
-        result: ProofResult = proc.fn()
+        result, wit = _witness.observe(proc.fn)
+        assert isinstance(result, ProofResult)
     except Exception as exc:  # noqa: BLE001 - a crashing procedure is a finding, not a stack trace
         result = ProofResult(passed=False, observations=[f"procedure raised: {exc!r}"])
+        wit = _witness.Witness(unavailable=f"procedure raised {type(exc).__name__}")
+
+    wit_findings = _witness.check(
+        wit.to_dict(), _must_touch(claim_id),
+        mode=_witness_mode(claim_id), evidence=result.evidence,
+    )
+    if wit_findings and result.passed:
+        result.passed = False
+        result.observations.extend(f"WITNESS: {f}" for f in wit_findings)
 
     entry = record(
         ledger,
@@ -105,6 +118,7 @@ def run_one(
             "proof_kind": proc.kind,
             "procedure": proc.fn.__name__,
             "procedure_digest": proc.source_digest(),
+            "witness": wit.to_dict(),
             "summary": proc.summary,
             "passed": result.passed,
             "observations": result.observations,
@@ -128,6 +142,28 @@ def run_one(
         save_claims(doc)
 
     return RunOutcome(claim_id, result.passed, ref, result.observations, result.detail)
+
+
+def _witness_mode(claim_id: str) -> str:
+    """`subprocess` for proofs that drive the packaged CLI or a real hook in a child process."""
+    try:
+        for c in load_claims()["claims"]:
+            if c["id"] == claim_id:
+                return c.get("witness_mode") or "in-process"
+    except Exception:  # noqa: BLE001
+        return "in-process"
+    return "in-process"
+
+
+def _must_touch(claim_id: str) -> list[str]:
+    """Modules a genuine proof of this claim has to enter, from claims.yaml."""
+    try:
+        for c in load_claims()["claims"]:
+            if c["id"] == claim_id:
+                return list(c.get("must_touch") or [])
+    except Exception:  # noqa: BLE001
+        return []
+    return []
 
 
 def run_all(key: ChainKey | None, ledger: Path = DEFAULT_LEDGER,
@@ -162,7 +198,14 @@ def check(key: ChainKey | None, ledger: Path = DEFAULT_LEDGER) -> dict:
                 if proc and e.get("procedure_digest") not in (proc.source_digest(), "unavailable"):
                     dead.append(f"{ref} was produced by a since-modified procedure")
                 else:
-                    live.append(ref)
+                    wf = _witness.check(
+                        e.get("witness"), _must_touch(c["id"]),
+                        mode=_witness_mode(c["id"]), evidence=e.get("evidence"),
+                    )
+                    if wf:
+                        dead.append(f"{ref}: {wf[0]}")
+                    else:
+                        live.append(ref)
         proc = procs.get(c["id"])
         kind_ok = proc is None or proc.kind == c.get("proof_kind")
         rows.append({
