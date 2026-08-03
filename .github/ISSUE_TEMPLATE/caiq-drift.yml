@@ -1,0 +1,31 @@
+name: AI-CAIQ drift
+description: The carried AI-CAIQ or AICM artifact no longer matches its pinned expectation
+labels: ["caiq-drift"]
+body:
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Drift kind
+      options:
+        - A1 missing or unparseable
+        - specification_version differs from pinned
+        - caiq_version differs from pinned
+        - Sheet name differs (A1 matches)
+        - Template digest differs (someone edited the blank — COPY-ONLY VIOLATION)
+        - Filled workbook digest differs from last attested
+        - Dimensions differ
+        - Answer evidence no longer resolves
+    validations: {required: true}
+  - type: textarea
+    id: observed
+    attributes:
+      label: Observed vs expected
+      description: Paste the caiq.inspect record and the pinned values.
+      render: json
+    validations: {required: true}
+  - type: markdown
+    attributes:
+      value: |
+        **If the template digest changed:** the blank AI-CAIQ is a copy-only local backup and is
+        **not recoverable from GitHub**. Restore from one of the byte-identical copies named in
+        IMPLEMENTATION_PLAN.md §12 and record the mismatching digest above.

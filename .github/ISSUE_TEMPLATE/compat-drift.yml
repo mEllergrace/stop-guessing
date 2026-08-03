@@ -1,0 +1,22 @@
+name: no-noodles compatibility drift
+description: Vendored no-noodles behaviour diverged from upstream, or a superseded install regressed
+labels: ["compat-drift"]
+body:
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Kind
+      options:
+        - Vendored file digest differs from MANIFEST.sha256
+        - Upstream moonsoup/no-noodles changed (nightly compat.yml diff)
+        - Standalone PreToolUse entries reappeared in settings.json
+        - Hardened check_before_build.sh was reverted by running install.sh
+        - compat verify golden mismatch on a payload
+    validations: {required: true}
+  - type: textarea
+    id: detail
+    attributes:
+      label: Detail
+      description: "For a golden mismatch, paste the payload plus both (exit_code, stdout) pairs."
+      render: text
+    validations: {required: true}

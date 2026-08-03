@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.DS_Store
+
+# Public CSA reference materials are cited, never committed.
+# The blank AI-CAIQ template is a LOCAL BACKUP and is copy-only — see IMPLEMENTATION_PLAN.md §12.
+docs/ai-caiq/reference/*.xlsx

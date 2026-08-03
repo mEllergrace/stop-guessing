@@ -1,0 +1,244 @@
+# STOP-GUESSING — application claims
+#
+# Every claim this toolchain makes, as a machine-readable record. This file is the input to
+# `stop-guessing prove`, `stop-guessing claims check` and `stop-guessing attest --self`.
+#
+# RULES
+#   - `proofs:` is written ONLY by `stop-guessing prove`, never by hand. A proof is a ledger
+#     record id in STOP-GUESSING's own chain; test names and CI logs are supporting material.
+#   - A claim with `proofs: []` at release time is a FAILED claim, not an unassessed one.
+#   - Claims are added as each milestone lands, never retrofitted after the evidence exists —
+#     a claim written to match its evidence is the causation this tool exists to reverse.
+#   - `proof_kind: negative` and `adversarial` are not optional. A toolchain that proves only
+#     its happy paths has proven nothing an auditor wants.
+#
+# See IMPLEMENTATION_PLAN.md §2.1 (definition of done) and §14 M10.
+
+meta:
+  version: 0.1.0
+  aicm_version: "1.1.0"
+  caiq_version: "1.1.0"
+  status: seeded            # seeded | proving | attested
+  note: >-
+    Seeded at M0 from the stated claims in README.md and the plan. No proofs exist yet;
+    nothing is implemented. `stop-guessing claims check` exits non-zero until M10.
+
+claims:
+
+  # ── ledger integrity ────────────────────────────────────────────────────────
+  - id: CLAIM-01
+    statement: >-
+      The ledger records data flow, not only actions: a read, a transform and a write are
+      linked by an explicit derivation edge naming the artifacts and the script that joined them.
+    surface: [cli:"stop-guessing ledger tail", hook:PostToolUse]
+    proof_kind: live-run
+    milestone: M4
+    aicm: [DSP-20, DSP-05, LOG-AG-01]
+    proofs: []
+
+  - id: CLAIM-02
+    statement: >-
+      A keyed chain defeats truncate-and-recompute. Without the session key held in the OS
+      keychain, a forged chain that is internally consistent still fails verification.
+    surface: [cli:"stop-guessing ledger verify"]
+    proof_kind: adversarial
+    milestone: M1
+    aicm: [LOG-10, LOG-03]
+    proofs: []
+
+  - id: CLAIM-03
+    statement: >-
+      The sink refuses to append onto a broken or truncated chain, rather than burying the
+      break under new entries.
+    surface: [cli:"stop-guessing ledger append"]
+    proof_kind: negative
+    milestone: M1
+    aicm: [LOG-10]
+    proofs: []
+
+  - id: CLAIM-04
+    statement: >-
+      Sealing archives a segment and chains the next segment to the sealed digest; no ledger
+      rotation ever truncates history.
+    surface: [cli:"stop-guessing ledger seal"]
+    proof_kind: live-run
+    milestone: M1
+    aicm: [LOG-10, LOG-12]
+    proofs: []
+
+  # ── record completeness ─────────────────────────────────────────────────────
+  - id: CLAIM-05
+    statement: >-
+      A record missing the `alterations` key is refused at write, while `alterations: []` is
+      accepted — an empty list asserts nothing was altered, a missing key means nobody looked.
+    surface: [cli:"stop-guessing record emit"]
+    proof_kind: negative
+    milestone: M2
+    aicm: [LOG-03]
+    proofs: []
+
+  - id: CLAIM-06
+    statement: >-
+      `verify --sufficiency` reports `incomplete` and names the unpopulated evidence regime
+      rather than claiming sufficiency it cannot back.
+    surface: [cli:"stop-guessing verify --sufficiency"]
+    proof_kind: negative
+    milestone: M2
+    aicm: [A&A-01, LOG-03]
+    proofs: []
+
+  # ── the decision loop ───────────────────────────────────────────────────────
+  - id: CLAIM-07
+    statement: >-
+      Accumulated session taint denies an egress that the identical call would have been
+      allowed to make earlier in the same session, and the denial names the contributing artifacts.
+    surface: [hook:PreToolUse, cli:"stop-guessing demo --posture steer"]
+    proof_kind: live-run
+    milestone: M4
+    aicm: [DSP-20, LOG-AG-02]
+    proofs: []
+
+  - id: CLAIM-08
+    statement: >-
+      `steer` asks on first touch of a classified artifact and offers a recorded script
+      delegation; it does not deny the first read.
+    surface: [hook:PreToolUse]
+    proof_kind: live-run
+    milestone: M4
+    aicm: [DSP-20]
+    proofs: []
+
+  - id: CLAIM-09
+    statement: >-
+      A delegated script cannot touch live data until its paired test has passed, and cannot
+      run at all if its digest changed after the test passed.
+    surface: [cli:"stop-guessing delegate new", cli:"stop-guessing run"]
+    proof_kind: negative
+    milestone: M4
+    aicm: [CCC-01, DSP-20]
+    proofs: []
+
+  - id: CLAIM-10
+    statement: >-
+      Under `bar` the model receives only a handle or summary, and an unsigned script is refused.
+    surface: [hook:PreToolUse, cli:"stop-guessing run"]
+    proof_kind: negative
+    milestone: M7
+    aicm: [DSP-20, MDS-13]
+    proofs: []
+
+  - id: CLAIM-11
+    statement: >-
+      Session custody state rebuilt from the ledger alone reproduces the pre-compaction digest
+      exactly; state never depends on the transcript.
+    surface: [cli:"stop-guessing state rebuild", hook:PreCompact]
+    proof_kind: property
+    milestone: M4
+    aicm: [LOG-AG-01]
+    proofs: []
+
+  # ── recorder isolation ──────────────────────────────────────────────────────
+  - id: CLAIM-12
+    statement: >-
+      The recorder is not reachable by the agent it records: PATH-shadowing the CLI, direct
+      ledger writes, hook-script substitution and daemon kill are each refused or detected.
+    surface: [cli:"stop-guessing doctor", daemon:cocd]
+    proof_kind: adversarial
+    milestone: M5
+    aicm: [LOG-10, IAM-AG-03]
+    proofs: []
+
+  - id: CLAIM-13
+    statement: >-
+      Execution claims made by the agent are reconciled against the hook-side dispatch ledger;
+      a fabricated or replayed claim is detected and escalated to a human.
+    surface: [hook:Stop]
+    proof_kind: adversarial
+    milestone: M5
+    aicm: [LOG-03, SEF-01]
+    proofs: []
+
+  # ── AI-CAIQ subsystem ───────────────────────────────────────────────────────
+  - id: CLAIM-14
+    statement: >-
+      The carried AI-CAIQ version is inspected on every run by parsing cell A1's JSON blob,
+      not by trusting the sheet name, and a drifted workbook refuses regeneration.
+    surface: [hook:SessionStart, cli:"stop-guessing caiq inspect"]
+    proof_kind: negative
+    milestone: M8
+    aicm: [A&A-01, STA-09]
+    proofs: []
+
+  - id: CLAIM-15
+    statement: >-
+      The blank AI-CAIQ template is never modified. A fill leaves its digest and mtime unchanged,
+      and an altered template refuses regeneration.
+    surface: [cli:"stop-guessing caiq fill"]
+    proof_kind: negative
+    milestone: M8
+    aicm: [DSP-20, LOG-10]
+    proofs: []
+
+  # ── supersession and compatibility ──────────────────────────────────────────
+  - id: CLAIM-16
+    statement: >-
+      Superseding no-noodles is byte-compatible: every payload in the corpus produces an
+      identical (exit_code, stdout) through the dispatcher as through the standalone hooks.
+    surface: [cli:"stop-guessing compat verify"]
+    proof_kind: property
+    milestone: M3
+    aicm: [CCC-01]
+    proofs: []
+
+  - id: CLAIM-17
+    statement: >-
+      Every no-noodles surface keeps working after supersession — the three escape markers,
+      the config chain, `grant_session_trust.sh`, `/no-noodle`, `/noodle-options`, and
+      `risk_summary.py` parsing `observations.jsonl`.
+    surface: [cli:"stop-guessing compat verify", command:/no-noodle, command:/noodle-options]
+    proof_kind: live-run
+    milestone: M9
+    aicm: [CCC-01]
+    proofs: []
+
+  # ── posture, removability, egress ───────────────────────────────────────────
+  - id: CLAIM-18
+    statement: >-
+      Offline by default: no runtime path performs an external network call unless anchoring
+      is explicitly enabled, and enabling it announces itself.
+    surface: [cli:"stop-guessing doctor --network"]
+    proof_kind: property
+    milestone: M5
+    aicm: [DSP-05, I&S-01]
+    proofs: []
+
+  - id: CLAIM-19
+    statement: >-
+      A full uninstall removes hooks and registrations while preserving the accumulated ledger
+      and observation log.
+    surface: [cli:"install.sh --uninstall"]
+    proof_kind: live-run
+    milestone: M9
+    aicm: [LOG-10]
+    proofs: []
+
+  # ── the goal itself ─────────────────────────────────────────────────────────
+  - id: CLAIM-20
+    statement: >-
+      Every distributed surface — plugin, skill, slash-command and CLI — has been exercised by
+      at least one live-run proof recorded in this toolchain's own ledger.
+    surface: [plugin:stop-guessing, skill:stop-guessing, command:/custody, cli:"stop-guessing"]
+    proof_kind: live-run
+    milestone: M10
+    aicm: [A&A-01, STA-09]
+    proofs: []
+
+  - id: CLAIM-21
+    statement: >-
+      This toolchain's own AI-CAIQ was filled from proofs produced by this toolchain, as the
+      last step, and every answer's evidence resolves to a verified ledger record.
+    surface: [cli:"stop-guessing attest --self", cli:"stop-guessing caiq evidence check"]
+    proof_kind: live-run
+    milestone: M10
+    aicm: [A&A-01, DSP-20, STA-09]
+    proofs: []

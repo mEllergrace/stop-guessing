@@ -1,0 +1,53 @@
+name: Finding
+description: A defect found by testing the real running system
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        File this **before** fixing. A finding fixed in the same session still gets its issue —
+        conversations get lost, issues don't.
+  - type: input
+    id: version
+    attributes: {label: Version, description: "Contents of VERSION, or the commit SHA"}
+    validations: {required: true}
+  - type: dropdown
+    id: how
+    attributes:
+      label: How was this found?
+      options:
+        - Live run against the real system
+        - Failing test that reproduces the defect
+        - Code review only (NOT sufficient on its own — say why a live run was impossible)
+    validations: {required: true}
+  - type: textarea
+    id: claim
+    attributes:
+      label: The defect, as a claim with its consequence
+      description: "One sentence. e.g. 'AI-CAIQ version inspection passes on a v1.0.2 workbook: the sheet-name check masks a spec-version mismatch.'"
+    validations: {required: true}
+  - type: textarea
+    id: repro
+    attributes: {label: Reproduction, description: Exact commands and inputs.}
+    validations: {required: true}
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: Error text, log lines, record ids, screenshots. Dated.
+      render: text
+    validations: {required: true}
+  - type: input
+    id: checklist
+    attributes:
+      label: Checklist line
+      description: "The docs/testing-checklist.md entry, e.g. '[broken] caiq inspect accepts a drifted workbook — 2026-08-10'"
+    validations: {required: true}
+  - type: checkboxes
+    id: ack
+    attributes:
+      label: Acknowledgements
+      options:
+        - label: I fixed this already in the same session (this does NOT exempt filing)
+        - label: Closing requires the fixing commit hash and live re-verification evidence
+          required: true

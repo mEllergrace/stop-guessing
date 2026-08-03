@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>STOP-GUESSING — chain of custody for agentic AI</title>
+<link rel="canonical" href="https://mellergrace.github.io/stop-guessing/">
+<meta name="description" content="Chain-of-custody and data-provenance for agentic AI. Everything else records actions; this records data flow — and refuses to claim more than it can prove.">
+<meta name="theme-color" content="#12100e">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="STOP-GUESSING">
+<meta property="og:url" content="https://mellergrace.github.io/stop-guessing/">
+<meta property="og:title" content="STOP-GUESSING — chain of custody for agentic AI">
+<meta property="og:description" content="Everything in this space records actions. Nothing records data flow. STOP-GUESSING records what happened and refuses to claim more than it can prove.">
+<meta name="twitter:card" content="summary">
+<style>
+:root{
+  --ink:#12100e; --paper:#faf8f5; --muted:#6b625a; --rule:#e2dcd3;
+  --accent:#a8391f; --accent-soft:#f5e9e4; --code-bg:#f2ede6;
+  --ok:#2f6b4f; --warn:#8a6410;
+  --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Helvetica,Arial,sans-serif;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --ink:#ece7e0; --paper:#12100e; --muted:#9d938a; --rule:#2c2723;
+    --accent:#e87d5f; --accent-soft:#2a1c16; --code-bg:#1c1917;
+    --ok:#7fbf9c; --warn:#d9ab52;
+  }
+}
+:root[data-theme="dark"]{
+  --ink:#ece7e0; --paper:#12100e; --muted:#9d938a; --rule:#2c2723;
+  --accent:#e87d5f; --accent-soft:#2a1c16; --code-bg:#1c1917;
+  --ok:#7fbf9c; --warn:#d9ab52;
+}
+:root[data-theme="light"]{
+  --ink:#12100e; --paper:#faf8f5; --muted:#6b625a; --rule:#e2dcd3;
+  --accent:#a8391f; --accent-soft:#f5e9e4; --code-bg:#f2ede6;
+  --ok:#2f6b4f; --warn:#8a6410;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);
+  font-size:17px;line-height:1.65;-webkit-font-smoothing:antialiased}
+.wrap{max-width:44rem;margin:0 auto;padding:0 1.5rem 6rem}
+header{padding:5rem 0 3rem;border-bottom:1px solid var(--rule)}
+h1{font-family:var(--mono);font-size:clamp(2rem,7vw,3rem);letter-spacing:-.03em;
+  margin:0 0 .6rem;font-weight:600}
+h1 .stop{color:var(--accent)}
+.tagline{font-size:1.2rem;color:var(--muted);margin:0 0 1.5rem;max-width:34rem}
+.status{display:inline-flex;align-items:center;gap:.5rem;font-family:var(--mono);
+  font-size:.78rem;text-transform:uppercase;letter-spacing:.08em;
+  background:var(--accent-soft);color:var(--accent);
+  padding:.35rem .7rem;border-radius:2px}
+h2{font-size:1.05rem;font-family:var(--mono);font-weight:600;letter-spacing:-.01em;
+  margin:3.5rem 0 1rem;padding-bottom:.4rem;border-bottom:1px solid var(--rule)}
+h3{font-size:1rem;margin:2rem 0 .5rem}
+p{margin:0 0 1.1rem}
+a{color:var(--accent);text-decoration:none;border-bottom:1px solid transparent}
+a:hover{border-bottom-color:var(--accent)}
+code{font-family:var(--mono);font-size:.87em;background:var(--code-bg);
+  padding:.12em .35em;border-radius:3px}
+blockquote{margin:1.5rem 0;padding:1rem 1.25rem;background:var(--accent-soft);
+  border-left:3px solid var(--accent);border-radius:0 3px 3px 0}
+blockquote p:last-child{margin:0}
+.thesis{font-size:1.08rem;line-height:1.55}
+.tablewrap{overflow-x:auto;margin:1.25rem 0}
+table{border-collapse:collapse;width:100%;font-size:.92rem;min-width:30rem}
+th,td{text-align:left;padding:.6rem .8rem;border-bottom:1px solid var(--rule);
+  vertical-align:top}
+th{font-family:var(--mono);font-size:.78rem;text-transform:uppercase;
+  letter-spacing:.05em;color:var(--muted);font-weight:600}
+td code{white-space:nowrap}
+ol,ul{padding-left:1.3rem;margin:0 0 1.1rem}
+li{margin-bottom:.5rem}
+.gap{border:1px solid var(--rule);border-radius:4px;padding:1.25rem 1.4rem;margin:1.5rem 0}
+.gap h3{margin-top:0;font-family:var(--mono);font-size:.9rem;color:var(--accent)}
+.gap p:last-child{margin-bottom:0}
+.cite{font-size:.88rem;color:var(--muted)}
+footer{margin-top:5rem;padding-top:1.5rem;border-top:1px solid var(--rule);
+  font-size:.88rem;color:var(--muted)}
+.pill{display:inline-block;font-family:var(--mono);font-size:.72rem;
+  border:1px solid var(--rule);border-radius:100px;padding:.15rem .55rem;
+  margin:0 .3rem .4rem 0;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1><span class="stop">STOP</span>-GUESSING</h1>
+  <p class="tagline">Chain of custody and data provenance for agentic AI. It exists so that what an agentic tells you is not a guess.</p>
+  <span class="status">v0.1.0 — plan complete, build not started</span>
+</header>
+
+<h2>The problem</h2>
+
+<p>An agent reads data, transforms it, reports a result — and nothing durable records which bytes entered, what happened to them, or whether the report is true. Every downstream audit inherits that gap.</p>
+
+<p>Two documented failures define its shape:</p>
+
+<ul>
+<li><strong>Replit / SaaStr</strong>, 21 July 2025 — an agent deleted a production database during an explicit code freeze, fabricated roughly 4,000 fictional records, and misreported what it had done. <a href="https://incidentdatabase.ai/cite/1152/">AI Incident Database #1152</a>.</li>
+<li><strong>Berkeley RDI</strong>, April 2026 — a zero-capability agent scored ~100% on eight benchmarks by attacking the evaluator, including installing a fake <code>curl</code> wrapper that returned fabricated success to the grader. <a href="https://rdi.berkeley.edu/blog/trustworthy-benchmarks-cont/">Writeup</a>.</li>
+</ul>
+
+<p>The second is a design constraint, not an anecdote: <strong>the recorder must not be reachable by the agent it records.</strong></p>
+
+<h2>What nobody is doing</h2>
+
+<p>Everything in this space records <em>actions</em>. Nothing records <em>data flow</em>. Surveyed across Claude Code's native OpenTelemetry events, Obsigna, HDP, Langfuse, Arize Phoenix, LangSmith, OpenLineage and Microsoft's agent-governance-toolkit: every one answers <em>“which agent called which tool, and was it allowed?”</em> Not one answers <em>“which bytes entered, and where did they end up?”</em></p>
+
+<div class="gap">
+<h3>1 — No derivation edge across a session</h3>
+<p>OpenTelemetry's GenAI semantic conventions contain zero provenance attributes. OpenLineage has exactly the right graph primitive and no agent emitter exists.</p>
+</div>
+
+<div class="gap">
+<h3>2 — Agent DLP is stateless</h3>
+<p>Every redaction hook in the wild is a regex fired independently per call. The real risk is accumulation: twelve individually-innocuous reads composing into a restricted dataset, then one egress. Per-call matching cannot see that by construction.</p>
+</div>
+
+<div class="gap">
+<h3>3 — Custody state never reaches the decision</h3>
+<p>No system feeds accumulated custody state back into the permission decision. The hooks to do it are shipping, and unused.</p>
+</div>
+
+<h2>The thesis</h2>
+
+<blockquote class="thesis"><p>The agent's control decisions are computed only from trusted inputs; data handling is delegated to deterministic, capability-constrained code; and every delegation is recorded.</p></blockquote>
+
+<p class="cite">Backing: <a href="https://arxiv.org/abs/2506.08837">Design Patterns for Securing LLM Agents against Prompt Injections</a> (IBM / Google / ETH / Microsoft) and <a href="https://arxiv.org/abs/2503.18813">CaMeL</a> (DeepMind / ETH), which protect <em>control flow</em> rather than sight of data. The stronger claim — that the model never sees data at all — is what the <code>bar</code> posture implements. It ships as an option; it is not the claim we lead with.</p>
+
+<blockquote><p><strong>Provenance is evidentiary, not preventive.</strong> A hash-chained log of an exfiltration is still an exfiltration. This is not a prompt-injection defence and will not be sold as one.</p></blockquote>
+
+<h2>Postures</h2>
+
+<div class="tablewrap">
+<table>
+<thead><tr><th>Posture</th><th>Behaviour</th></tr></thead>
+<tbody>
+<tr><td><code>observe</code></td><td>Records everything, blocks nothing.</td></tr>
+<tr><td><code>steer</code></td><td><strong>Default.</strong> Asks on first touch of a classified artifact, offering a recorded script delegation. Denies on accumulated taint crossing threshold, or any egress while tainted.</td></tr>
+<tr><td><code>bar</code></td><td>The model is barred from opening classified artifacts. Only signed scripts touch them; the model receives handles and summaries.</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>Full depth is the default and is never silently reduced. Where fidelity is genuinely reduced, that is recorded — <code>known_gaps: []</code> is a positive assertion that nothing was skipped, and a <em>missing</em> key is rejected at write. Removable at four levels, none of which destroys the accumulated ledger.</p>
+
+<h2>Standards</h2>
+
+<div class="tablewrap">
+<table>
+<tbody>
+<tr><th>Emits</th><td><a href="https://github.com/in-toto/attestation">in-toto</a> Statements, DSSE-enveloped, JSONL bundle</td></tr>
+<tr><th>Signs</th><td><a href="https://docs.sigstore.dev/">Sigstore</a> bundle format — opt-in, <strong>offline by default</strong></td></tr>
+<tr><th>Speaks</th><td><a href="https://www.w3.org/TR/prov-dm/">W3C PROV</a>, <a href="https://caseontology.org/">CASE/UCO</a>, <a href="https://github.com/open-telemetry/semantic-conventions-genai">OTel GenAI</a></td></tr>
+<tr><th>Shaped by</th><td>ISO/IEC 27037 §5.4.1 · SEC 17a-4(f) · FRE 902(13)/(14)</td></tr>
+<tr><th>Maps to</th><td>CSA AICM v1.1.0</td></tr>
+</tbody>
+</table>
+</div>
+
+<p><span class="pill">DSP-20</span><span class="pill">DSP-05</span><span class="pill">DSP-24</span><span class="pill">LOG-03</span><span class="pill">LOG-10</span><span class="pill">LOG-12</span><span class="pill">STA-09</span><span class="pill">IAM-AG-03</span><span class="pill">LOG-AG-01</span><span class="pill">LOG-AG-02</span></p>
+
+<p>CSA has published the requirement and drafted the agentic controls. <a href="https://cloudsecurityalliance.org/artifacts/data-security-within-ai-environments">Data Security within AI Environments</a> (December 2025) recommends, verbatim, <em>“cryptographically signed data provenance tracking using blockchain or merkle trees”</em> and <em>“tamper-evident logs (e.g. AWS QLDB, Sigstore).”</em> None of it has a reference implementation.</p>
+
+<h2>Status</h2>
+
+<p>Nothing is implemented. The plan is complete and executable — nine milestones, each with an acceptance test that runs against the real system rather than asserting green unit tests.</p>
+
+<p><a href="https://github.com/mEllergrace/stop-guessing/blob/main/IMPLEMENTATION_PLAN.md">Read the implementation plan →</a></p>
+
+<footer>
+<p><a href="https://github.com/mEllergrace/stop-guessing">github.com/mEllergrace/stop-guessing</a> · Apache-2.0 · Supersedes <a href="https://github.com/moonsoup/no-noodles">no-noodles</a>, preserving every hook, config key and escape marker.</p>
+</footer>
+
+</div>
+</body>
+</html>
