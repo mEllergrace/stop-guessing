@@ -9,7 +9,7 @@
       "name": "stop-guessing",
       "source": "./.claude-plugin/plugins/stop-guessing",
       "description": "Records data flow, not just actions. Feeds accumulated custody state back into the permission decision.",
-      "version": "0.1.0"
+      "version": "0.2.0"
     }
   ]
 }

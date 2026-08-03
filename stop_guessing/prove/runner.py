@@ -44,7 +44,15 @@ def load_claims() -> dict:
 
 
 def save_claims(doc: dict) -> None:
+    """Write claims.yaml, stamping the current version into meta.
+
+    meta.version drifted to 0.1.0 while VERSION moved to 0.2.0, caught by
+    test_claims_meta_version_agrees. Anything a human has to remember to update in two places
+    eventually disagrees, so the writer stamps it.
+    """
     import yaml
+
+    doc.setdefault("meta", {})["version"] = __version__
 
     header = (
         "# STOP-GUESSING — application claims\n"

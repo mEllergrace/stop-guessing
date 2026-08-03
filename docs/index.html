@@ -105,11 +105,11 @@ footer{margin-top:5rem;padding-top:1.5rem;border-top:1px solid var(--rule);
   <div class="attest">
     <div class="attest-top">
       <div class="verdict">GOAL MET
-        <span class="cmd">stop-guessing attest --self · v0.1.0</span></div>
+        <span class="cmd">stop-guessing attest --self · v0.2.0</span></div>
     </div>
     <div class="grid">
       <div class="stat"><span class="n">21/21</span><span class="l">claims proven</span></div>
-      <div class="stat"><span class="n">79</span><span class="l">ledger proofs</span></div>
+      <div class="stat"><span class="n">122</span><span class="l">ledger proofs</span></div>
       <div class="stat"><span class="n">14</span><span class="l">AICM controls</span></div>
       <div class="stat"><span class="n">keyed</span><span class="l">chain state</span></div>
     </div>
@@ -216,27 +216,27 @@ keyed,  forged WITH the real key      -> intact  (the key is what stops it)</cod
 <div class="tablewrap"><table>
 <thead><tr><th class="mono">id</th><th class="mono">kind</th><th>claim</th><th class="mono">proofs</th></tr></thead>
 <tbody>
-<tr><td class="mono">CLAIM-01</td><td class="mono">live-run</td><td>The ledger records data flow, not only actions: a read, a transform and a write are linked by an explicit derivation edge naming the artifacts and the script that joined them.</td><td class="mono">4</td></tr>
-<tr><td class="mono">CLAIM-02</td><td class="mono">adversarial</td><td>A keyed chain defeats truncate-and-recompute. Without the session key held in the OS keychain, a forged chain that is internally consistent still fails verification.</td><td class="mono">4</td></tr>
-<tr><td class="mono">CLAIM-03</td><td class="mono">negative</td><td>The sink refuses to append onto a broken or truncated chain, rather than burying the break under new entries.</td><td class="mono">4</td></tr>
-<tr><td class="mono">CLAIM-04</td><td class="mono">live-run</td><td>Sealing archives a segment and chains the next segment to the sealed digest; no ledger rotation ever truncates history.</td><td class="mono">4</td></tr>
-<tr><td class="mono">CLAIM-05</td><td class="mono">negative</td><td>A record missing the `alterations` key is refused at write, while `alterations: []` is accepted — an empty list asserts nothing was altered, a missing key means nobody looked.</td><td class="mono">4</td></tr>
-<tr><td class="mono">CLAIM-06</td><td class="mono">negative</td><td>`verify --sufficiency` reports `incomplete` and names the unpopulated evidence regime rather than claiming sufficiency it cannot back.</td><td class="mono">4</td></tr>
-<tr><td class="mono">CLAIM-07</td><td class="mono">live-run</td><td>Accumulated session taint denies an egress that the identical call would have been allowed to make earlier in the same session, and the denial names the contributing artifacts.</td><td class="mono">5</td></tr>
-<tr><td class="mono">CLAIM-08</td><td class="mono">live-run</td><td>`steer` asks on first touch of a classified artifact and offers a recorded script delegation; it does not deny the first read.</td><td class="mono">5</td></tr>
-<tr><td class="mono">CLAIM-09</td><td class="mono">negative</td><td>A delegated script cannot touch live data until its paired test has passed, and cannot run at all if its digest changed after the test passed.</td><td class="mono">4</td></tr>
-<tr><td class="mono">CLAIM-10</td><td class="mono">negative</td><td>Under `bar` the model receives only a handle or summary, and an unsigned script is refused.</td><td class="mono">3</td></tr>
-<tr><td class="mono">CLAIM-11</td><td class="mono">property</td><td>Session custody state rebuilt from the ledger alone reproduces the pre-compaction digest exactly; state never depends on the transcript.</td><td class="mono">4</td></tr>
-<tr><td class="mono">CLAIM-12</td><td class="mono">adversarial</td><td>The recorder is not reachable by the agent it records: PATH-shadowing the CLI, direct ledger writes, hook-script substitution and daemon kill are each refused or detected.</td><td class="mono">3</td></tr>
-<tr><td class="mono">CLAIM-13</td><td class="mono">adversarial</td><td>Execution claims made by the agent are reconciled against the hook-side dispatch ledger; a fabricated or replayed claim is detected and escalated to a human.</td><td class="mono">5</td></tr>
-<tr><td class="mono">CLAIM-14</td><td class="mono">negative</td><td>The carried AI-CAIQ version is inspected on every run by parsing cell A1&#x27;s JSON blob, not by trusting the sheet name, and a drifted workbook refuses regeneration.</td><td class="mono">4</td></tr>
-<tr><td class="mono">CLAIM-15</td><td class="mono">negative</td><td>The blank AI-CAIQ template is never modified. A fill leaves its digest and mtime unchanged, and an altered template refuses regeneration.</td><td class="mono">3</td></tr>
-<tr><td class="mono">CLAIM-16</td><td class="mono">property</td><td>Superseding no-noodles is byte-compatible: every payload in the corpus produces an identical (exit_code, stdout) through the dispatcher as through the standalone hooks.</td><td class="mono">4</td></tr>
-<tr><td class="mono">CLAIM-17</td><td class="mono">live-run</td><td>Every no-noodles surface keeps working after supersession — the three escape markers, the config chain, `grant_session_trust.sh`, `/no-noodle`, `/noodle-options`, and `risk_summary.py` parsing `observations.jsonl`.</td><td class="mono">3</td></tr>
-<tr><td class="mono">CLAIM-18</td><td class="mono">property</td><td>Offline by default: no runtime path performs an external network call unless anchoring is explicitly enabled, and enabling it announces itself.</td><td class="mono">3</td></tr>
-<tr><td class="mono">CLAIM-19</td><td class="mono">live-run</td><td>A full uninstall removes hooks and registrations while preserving the accumulated ledger and observation log.</td><td class="mono">3</td></tr>
-<tr><td class="mono">CLAIM-20</td><td class="mono">live-run</td><td>Every distributed surface — plugin, skill, slash-command and CLI — has been exercised by at least one live-run proof recorded in this toolchain&#x27;s own ledger.</td><td class="mono">3</td></tr>
-<tr><td class="mono">CLAIM-21</td><td class="mono">live-run</td><td>This toolchain&#x27;s own AI-CAIQ was filled from proofs produced by this toolchain, as the last step, and every answer&#x27;s evidence resolves to a verified ledger record.</td><td class="mono">3</td></tr>
+<tr><td class="mono">CLAIM-01</td><td class="mono">live-run</td><td>The ledger records data flow, not only actions: a read, a transform and a write are linked by an explicit derivation edge naming the artifacts and the script that joined them.</td><td class="mono">6</td></tr>
+<tr><td class="mono">CLAIM-02</td><td class="mono">adversarial</td><td>A keyed chain defeats truncate-and-recompute. Without the session key held in the OS keychain, a forged chain that is internally consistent still fails verification.</td><td class="mono">7</td></tr>
+<tr><td class="mono">CLAIM-03</td><td class="mono">negative</td><td>The sink refuses to append onto a broken or truncated chain, rather than burying the break under new entries.</td><td class="mono">6</td></tr>
+<tr><td class="mono">CLAIM-04</td><td class="mono">live-run</td><td>Sealing archives a segment and chains the next segment to the sealed digest; no ledger rotation ever truncates history.</td><td class="mono">6</td></tr>
+<tr><td class="mono">CLAIM-05</td><td class="mono">negative</td><td>A record missing the `alterations` key is refused at write, while `alterations: []` is accepted — an empty list asserts nothing was altered, a missing key means nobody looked.</td><td class="mono">6</td></tr>
+<tr><td class="mono">CLAIM-06</td><td class="mono">negative</td><td>`verify --sufficiency` reports `incomplete` and names the unpopulated evidence regime rather than claiming sufficiency it cannot back.</td><td class="mono">6</td></tr>
+<tr><td class="mono">CLAIM-07</td><td class="mono">live-run</td><td>Accumulated session taint denies an egress that the identical call would have been allowed to make earlier in the same session, and the denial names the contributing artifacts.</td><td class="mono">7</td></tr>
+<tr><td class="mono">CLAIM-08</td><td class="mono">live-run</td><td>`steer` asks on first touch of a classified artifact and offers a recorded script delegation; it does not deny the first read.</td><td class="mono">7</td></tr>
+<tr><td class="mono">CLAIM-09</td><td class="mono">negative</td><td>A delegated script cannot touch live data until its paired test has passed, and cannot run at all if its digest changed after the test passed.</td><td class="mono">6</td></tr>
+<tr><td class="mono">CLAIM-10</td><td class="mono">negative</td><td>Under `bar` the model receives only a handle or summary, and an unsigned script is refused.</td><td class="mono">5</td></tr>
+<tr><td class="mono">CLAIM-11</td><td class="mono">property</td><td>Session custody state rebuilt from the ledger alone reproduces the pre-compaction digest exactly; state never depends on the transcript.</td><td class="mono">6</td></tr>
+<tr><td class="mono">CLAIM-12</td><td class="mono">adversarial</td><td>The recorder is not reachable by the agent it records: PATH-shadowing the CLI, direct ledger writes, hook-script substitution and daemon kill are each refused or detected.</td><td class="mono">5</td></tr>
+<tr><td class="mono">CLAIM-13</td><td class="mono">adversarial</td><td>Execution claims made by the agent are reconciled against the hook-side dispatch ledger; a fabricated or replayed claim is detected and escalated to a human.</td><td class="mono">7</td></tr>
+<tr><td class="mono">CLAIM-14</td><td class="mono">negative</td><td>The carried AI-CAIQ version is inspected on every run by parsing cell A1&#x27;s JSON blob, not by trusting the sheet name, and a drifted workbook refuses regeneration.</td><td class="mono">6</td></tr>
+<tr><td class="mono">CLAIM-15</td><td class="mono">negative</td><td>The blank AI-CAIQ template is never modified. A fill leaves its digest and mtime unchanged, and an altered template refuses regeneration.</td><td class="mono">5</td></tr>
+<tr><td class="mono">CLAIM-16</td><td class="mono">property</td><td>Superseding no-noodles is byte-compatible: every payload in the corpus produces an identical (exit_code, stdout) through the dispatcher as through the standalone hooks.</td><td class="mono">6</td></tr>
+<tr><td class="mono">CLAIM-17</td><td class="mono">live-run</td><td>Every no-noodles surface keeps working after supersession — the three escape markers, the config chain, `grant_session_trust.sh`, `/no-noodle`, `/noodle-options`, and `risk_summary.py` parsing `observations.jsonl`.</td><td class="mono">5</td></tr>
+<tr><td class="mono">CLAIM-18</td><td class="mono">property</td><td>Offline by default: no runtime path performs an external network call unless anchoring is explicitly enabled, and enabling it announces itself.</td><td class="mono">5</td></tr>
+<tr><td class="mono">CLAIM-19</td><td class="mono">live-run</td><td>A full uninstall removes hooks and registrations while preserving the accumulated ledger and observation log.</td><td class="mono">5</td></tr>
+<tr><td class="mono">CLAIM-20</td><td class="mono">live-run</td><td>Every distributed surface — plugin, skill, slash-command and CLI — has been exercised by at least one live-run proof recorded in this toolchain&#x27;s own ledger.</td><td class="mono">5</td></tr>
+<tr><td class="mono">CLAIM-21</td><td class="mono">live-run</td><td>This toolchain&#x27;s own AI-CAIQ was filled from proofs produced by this toolchain, as the last step, and every answer&#x27;s evidence resolves to a verified ledger record.</td><td class="mono">5</td></tr>
 </tbody></table></div>
 <p class="caption">Proof kinds: adversarial 3, live-run 8, negative 7, property 3.
 Negative and adversarial procedures are not optional — a toolchain that proves only its happy
@@ -273,17 +273,17 @@ not conformance.”</em></p>
 <div class="tablewrap"><table>
 <thead><tr><th class="mono">control</th><th class="mono">answer</th><th class="mono">evidence</th><th class="mono">from claims</th></tr></thead>
 <tbody>
-<tr><td class="mono">A&amp;A-01</td><td><span class="tag yes">Yes</span></td><td class="mono">14</td><td class="mono">CLAIM-06, CLAIM-14, CLAIM-20, CLAIM-21</td></tr>
-<tr><td class="mono">CCC-01</td><td><span class="tag yes">Yes</span></td><td class="mono">11</td><td class="mono">CLAIM-09, CLAIM-16, CLAIM-17</td></tr>
-<tr><td class="mono">DSP-05</td><td><span class="tag yes">Yes</span></td><td class="mono">7</td><td class="mono">CLAIM-01, CLAIM-18</td></tr>
-<tr><td class="mono">DSP-20</td><td><span class="tag yes">Yes</span></td><td class="mono">24</td><td class="mono">CLAIM-01, CLAIM-07, CLAIM-08, CLAIM-09, CLAIM-10, CLAIM-15, CLAIM-21</td></tr>
-<tr><td class="mono">I&amp;S-01</td><td><span class="tag yes">Yes</span></td><td class="mono">3</td><td class="mono">CLAIM-18</td></tr>
-<tr><td class="mono">LOG-03</td><td><span class="tag yes">Yes</span></td><td class="mono">17</td><td class="mono">CLAIM-02, CLAIM-05, CLAIM-06, CLAIM-13</td></tr>
-<tr><td class="mono">LOG-10</td><td><span class="tag yes">Yes</span></td><td class="mono">21</td><td class="mono">CLAIM-02, CLAIM-03, CLAIM-04, CLAIM-12, CLAIM-15, CLAIM-19</td></tr>
-<tr><td class="mono">LOG-12</td><td><span class="tag no">No</span></td><td class="mono">4</td><td class="mono">CLAIM-04</td></tr>
-<tr><td class="mono">MDS-13</td><td><span class="tag yes">Yes</span></td><td class="mono">3</td><td class="mono">CLAIM-10</td></tr>
-<tr><td class="mono">SEF-01</td><td><span class="tag yes">Yes</span></td><td class="mono">5</td><td class="mono">CLAIM-13</td></tr>
-<tr><td class="mono">STA-09</td><td><span class="tag no">No</span></td><td class="mono">10</td><td class="mono">CLAIM-14, CLAIM-20, CLAIM-21</td></tr>
+<tr><td class="mono">A&amp;A-01</td><td><span class="tag yes">Yes</span></td><td class="mono">22</td><td class="mono">CLAIM-06, CLAIM-14, CLAIM-20, CLAIM-21</td></tr>
+<tr><td class="mono">CCC-01</td><td><span class="tag yes">Yes</span></td><td class="mono">17</td><td class="mono">CLAIM-09, CLAIM-16, CLAIM-17</td></tr>
+<tr><td class="mono">DSP-05</td><td><span class="tag yes">Yes</span></td><td class="mono">11</td><td class="mono">CLAIM-01, CLAIM-18</td></tr>
+<tr><td class="mono">DSP-20</td><td><span class="tag yes">Yes</span></td><td class="mono">38</td><td class="mono">CLAIM-01, CLAIM-07, CLAIM-08, CLAIM-09, CLAIM-10, CLAIM-15, CLAIM-21</td></tr>
+<tr><td class="mono">I&amp;S-01</td><td><span class="tag yes">Yes</span></td><td class="mono">5</td><td class="mono">CLAIM-18</td></tr>
+<tr><td class="mono">LOG-03</td><td><span class="tag yes">Yes</span></td><td class="mono">26</td><td class="mono">CLAIM-02, CLAIM-05, CLAIM-06, CLAIM-13</td></tr>
+<tr><td class="mono">LOG-10</td><td><span class="tag yes">Yes</span></td><td class="mono">34</td><td class="mono">CLAIM-02, CLAIM-03, CLAIM-04, CLAIM-12, CLAIM-15, CLAIM-19</td></tr>
+<tr><td class="mono">LOG-12</td><td><span class="tag no">No</span></td><td class="mono">6</td><td class="mono">CLAIM-04</td></tr>
+<tr><td class="mono">MDS-13</td><td><span class="tag yes">Yes</span></td><td class="mono">5</td><td class="mono">CLAIM-10</td></tr>
+<tr><td class="mono">SEF-01</td><td><span class="tag yes">Yes</span></td><td class="mono">7</td><td class="mono">CLAIM-13</td></tr>
+<tr><td class="mono">STA-09</td><td><span class="tag no">No</span></td><td class="mono">16</td><td class="mono">CLAIM-14, CLAIM-20, CLAIM-21</td></tr>
 </tbody></table></div>
 
 <p class="caption">9 Yes, 2 No. The No answers state the paths that were searched — a
