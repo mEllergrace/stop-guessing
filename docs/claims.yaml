@@ -75,7 +75,9 @@ claims:
   milestone: M2
   aicm:
   - LOG-03
-  proofs: []
+  proofs:
+  - sg:6:610ab1d78e9b6ffe
+  last_proved: '2026-08-03T16:54:04.782Z'
 - id: CLAIM-06
   statement: '`verify --sufficiency` reports `incomplete` and names the unpopulated evidence regime rather
     than claiming sufficiency it cannot back.'
@@ -86,7 +88,9 @@ claims:
   aicm:
   - A&A-01
   - LOG-03
-  proofs: []
+  proofs:
+  - sg:8:9551f0c4ea887cb2
+  last_proved: '2026-08-03T16:54:24.066Z'
 - id: CLAIM-07
   statement: Accumulated session taint denies an egress that the identical call would have been allowed
     to make earlier in the same session, and the denial names the contributing artifacts.

@@ -290,3 +290,111 @@ def prove_reconciliation_catches_fabrication() -> ProofResult:
         r.observe(f"{name:<12} -> caught: {next(f for f in res.findings if expect in f)[:80]}")
     r.evidence = {"attacks_caught": len(cases)}
     return r
+
+
+# ── CLAIM-05 — a missing `alterations` key is refused; `[]` is accepted ──────
+
+
+@proof("CLAIM-05", "negative", "Emit a record with alterations absent, then with it empty.")
+def prove_absent_alterations_is_refused() -> ProofResult:
+    from stop_guessing.ledger.entry import CustodyRecord, RecordInvalid, validate_tier_a
+
+    r = ProofResult(passed=True)
+    base = dict(
+        op="artifact.read", agent_id="spiffe://local/test/agent/main",
+        runtime_action_id="toolu_test", operator={"identity": "test", "uid": 501},
+        session_id="s1", posture="steer", outcome="allow", channel="test",
+        at="2026-08-03T10:00:00Z", recorded_at="2026-08-03T10:00:00Z", record_id="sg:test",
+        input_digest="sha256:" + "0" * 64, policy_set_digest="sha256:x",
+        determining_policy="10-base#allow",
+    )
+
+    ok = CustodyRecord(**base).build()
+    if ok["predicate"]["alterations"] != []:
+        return r.fail("an empty alterations list did not survive the build")
+    r.observe("alterations: []  -> ACCEPTED (a positive assertion that nothing was altered)")
+
+    pred = CustodyRecord(**base).predicate()
+    del pred["alterations"]
+    missing = validate_tier_a(pred)
+    if not any("alterations" in m for m in missing):
+        return r.fail("a record with alterations absent was not rejected")
+    r.observe(f"alterations absent -> REJECTED: {next(m for m in missing if 'alterations' in m)}")
+
+    pred2 = CustodyRecord(**base).predicate()
+    del pred2["verification"]["known_gaps"]
+    if not any("known_gaps" in m for m in validate_tier_a(pred2)):
+        return r.fail("a record with known_gaps absent was not rejected")
+    r.observe("verification.known_gaps absent -> REJECTED (same rule: [] asserts, absent hides)")
+
+    try:
+        CustodyRecord(**{**base, "op": "not.a.real.op"}).build()
+        return r.fail("an op outside the controlled vocabulary was accepted")
+    except RecordInvalid as exc:
+        r.observe(f"op outside the vocabulary -> REJECTED: {exc.missing[0]}")
+
+    try:
+        CustodyRecord(**{**base, "outcome": "probably"}).build()
+        return r.fail("an outcome outside the vocabulary was accepted")
+    except RecordInvalid as exc:
+        r.observe(f"outcome outside the vocabulary -> REJECTED: {exc.missing[0]}")
+
+    r.evidence = {"tier_a_fields": len(validate_tier_a({}))}
+    return r
+
+
+# ── CLAIM-06 — sufficiency reports incomplete rather than overclaiming ──────
+
+
+@proof("CLAIM-06", "negative", "Assess a deliberately gapped ledger and a fuller one.")
+def prove_sufficiency_refuses_to_overclaim() -> ProofResult:
+    from stop_guessing.ledger.entry import CustodyRecord
+    from stop_guessing.verify.sufficiency import assess
+
+    r = ProofResult(passed=True)
+
+    empty = assess([])
+    if empty["verdict"] != "incomplete":
+        return r.fail("an empty ledger did not report incomplete")
+    r.observe("empty ledger -> INCOMPLETE ('an empty ledger answers nothing')")
+
+    thin = CustodyRecord(
+        op="artifact.read", agent_id="spiffe://local/test/agent/main",
+        runtime_action_id="toolu_test", operator={"identity": "t", "uid": 1},
+        session_id="s1", posture="steer", outcome="allow", channel="test",
+        at="t", recorded_at="t", record_id="sg:1", input_digest="sha256:x",
+        policy_set_digest="sha256:y", determining_policy="p",
+    ).build()
+    gapped = assess([thin])
+    if gapped["verdict"] != "incomplete":
+        return r.fail("a Tier-A-valid but evidence-thin record was reported sufficient — "
+                      "this is exactly the DEMM-Bench overclaim")
+    blocked = {q: v["blocked_by"] for q, v in gapped["questions"].items() if not v["answerable"]}
+    if not blocked:
+        return r.fail("no question was reported as blocked")
+    r.observe(f"Tier-A-valid but thin record -> INCOMPLETE, {len(blocked)}/"
+              f"{gapped['questions_total']} questions unanswerable")
+    for q, by in list(blocked.items())[:2]:
+        r.observe(f"  '{q}' blocked by: {', '.join(by)}")
+
+    full = CustodyRecord(
+        op="artifact.read", agent_id="spiffe://local/test/agent/main",
+        runtime_action_id="toolu_test", operator={"identity": "t", "uid": 1},
+        session_id="s1", posture="steer", outcome="allow", channel="test",
+        at="t", recorded_at="t", record_id="sg:2", input_digest="sha256:x",
+        policy_set_digest="sha256:y", determining_policy="p",
+        extra={
+            "authority": {"capability": {"grant_id": "cap_1", "scope": ["read:project"]}},
+            "decision": {"basis": {"taint_labels": [], "taint_depth": 0}},
+            "resources": {"used": [{"artifact_id": "art_1", "digest": "sha256:z"}]},
+            "lifecycle": {"prompt_id": "prm_1"},
+        },
+    ).build()
+    rich = assess([full])
+    if rich["verdict"] != "sufficient":
+        return r.fail(f"a fully populated record was still incomplete: {rich['questions']}")
+    r.observe(f"fully populated record -> SUFFICIENT, {rich['answerable']}/"
+              f"{rich['questions_total']} questions answerable")
+    r.observe("the gate distinguishes 'a ledger exists' from 'the ledger answers the question'")
+    r.evidence = {"regimes": len(rich["regimes"]), "questions": rich["questions_total"]}
+    return r
