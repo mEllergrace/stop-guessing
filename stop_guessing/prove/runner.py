@@ -182,8 +182,17 @@ def check(key: ChainKey | None, ledger: Path = DEFAULT_LEDGER) -> dict:
     }
 
 
-def attest_self(key: ChainKey | None, ledger: Path = DEFAULT_LEDGER) -> dict:
-    """The one-line answer to the goal: claims -> proofs -> controls, plus the AI-CAIQ state."""
+def attest_self(
+    key: ChainKey | None,
+    ledger: Path = DEFAULT_LEDGER,
+    caiq_dir: Path | None = None,
+) -> dict:
+    """The one-line answer to the goal: claims -> proofs -> controls, plus the AI-CAIQ state.
+
+    ``caiq_dir`` is injectable so this is testable hermetically. It was not, and a test asserting
+    "the goal is not met before the workbook exists" started passing for the wrong reason the
+    moment the real workbook was generated — a test reading production state is not a test.
+    """
     result = check(key, ledger)
     doc = load_claims()
 
@@ -194,9 +203,9 @@ def attest_self(key: ChainKey | None, ledger: Path = DEFAULT_LEDGER) -> dict:
             for ctrl in c.get("aicm") or []:
                 controls.setdefault(ctrl, []).append(c["id"])
 
-    caiq_dir = repo_root() / "docs" / "ai-caiq"
-    filled = sorted(p.name for p in caiq_dir.glob("AI-CAIQ-*.xlsx")) if caiq_dir.is_dir() else []
-    answers = caiq_dir / "stop-guessing.yaml"
+    cdir = caiq_dir or (repo_root() / "docs" / "ai-caiq")
+    filled = sorted(p.name for p in cdir.glob("AI-CAIQ-*.xlsx")) if cdir.is_dir() else []
+    answers = cdir / "stop-guessing.yaml"
 
     result["aicm_controls_evidenced"] = dict(sorted(controls.items()))
     result["caiq"] = {

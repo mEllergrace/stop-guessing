@@ -205,22 +205,30 @@ def test_unkeyed_ledger_does_not_yield_keyed_verification(sandbox):
 # ── the goal ─────────────────────────────────────────────────────────────────
 
 
-def test_goal_is_not_met_before_the_caiq_is_filled(sandbox):
+def test_goal_is_not_met_before_the_caiq_is_filled(sandbox, tmp_path):
+    """Hermetic: an empty caiq dir of its own, not the repo's real one.
+
+    This test previously read `docs/ai-caiq/` directly and started passing for the wrong reason
+    the moment the real workbook was generated. A test that reads production state is not a test.
+    """
     _, ledger = sandbox
+    empty_caiq = tmp_path / "caiq"
+    empty_caiq.mkdir()
     runner.run_one("CLAIM-02", KEY, ledger)
-    result = runner.attest_self(KEY, ledger)
+    result = runner.attest_self(KEY, ledger, caiq_dir=empty_caiq)
     assert not result["goal_met"]
     assert not result["caiq"]["filled_from_proofs"]
+    assert result["caiq"]["filled_workbooks"] == []
 
 
-def test_attestation_maps_proven_claims_to_aicm_controls(sandbox):
+def test_attestation_maps_proven_claims_to_aicm_controls(sandbox, tmp_path):
     _, ledger = sandbox
     runner.run_one("CLAIM-02", KEY, ledger)
-    result = runner.attest_self(KEY, ledger)
+    result = runner.attest_self(KEY, ledger, caiq_dir=tmp_path / "empty")
     assert result["aicm_controls_evidenced"].get("LOG-10") == ["CLAIM-02"]
 
 
-def test_unproven_claims_contribute_no_control_evidence(sandbox):
+def test_unproven_claims_contribute_no_control_evidence(sandbox, tmp_path):
     _, ledger = sandbox
-    result = runner.attest_self(KEY, ledger)
+    result = runner.attest_self(KEY, ledger, caiq_dir=tmp_path / "empty")
     assert result["aicm_controls_evidenced"] == {}
