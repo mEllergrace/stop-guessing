@@ -18,7 +18,11 @@ classifiers = [
   "Programming Language :: Python :: 3.11",
   "Topic :: Security",
 ]
-dependencies = []
+# The runtime genuinely needs YAML: the policy loader, the classification rules and the derived
+# AI-CAIQ answers are all YAML. Declaring [] meant a packaged install crashed with
+# ModuleNotFoundError on the first classified read (#17) — caught by the gap record the gate now
+# writes (#23), which is the first time the two fixes exercised each other.
+dependencies = ["PyYAML>=6"]
 
 [project.optional-dependencies]
 caiq = ["openpyxl>=3.1"]

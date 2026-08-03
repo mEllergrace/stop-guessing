@@ -16,7 +16,10 @@
 # It does NOT run no-noodles/install.sh, ever. That installer overwrites the hardened
 # check_before_build.sh with the stale 62-line repo copy (moonsoup/no-noodles#1).
 
-set -uo pipefail
+# -e as well as -uo pipefail (#25). Without it a failed cp, mkdir or settings rewrite was
+# followed by the remaining steps and a final "done." — and for an installer that rewrites
+# settings.json in a live profile, "it printed done" has to mean every step succeeded.
+set -euo pipefail
 
 PKG_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VERSION="$(cat "$PKG_DIR/VERSION")"
@@ -85,10 +88,18 @@ claude_dir, action, dry, supersede, pkg_dir = sys.argv[1:6]
 dry = dry == "1"; supersede = supersede == "1"
 settings = os.path.join(claude_dir, "settings.json")
 
-# RESOLVED ABSOLUTE path. Never a literal ~ — it expands at hook-execution time.
-gate = os.path.join(os.path.realpath(claude_dir), "hooks", "coc_gate.sh")
-entry = {"type": "command", "command": f"bash {gate}",
-         "statusMessage": "Chain-of-custody gate..."}
+# RESOLVED ABSOLUTE paths. Never a literal ~ — it expands at hook-execution time.
+hooks_root = os.path.join(os.path.realpath(claude_dir), "hooks")
+ENTRIES = {
+    "PreToolUse": {"type": "command",
+                   "command": f"bash {os.path.join(hooks_root, 'coc_gate.sh')}",
+                   "statusMessage": "Chain-of-custody gate..."},
+    # PostToolUse is what establishes whether the approved action actually ran, what it returned,
+    # and which outputs derive from which inputs (#13). PreToolUse alone records requests.
+    "PostToolUse": {"type": "command",
+                    "command": f"bash {os.path.join(hooks_root, 'coc_post.sh')}",
+                    "statusMessage": "Recording custody..."},
+}
 
 data = {}
 if os.path.exists(settings):
@@ -101,39 +112,38 @@ if os.path.exists(settings):
 
 before = json.dumps(data, indent=1, sort_keys=True)
 hooks = data.setdefault("hooks", {})
-pre = hooks.setdefault("PreToolUse", [{"hooks": []}])
-if not pre:
-    pre.append({"hooks": []})
-group = pre[0].setdefault("hooks", [])
 
 # no-noodles hook basenames whose STANDALONE registrations the dispatcher replaces.
 SUPERSEDED = ("no_noodle.sh", "check_before_build.sh", "risk_gate.sh", "check_credentials.sh")
+OURS = ("coc_gate.sh", "coc_post.sh")
 
-removed = []
-if action == "uninstall":
-    kept = [h for h in group if "coc_gate.sh" not in h.get("command", "")]
-    removed = [h.get("command") for h in group if h not in kept]
-    pre[0]["hooks"] = kept
-else:
+removed, added = [], []
+for event, entry in ENTRIES.items():
+    groups = hooks.setdefault(event, [{"hooks": []}])
+    if not groups:
+        groups.append({"hooks": []})
+    group = groups[0].setdefault("hooks", [])
     kept = []
     for h in group:
         cmd = h.get("command", "")
-        if "coc_gate.sh" in cmd:
+        if any(o in cmd for o in OURS):
             continue                      # dedupe our own, including a legacy tilde form
-        if supersede and any(n in cmd for n in SUPERSEDED):
+        if event == "PreToolUse" and supersede and any(n in cmd for n in SUPERSEDED):
             removed.append(cmd)
             continue
         kept.append(h)
-    kept.append(entry)
-    pre[0]["hooks"] = kept
+    if action != "uninstall":
+        kept.append(entry)
+        added.append(entry["command"])
+    groups[0]["hooks"] = kept
 
 after = json.dumps(data, indent=1, sort_keys=True)
 if dry:
     print(f"  [dry-run] {settings}")
     for r in removed:
         print(f"    - {r}")
-    if action != "uninstall":
-        print(f"    + {entry['command']}")
+    for a in added:
+        print(f"    + {a}")
     if before == after:
         print("    (no change)")
     sys.exit(0)
@@ -148,8 +158,8 @@ with open(settings, "w") as fh:
     fh.write("\n")
 for r in removed:
     print(f"    - {r}")
-if action != "uninstall":
-    print(f"    + {entry['command']}")
+for a in added:
+    print(f"    + {a}")
 PYEOF
 }
 
@@ -163,13 +173,34 @@ install_profile() {
     mkdir -p "$hooks_dir" "$state_dir" "$claude_dir/commands" "$claude_dir/skills"
     chmod 700 "$state_dir"
 
-    cat > "$hooks_dir/coc_gate.sh" <<EOF
+    # #17: the hook must be runnable without the repo happening to be on PYTHONPATH. Prefer a
+    # real install into the profile; fall back to pointing PYTHONPATH at the package directory.
+    local runtime="$state_dir/runtime"
+    if python3 -m pip install --quiet --target "$runtime" "$PKG_DIR" 2>/dev/null; then
+      echo "  installed the Python package into $runtime"
+    else
+      mkdir -p "$runtime"
+      cp -R "$PKG_DIR/stop_guessing" "$runtime/"
+      echo "  pip unavailable; copied the package into $runtime"
+    fi
+    # The package reads VERSION and policy/rules relative to its root, so carry those too.
+    for extra in VERSION policy rules docs; do
+      [ -e "$PKG_DIR/$extra" ] && cp -R "$PKG_DIR/$extra" "$runtime/" || true
+    done
+
+    for pair in "coc_gate.sh:hook_gate:Chain-of-custody gate" \
+                "coc_post.sh:hook_post:Recording custody"; do
+      local script="${pair%%:*}"; local rest="${pair#*:}"
+      local mod="${rest%%:*}"
+      cat > "$hooks_dir/$script" <<EOF
 #!/usr/bin/env bash
-# STOP-GUESSING dispatcher — installed by install.sh $VERSION. Do not edit.
-# Runs the vendored no-noodles rules in their original registration order, then the custody gate.
-exec python3 -m stop_guessing.cli.hook_gate "\$@"
+# STOP-GUESSING — installed by install.sh $VERSION. Do not edit.
+# PYTHONPATH is set explicitly so the hook does not depend on the repo being importable (#17).
+export PYTHONPATH="$runtime\${PYTHONPATH:+:\$PYTHONPATH}"
+exec python3 -m stop_guessing.cli.$mod "\$@"
 EOF
-    chmod 755 "$hooks_dir/coc_gate.sh"
+      chmod 755 "$hooks_dir/$script"
+    done
 
     # Docs to BOTH locations: only commands/ registers a slash command (2026-07-29 finding).
     for doc in custody custody-options; do
@@ -197,7 +228,8 @@ uninstall_profile() {
   echo "profile: $claude_dir"
   apply_settings "$claude_dir" "uninstall" "$DRY_RUN" 0
   if [ "$DRY_RUN" -eq 0 ]; then
-    rm -f "$claude_dir/hooks/coc_gate.sh"
+    rm -f "$claude_dir/hooks/coc_gate.sh" "$claude_dir/hooks/coc_post.sh"
+    rm -rf "$claude_dir/stop-guessing/runtime"
     rm -f "$claude_dir/commands/custody.md" "$claude_dir/commands/custody-options.md"
     rm -f "$claude_dir/skills/custody.md" "$claude_dir/skills/custody-options.md"
     rm -f "$claude_dir/stop-guessing/VERSION"

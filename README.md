@@ -5,7 +5,7 @@
 
 | | |
 |---|---|
-| Claims proven | **21/21**, by 122 records in its own keyed ledger |
+| Claims proven | **21/21**, by 143 records in its own keyed ledger |
 | Proof kinds | 3 adversarial, 8 live-run, 7 negative, 3 property — negative and adversarial are not optional |
 | AICM controls evidenced | 14 |
 | Chain | intact, keyed-verified |
@@ -79,6 +79,61 @@ Three, all shipping. Default is `steer`.
 Full depth is the default and is never silently reduced. Where fidelity is genuinely reduced it is recorded — `known_gaps: []` is a positive assertion that nothing was skipped, and a *missing* key is rejected at write.
 
 Removable at four levels — posture, per-rule, per-project, and full uninstall — none of which destroys the accumulated ledger.
+
+## Relationship to no-noodles
+
+STOP-GUESSING vendors [`moonsoup/no-noodles`](https://github.com/moonsoup/no-noodles) byte-identically and is designed to supersede it, preserving every hook, config key, escape marker, state file and CLI. `# noodle-ok`, `# risk-ok` and `# build-ok:` keep working with identical semantics; `/no-noodle` and `/noodle-options` stay invocable. See §10 of the plan for the full compatibility matrix and `stop-guessing compat verify` for the acceptance gate.
+
+## Using it
+
+```bash
+stop-guessing attest --self          # claims -> proofs -> AICM controls, in one command
+stop-guessing ledger verify          # is the chain intact, and verified under its key?
+stop-guessing verify --sufficiency   # does this ledger answer a governance question?
+stop-guessing claims check           # the release gate
+stop-guessing prove                  # re-run every proof procedure
+stop-guessing caiq derive && stop-guessing caiq fill   # regenerate the workbook, last
+```
+
+Every change means re-earning the attestation. That sequence is not optional and has no
+shortcut for small changes — see **[docs/REATTESTATION.md](docs/REATTESTATION.md)**, which also
+lists the three ways to confirm the gate can still fail.
+
+## Known gaps
+
+An independent review on 2026-08-03 found eighteen issues, filed as
+[#13&ndash;#30](https://github.com/mEllergrace/stop-guessing/issues?q=label%3Aexternal-review).
+Its central finding was correct and worth stating plainly: **a proof harness can demonstrate a
+primitive while the installed plugin never invokes it.** That had already happened twice here.
+
+Fixed since:
+
+| Was | Now |
+|---|---|
+| The installed hook wrote no custody record; only `PreToolUse` was registered | Both hooks registered; every decision and every result is a keyed ledger record |
+| Enforcement trusted a deletable cache | The ledger is replayed and wins; deleting the cache no longer resets taint |
+| Artifact ids came from `hash()`, which is salted per process | Digest over a canonical identity — stable across processes and path spellings |
+| Segment seals were unauthenticated JSON | Seals are MAC'd; a rewritten seal is caught |
+| A keyed ledger accepted unkeyed appends, breaking itself | Refused, and the whole read-verify-append is under a lock |
+| Posture was hard-coded to `steer` | Resolved through the four-layer config chain |
+| A crashed gate returned success silently under a comment claiming otherwise | Records a critical `recorder.selfcheck` gap |
+| `cat api_keys.txt` produced no artifact at all | Bare relative names and redirect targets are recognised |
+| The plugin assumed the package was importable | `install.sh` installs the runtime into the profile |
+
+Still open, and named rather than omitted:
+
+| Gap | Consequence |
+|---|---|
+| No recorder daemon | `isolation_tier` is 0 or 1. Tier 2 is checked for and never provided, so the recorder is not beyond the agent's reach |
+| Delegation is not wired into the gate | `bar` cannot admit a signed script in the installed path; the `delegate` CLI is not registered |
+| "network=deny" is proxy variables, not a sandbox | A delegated script can open raw sockets or exec another binary |
+| Chain key read from an environment variable | Weakest tier; anything the agent runs can read it. Keychain support exists and is unused |
+| Signing is HMAC, not Ed25519 | No public verifiability — a verifier must hold the signing key |
+| No RFC 3161 timestamp, no segment certification run | `ledger certify` exists; no certifier has signed anything |
+| Egress and path detection are heuristics | Command-shape regexes, not a DLP boundary |
+| The Cedar export is not semantically equivalent | `cedar validate` proves the export is well-formed, not that the runtime matches |
+| Proofs run on one machine | No container or second-machine reproduction |
+| No mutation testing of the proof procedures | A procedure that always returned `passed=True` would be invisible |
 
 ## Relationship to no-noodles
 

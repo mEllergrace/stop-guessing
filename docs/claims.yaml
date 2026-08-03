@@ -34,7 +34,8 @@ claims:
   - sg:62:840752dcd3002f50
   - sg:83:372de70d047ff5b9
   - sg:105:f03f044029f90661
-  last_proved: '2026-08-03T22:41:43.268Z'
+  - sg:126:6823cebf0934135d
+  last_proved: '2026-08-03T23:03:22.708Z'
 - id: CLAIM-02
   statement: A keyed chain defeats truncate-and-recompute. Without the session key held in the OS keychain,
     a forged chain that is internally consistent still fails verification.
@@ -53,7 +54,8 @@ claims:
   - sg:84:580921fa07043992
   - sg:104:4d2940da495253fb
   - sg:106:67301075d4081408
-  last_proved: '2026-08-03T22:41:45.117Z'
+  - sg:127:90665017475bfab1
+  last_proved: '2026-08-03T23:03:24.905Z'
 - id: CLAIM-03
   statement: The sink refuses to append onto a broken or truncated chain, rather than burying the break
     under new entries.
@@ -70,7 +72,8 @@ claims:
   - sg:64:a3b27f1c9b025094
   - sg:85:48f0430177edc288
   - sg:107:9bfba4a8ddb2ec11
-  last_proved: '2026-08-03T22:41:45.165Z'
+  - sg:128:a3575e7244198146
+  last_proved: '2026-08-03T23:03:24.969Z'
 - id: CLAIM-04
   statement: Sealing archives a segment and chains the next segment to the sealed digest; no ledger rotation
     ever truncates history.
@@ -88,7 +91,8 @@ claims:
   - sg:65:ce198ee91ed4866c
   - sg:86:b5337a996a62e16a
   - sg:108:5d16da9224a94243
-  last_proved: '2026-08-03T22:41:45.319Z'
+  - sg:129:a40cc07b84e640b9
+  last_proved: '2026-08-03T23:03:25.118Z'
 - id: CLAIM-05
   statement: 'A record missing the `alterations` key is refused at write, while `alterations: []` is accepted
     — an empty list asserts nothing was altered, a missing key means nobody looked.'
@@ -105,7 +109,8 @@ claims:
   - sg:66:901b7c2facbb70d7
   - sg:87:c94def619838883c
   - sg:109:acb948b3df0aa8af
-  last_proved: '2026-08-03T22:41:45.359Z'
+  - sg:130:25e4577eb8595e25
+  last_proved: '2026-08-03T23:03:25.150Z'
 - id: CLAIM-06
   statement: '`verify --sufficiency` reports `incomplete` and names the unpopulated evidence regime rather
     than claiming sufficiency it cannot back.'
@@ -123,10 +128,12 @@ claims:
   - sg:67:3b66f7dac01ccd60
   - sg:88:cad0d4f39c0423ca
   - sg:110:d3eefe3d8c5969ee
-  last_proved: '2026-08-03T22:41:45.399Z'
+  - sg:131:3c75b8d92bea016e
+  last_proved: '2026-08-03T23:03:25.184Z'
 - id: CLAIM-07
   statement: Accumulated session taint denies an egress that the identical call would have been allowed
-    to make earlier in the same session, and the denial names the contributing artifacts.
+    to make earlier in the same session, the denial names the contributing artifacts, and this holds through
+    the real hook across separate processes and with the state cache deleted.
   surface:
   - hook:PreToolUse
   - cli:"stop-guessing demo --posture steer"
@@ -143,7 +150,8 @@ claims:
   - sg:68:ec8a054e28749618
   - sg:89:8dca168b634a4a7a
   - sg:111:13f68a28ef715fe1
-  last_proved: '2026-08-03T22:41:50.166Z'
+  - sg:132:08c49efbc4792ac9
+  last_proved: '2026-08-03T23:03:29.844Z'
 - id: CLAIM-08
   statement: '`steer` asks on first touch of a classified artifact and offers a recorded script delegation;
     it does not deny the first read.'
@@ -161,7 +169,8 @@ claims:
   - sg:69:96cd89574676b8cc
   - sg:90:cd1c463b43b49e9b
   - sg:112:a7e34cfc13937ef6
-  last_proved: '2026-08-03T22:41:50.219Z'
+  - sg:133:00724de667c9dc66
+  last_proved: '2026-08-03T23:03:29.874Z'
 - id: CLAIM-09
   statement: A delegated script cannot touch live data until its paired test has passed, and cannot run
     at all if its digest changed after the test passed.
@@ -180,7 +189,8 @@ claims:
   - sg:70:cb61aa7cb8e712da
   - sg:91:36b979feb38418df
   - sg:113:8271ad88f2fcd9c6
-  last_proved: '2026-08-03T22:41:50.752Z'
+  - sg:134:b89516016bf65808
+  last_proved: '2026-08-03T23:03:30.518Z'
 - id: CLAIM-10
   statement: Under `bar` the model receives only a handle or summary, and an unsigned script is refused.
   surface:
@@ -197,7 +207,8 @@ claims:
   - sg:71:6493aa04c046d505
   - sg:92:6902ec516d57670f
   - sg:114:84532e35fc44e02c
-  last_proved: '2026-08-03T22:41:51.062Z'
+  - sg:135:ea77e9f3504abbcd
+  last_proved: '2026-08-03T23:03:30.814Z'
 - id: CLAIM-11
   statement: Session custody state rebuilt from the ledger alone reproduces the pre-compaction digest
     exactly; state never depends on the transcript.
@@ -215,7 +226,8 @@ claims:
   - sg:72:21aa09cc67005a4e
   - sg:93:54ce9ee1eb33a583
   - sg:115:cc549d5db81c8ff4
-  last_proved: '2026-08-03T22:41:51.087Z'
+  - sg:136:ae6777b79a874b77
+  last_proved: '2026-08-03T23:03:30.839Z'
 - id: CLAIM-12
   statement: 'The recorder is not reachable by the agent it records: PATH-shadowing the CLI, direct ledger
     writes, hook-script substitution and daemon kill are each refused or detected.'
@@ -233,7 +245,8 @@ claims:
   - sg:73:32e817ccb1c5e3ff
   - sg:94:ebdc80663fd930b2
   - sg:116:7bb23be2c7b89862
-  last_proved: '2026-08-03T22:41:51.154Z'
+  - sg:137:1475b3b8f35b12c9
+  last_proved: '2026-08-03T23:03:30.927Z'
 - id: CLAIM-13
   statement: Execution claims made by the agent are reconciled against the hook-side dispatch ledger;
     a fabricated or replayed claim is detected and escalated to a human.
@@ -252,7 +265,8 @@ claims:
   - sg:74:9ea2a20a2cf96f5e
   - sg:95:107e1bada3f0fcc1
   - sg:117:5f7c32de14792236
-  last_proved: '2026-08-03T22:41:51.181Z'
+  - sg:138:0da49d2557aa5fbb
+  last_proved: '2026-08-03T23:03:30.954Z'
 - id: CLAIM-14
   statement: The carried AI-CAIQ version is inspected on every run by parsing cell A1's JSON blob, not
     by trusting the sheet name, and a drifted workbook refuses regeneration.
@@ -271,7 +285,8 @@ claims:
   - sg:75:229d4e17d8b99c62
   - sg:96:562d8d258251e9fe
   - sg:118:47340dfd38fcee2d
-  last_proved: '2026-08-03T22:41:51.624Z'
+  - sg:139:4d6cc018d40c3a62
+  last_proved: '2026-08-03T23:03:31.473Z'
 - id: CLAIM-15
   statement: The blank AI-CAIQ template is never modified. A fill leaves its digest and mtime unchanged,
     and an altered template refuses regeneration.
@@ -288,7 +303,8 @@ claims:
   - sg:76:298fd8e47c3f66a8
   - sg:97:681acaa39a9bc201
   - sg:119:1fe284b51575c9ed
-  last_proved: '2026-08-03T22:41:52.904Z'
+  - sg:140:7f5318eb71a53338
+  last_proved: '2026-08-03T23:03:32.824Z'
 - id: CLAIM-16
   statement: 'Superseding no-noodles is byte-compatible: every payload in the corpus produces an identical
     (exit_code, stdout) through the dispatcher as through the standalone hooks.'
@@ -305,7 +321,8 @@ claims:
   - sg:77:195c3b7af795e666
   - sg:98:8a99aa4cd2400d35
   - sg:120:784ba55dad12416e
-  last_proved: '2026-08-03T22:43:20.794Z'
+  - sg:141:eae4b631af0c4b7e
+  last_proved: '2026-08-03T23:04:57.683Z'
 - id: CLAIM-17
   statement: Every no-noodles surface keeps working after supersession — the three escape markers, the
     config chain, `grant_session_trust.sh`, `/no-noodle`, `/noodle-options`, and `risk_summary.py` parsing
@@ -324,10 +341,13 @@ claims:
   - sg:78:20569b15038d3d77
   - sg:99:403b00f65c083d2b
   - sg:121:130f6e84f40cfa26
-  last_proved: '2026-08-03T22:43:28.961Z'
+  - sg:142:05dc402d846c94bc
+  last_proved: '2026-08-03T23:05:08.846Z'
 - id: CLAIM-18
-  statement: 'Offline by default: no runtime path performs an external network call unless anchoring is
-    explicitly enabled, and enabling it announces itself.'
+  statement: 'No statically detectable network call site exists in the shipped Python package except the
+    named opt-in anchoring exception, and CI performs no fetch. This is a source audit, not a proof of
+    no network activity: it cannot see indirect subprocess calls, shell network programs, dynamic imports
+    or commands assembled at runtime.'
   surface:
   - cli:"stop-guessing doctor --network"
   proof_kind: property
@@ -341,7 +361,8 @@ claims:
   - sg:79:b41619813ad4e433
   - sg:100:45b3fff47c6680f0
   - sg:122:6e1971822861b99a
-  last_proved: '2026-08-03T22:43:29.430Z'
+  - sg:143:d9c2d5aed3fb3892
+  last_proved: '2026-08-03T23:05:08.941Z'
 - id: CLAIM-19
   statement: A full uninstall removes hooks and registrations while preserving the accumulated ledger
     and observation log.
@@ -357,7 +378,8 @@ claims:
   - sg:80:3a06820ff0a3b2dc
   - sg:101:5769cff7b0eb1e4f
   - sg:123:fe58b9416b23b75a
-  last_proved: '2026-08-03T22:43:30.021Z'
+  - sg:144:49c57b3bf0dd9d97
+  last_proved: '2026-08-03T23:05:15.063Z'
 - id: CLAIM-20
   statement: Every distributed surface — plugin, skill, slash-command and CLI — has been exercised by
     at least one live-run proof recorded in this toolchain's own ledger.
@@ -377,7 +399,8 @@ claims:
   - sg:81:86d629fb715c366a
   - sg:102:1a57e64be953671e
   - sg:124:24bb2fd033133be1
-  last_proved: '2026-08-03T22:43:34.037Z'
+  - sg:145:0f1d057757915f05
+  last_proved: '2026-08-03T23:05:17.906Z'
 - id: CLAIM-21
   statement: This toolchain's own AI-CAIQ was filled from proofs produced by this toolchain, as the last
     step, and every answer's evidence resolves to a verified ledger record.
@@ -396,4 +419,5 @@ claims:
   - sg:82:f7cc594a8b2b486b
   - sg:103:e8b6c17e04be0f76
   - sg:125:6861749dc0b73d3f
-  last_proved: '2026-08-03T22:43:36.156Z'
+  - sg:146:87d4975ef6102f15
+  last_proved: '2026-08-03T23:05:19.002Z'

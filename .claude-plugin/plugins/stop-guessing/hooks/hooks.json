@@ -10,6 +10,17 @@
           }
         ]
       }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -m stop_guessing.cli.hook_post",
+            "statusMessage": "Recording custody..."
+          }
+        ]
+      }
     ]
   }
 }
