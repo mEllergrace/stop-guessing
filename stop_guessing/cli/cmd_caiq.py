@@ -107,6 +107,12 @@ def cmd_evidence_check(args) -> int:
         print(f"no answers at {ANSWERS}")
         return 1
     key = _key(args)
+    if key is None:
+        # Exit 2, not 1. Without the key nothing resolves, and reporting that as STALE would
+        # claim a finding that was never made — the same distinction `page check` draws.
+        print("SKIPPED: no chain key, so no evidence ref can be verified. This is not the same "
+              "as stale evidence, and must not be reported as it.")
+        return 2
     doc = yaml.safe_load(ANSWERS.read_text(encoding="utf-8"))
     result = runner.check(key, runner.DEFAULT_LEDGER)
     live = {ref for row in result["rows"] for ref in row["live"]}
