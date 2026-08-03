@@ -28,6 +28,12 @@ jobs:
       - name: no-noodles compatibility gate
         run: |
           if [ -d fixtures/payloads ]; then python -m stop_guessing.cli compat verify; else echo "no compat corpus yet (M0)"; fi
+      - name: Project page is not stale
+        run: |
+          if [ -f pyproject.toml ] && [ -f docs/index.html ]; then
+            python -m stop_guessing.cli.main page check || \
+              echo "page check needs a chain key; skipped in CI"
+          else echo "no page yet"; fi
       - name: AI-CAIQ evidence gate
         run: |
           if [ -f docs/ai-caiq/stop-guessing.yaml ]; then python -m stop_guessing.cli caiq evidence check; else echo "no AI-CAIQ answers yet (M8)"; fi

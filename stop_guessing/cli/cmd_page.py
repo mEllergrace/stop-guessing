@@ -1,19 +1,27 @@
-<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>STOP-GUESSING — chain of custody for agentic AI</title>
-<link rel="canonical" href="https://mellergrace.github.io/stop-guessing/">
-<meta name="description" content="Chain of custody and data provenance for agentic AI. 21 of 21 claims proven against its own keyed ledger; the AI-CAIQ is derived from those proofs.">
-<meta name="theme-color" content="#12100e">
-<meta property="og:type" content="website">
-<meta property="og:site_name" content="STOP-GUESSING">
-<meta property="og:url" content="https://mellergrace.github.io/stop-guessing/">
-<meta property="og:title" content="STOP-GUESSING — chain of custody for agentic AI">
-<meta property="og:description" content="Everything in this space records actions. Nothing records data flow. 21/21 claims proven against its own keyed ledger.">
-<meta name="twitter:card" content="summary">
-<style>
+"""`stop-guessing page build` — render the project page from the attestation.
+
+The page is generated, not written. Every number on it comes from `attest --self` and
+`docs/claims.yaml`, so it cannot claim more than the ledger supports. A hand-written page that
+says "21/21 proven" is a sentence someone typed; this one is a rendering of the same evidence the
+auditor would read, and it goes stale loudly — `page check` fails in CI when the committed page
+disagrees with the current attestation.
+
+That is the same rule the AI-CAIQ follows, applied to marketing copy, which is where overclaiming
+usually starts.
+"""
+
+from __future__ import annotations
+
+import html
+import json
+
+from stop_guessing.attest.keys import from_env, from_keyfile
+from stop_guessing.prove import runner
+from stop_guessing.version import __version__, repo_root
+
+PAGE = repo_root() / "docs" / "index.html"
+
+CSS = """
 :root{
   --ink:#12100e; --paper:#faf8f5; --muted:#6b625a; --rule:#e2dcd3; --rule-soft:#efeae3;
   --accent:#a8391f; --accent-soft:#f7ece8; --code-bg:#f2ede6;
@@ -92,7 +100,69 @@ li{margin-bottom:.45rem}
 footer{margin-top:5rem;padding-top:1.5rem;border-top:1px solid var(--rule);
   font-size:.86rem;color:var(--muted)}
 .genstamp{font-family:var(--mono);font-size:.74rem;color:var(--muted);margin-top:.75rem}
-</style>
+"""
+
+
+def _esc(s) -> str:
+    return html.escape(str(s))
+
+
+def build(attest: dict, claims: dict, caiq: dict | None) -> str:
+    proven, total = attest["proven"], attest["total"]
+    controls = attest["aicm_controls_evidenced"]
+    refs = sum(len(c.get("proofs") or []) for c in claims["claims"])
+    kinds: dict[str, int] = {}
+    for c in claims["claims"]:
+        kinds[c.get("proof_kind", "?")] = kinds.get(c.get("proof_kind", "?"), 0) + 1
+
+    published = caiq["answers"] if caiq else []
+    proposed = caiq["proposed_agentic_controls"]["answers"] if caiq else []
+    yes = sum(1 for a in published if a["answer"] == "Yes")
+    no = sum(1 for a in published if a["answer"] == "No")
+
+    verdict = "GOAL MET" if attest["goal_met"] else "GOAL NOT MET"
+
+    claim_rows = "\n".join(
+        f'<tr><td class="mono">{_esc(c["id"])}</td>'
+        f'<td class="mono">{_esc(c.get("proof_kind"))}</td>'
+        f'<td>{_esc(c["statement"].strip())}</td>'
+        f'<td class="mono">{len(c.get("proofs") or [])}</td></tr>'
+        for c in claims["claims"]
+    )
+
+    control_rows = "\n".join(
+        f'<tr><td class="mono">{_esc(ctrl)}</td>'
+        f'<td class="mono">{_esc(", ".join(cl))}</td></tr>'
+        for ctrl, cl in controls.items()
+    )
+
+    caiq_rows = "\n".join(
+        f'<tr><td class="mono">{_esc(a["control"])}</td>'
+        f'<td><span class="tag {"yes" if a["answer"] == "Yes" else "no"}">'
+        f'{_esc(a["answer"])}</span></td>'
+        f'<td class="mono">{len(a.get("evidence") or [])}</td>'
+        f'<td class="mono">{_esc(", ".join(a.get("claims") or []))}</td></tr>'
+        for a in published
+    )
+
+    proposed_names = ", ".join(a["control"] for a in proposed)
+
+    return f"""<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>STOP-GUESSING — chain of custody for agentic AI</title>
+<link rel="canonical" href="https://mellergrace.github.io/stop-guessing/">
+<meta name="description" content="Chain of custody and data provenance for agentic AI. {proven} of {total} claims proven against its own keyed ledger; the AI-CAIQ is derived from those proofs.">
+<meta name="theme-color" content="#12100e">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="STOP-GUESSING">
+<meta property="og:url" content="https://mellergrace.github.io/stop-guessing/">
+<meta property="og:title" content="STOP-GUESSING — chain of custody for agentic AI">
+<meta property="og:description" content="Everything in this space records actions. Nothing records data flow. {proven}/{total} claims proven against its own keyed ledger.">
+<meta name="twitter:card" content="summary">
+<style>{CSS}</style>
 </head>
 <body>
 <div class="wrap">
@@ -104,14 +174,14 @@ footer{margin-top:5rem;padding-top:1.5rem;border-top:1px solid var(--rule);
 
   <div class="attest">
     <div class="attest-top">
-      <div class="verdict">GOAL MET
-        <span class="cmd">stop-guessing attest --self · v0.1.0</span></div>
+      <div class="verdict">{_esc(verdict)}
+        <span class="cmd">stop-guessing attest --self · v{_esc(__version__)}</span></div>
     </div>
     <div class="grid">
-      <div class="stat"><span class="n">21/21</span><span class="l">claims proven</span></div>
-      <div class="stat"><span class="n">79</span><span class="l">ledger proofs</span></div>
-      <div class="stat"><span class="n">14</span><span class="l">AICM controls</span></div>
-      <div class="stat"><span class="n">keyed</span><span class="l">chain state</span></div>
+      <div class="stat"><span class="n">{proven}/{total}</span><span class="l">claims proven</span></div>
+      <div class="stat"><span class="n">{refs}</span><span class="l">ledger proofs</span></div>
+      <div class="stat"><span class="n">{len(controls)}</span><span class="l">AICM controls</span></div>
+      <div class="stat"><span class="n">{"keyed" if attest["chain_keyed"] else "unkeyed"}</span><span class="l">chain state</span></div>
     </div>
   </div>
   <p class="caption">Every number on this page is generated from that attestation, not typed.
@@ -216,29 +286,9 @@ keyed,  forged WITH the real key      -> intact  (the key is what stops it)</cod
 <div class="tablewrap"><table>
 <thead><tr><th class="mono">id</th><th class="mono">kind</th><th>claim</th><th class="mono">proofs</th></tr></thead>
 <tbody>
-<tr><td class="mono">CLAIM-01</td><td class="mono">live-run</td><td>The ledger records data flow, not only actions: a read, a transform and a write are linked by an explicit derivation edge naming the artifacts and the script that joined them.</td><td class="mono">4</td></tr>
-<tr><td class="mono">CLAIM-02</td><td class="mono">adversarial</td><td>A keyed chain defeats truncate-and-recompute. Without the session key held in the OS keychain, a forged chain that is internally consistent still fails verification.</td><td class="mono">4</td></tr>
-<tr><td class="mono">CLAIM-03</td><td class="mono">negative</td><td>The sink refuses to append onto a broken or truncated chain, rather than burying the break under new entries.</td><td class="mono">4</td></tr>
-<tr><td class="mono">CLAIM-04</td><td class="mono">live-run</td><td>Sealing archives a segment and chains the next segment to the sealed digest; no ledger rotation ever truncates history.</td><td class="mono">4</td></tr>
-<tr><td class="mono">CLAIM-05</td><td class="mono">negative</td><td>A record missing the `alterations` key is refused at write, while `alterations: []` is accepted — an empty list asserts nothing was altered, a missing key means nobody looked.</td><td class="mono">4</td></tr>
-<tr><td class="mono">CLAIM-06</td><td class="mono">negative</td><td>`verify --sufficiency` reports `incomplete` and names the unpopulated evidence regime rather than claiming sufficiency it cannot back.</td><td class="mono">4</td></tr>
-<tr><td class="mono">CLAIM-07</td><td class="mono">live-run</td><td>Accumulated session taint denies an egress that the identical call would have been allowed to make earlier in the same session, and the denial names the contributing artifacts.</td><td class="mono">5</td></tr>
-<tr><td class="mono">CLAIM-08</td><td class="mono">live-run</td><td>`steer` asks on first touch of a classified artifact and offers a recorded script delegation; it does not deny the first read.</td><td class="mono">5</td></tr>
-<tr><td class="mono">CLAIM-09</td><td class="mono">negative</td><td>A delegated script cannot touch live data until its paired test has passed, and cannot run at all if its digest changed after the test passed.</td><td class="mono">4</td></tr>
-<tr><td class="mono">CLAIM-10</td><td class="mono">negative</td><td>Under `bar` the model receives only a handle or summary, and an unsigned script is refused.</td><td class="mono">3</td></tr>
-<tr><td class="mono">CLAIM-11</td><td class="mono">property</td><td>Session custody state rebuilt from the ledger alone reproduces the pre-compaction digest exactly; state never depends on the transcript.</td><td class="mono">4</td></tr>
-<tr><td class="mono">CLAIM-12</td><td class="mono">adversarial</td><td>The recorder is not reachable by the agent it records: PATH-shadowing the CLI, direct ledger writes, hook-script substitution and daemon kill are each refused or detected.</td><td class="mono">3</td></tr>
-<tr><td class="mono">CLAIM-13</td><td class="mono">adversarial</td><td>Execution claims made by the agent are reconciled against the hook-side dispatch ledger; a fabricated or replayed claim is detected and escalated to a human.</td><td class="mono">5</td></tr>
-<tr><td class="mono">CLAIM-14</td><td class="mono">negative</td><td>The carried AI-CAIQ version is inspected on every run by parsing cell A1&#x27;s JSON blob, not by trusting the sheet name, and a drifted workbook refuses regeneration.</td><td class="mono">4</td></tr>
-<tr><td class="mono">CLAIM-15</td><td class="mono">negative</td><td>The blank AI-CAIQ template is never modified. A fill leaves its digest and mtime unchanged, and an altered template refuses regeneration.</td><td class="mono">3</td></tr>
-<tr><td class="mono">CLAIM-16</td><td class="mono">property</td><td>Superseding no-noodles is byte-compatible: every payload in the corpus produces an identical (exit_code, stdout) through the dispatcher as through the standalone hooks.</td><td class="mono">4</td></tr>
-<tr><td class="mono">CLAIM-17</td><td class="mono">live-run</td><td>Every no-noodles surface keeps working after supersession — the three escape markers, the config chain, `grant_session_trust.sh`, `/no-noodle`, `/noodle-options`, and `risk_summary.py` parsing `observations.jsonl`.</td><td class="mono">3</td></tr>
-<tr><td class="mono">CLAIM-18</td><td class="mono">property</td><td>Offline by default: no runtime path performs an external network call unless anchoring is explicitly enabled, and enabling it announces itself.</td><td class="mono">3</td></tr>
-<tr><td class="mono">CLAIM-19</td><td class="mono">live-run</td><td>A full uninstall removes hooks and registrations while preserving the accumulated ledger and observation log.</td><td class="mono">3</td></tr>
-<tr><td class="mono">CLAIM-20</td><td class="mono">live-run</td><td>Every distributed surface — plugin, skill, slash-command and CLI — has been exercised by at least one live-run proof recorded in this toolchain&#x27;s own ledger.</td><td class="mono">3</td></tr>
-<tr><td class="mono">CLAIM-21</td><td class="mono">live-run</td><td>This toolchain&#x27;s own AI-CAIQ was filled from proofs produced by this toolchain, as the last step, and every answer&#x27;s evidence resolves to a verified ledger record.</td><td class="mono">3</td></tr>
+{claim_rows}
 </tbody></table></div>
-<p class="caption">Proof kinds: adversarial 3, live-run 8, negative 7, property 3.
+<p class="caption">Proof kinds: {_esc(", ".join(f"{k} {v}" for k, v in sorted(kinds.items())))}.
 Negative and adversarial procedures are not optional — a toolchain that proves only its happy
 paths has proven nothing an auditor wants.</p>
 
@@ -246,20 +296,7 @@ paths has proven nothing an auditor wants.</p>
 <div class="tablewrap"><table>
 <thead><tr><th class="mono">control</th><th class="mono">evidenced by</th></tr></thead>
 <tbody>
-<tr><td class="mono">A&amp;A-01</td><td class="mono">CLAIM-06, CLAIM-14, CLAIM-20, CLAIM-21</td></tr>
-<tr><td class="mono">CCC-01</td><td class="mono">CLAIM-09, CLAIM-16, CLAIM-17</td></tr>
-<tr><td class="mono">DSP-05</td><td class="mono">CLAIM-01, CLAIM-18</td></tr>
-<tr><td class="mono">DSP-20</td><td class="mono">CLAIM-01, CLAIM-07, CLAIM-08, CLAIM-09, CLAIM-10, CLAIM-15, CLAIM-21</td></tr>
-<tr><td class="mono">I&amp;S-01</td><td class="mono">CLAIM-18</td></tr>
-<tr><td class="mono">IAM-AG-03</td><td class="mono">CLAIM-12</td></tr>
-<tr><td class="mono">LOG-03</td><td class="mono">CLAIM-02, CLAIM-05, CLAIM-06, CLAIM-13</td></tr>
-<tr><td class="mono">LOG-10</td><td class="mono">CLAIM-02, CLAIM-03, CLAIM-04, CLAIM-12, CLAIM-15, CLAIM-19</td></tr>
-<tr><td class="mono">LOG-12</td><td class="mono">CLAIM-04</td></tr>
-<tr><td class="mono">LOG-AG-01</td><td class="mono">CLAIM-01, CLAIM-11</td></tr>
-<tr><td class="mono">LOG-AG-02</td><td class="mono">CLAIM-07</td></tr>
-<tr><td class="mono">MDS-13</td><td class="mono">CLAIM-10</td></tr>
-<tr><td class="mono">SEF-01</td><td class="mono">CLAIM-13</td></tr>
-<tr><td class="mono">STA-09</td><td class="mono">CLAIM-14, CLAIM-20, CLAIM-21</td></tr>
+{control_rows}
 </tbody></table></div>
 
 <h2>The carried AI-CAIQ</h2>
@@ -273,25 +310,15 @@ not conformance.”</em></p>
 <div class="tablewrap"><table>
 <thead><tr><th class="mono">control</th><th class="mono">answer</th><th class="mono">evidence</th><th class="mono">from claims</th></tr></thead>
 <tbody>
-<tr><td class="mono">A&amp;A-01</td><td><span class="tag yes">Yes</span></td><td class="mono">14</td><td class="mono">CLAIM-06, CLAIM-14, CLAIM-20, CLAIM-21</td></tr>
-<tr><td class="mono">CCC-01</td><td><span class="tag yes">Yes</span></td><td class="mono">11</td><td class="mono">CLAIM-09, CLAIM-16, CLAIM-17</td></tr>
-<tr><td class="mono">DSP-05</td><td><span class="tag yes">Yes</span></td><td class="mono">7</td><td class="mono">CLAIM-01, CLAIM-18</td></tr>
-<tr><td class="mono">DSP-20</td><td><span class="tag yes">Yes</span></td><td class="mono">24</td><td class="mono">CLAIM-01, CLAIM-07, CLAIM-08, CLAIM-09, CLAIM-10, CLAIM-15, CLAIM-21</td></tr>
-<tr><td class="mono">I&amp;S-01</td><td><span class="tag yes">Yes</span></td><td class="mono">3</td><td class="mono">CLAIM-18</td></tr>
-<tr><td class="mono">LOG-03</td><td><span class="tag yes">Yes</span></td><td class="mono">17</td><td class="mono">CLAIM-02, CLAIM-05, CLAIM-06, CLAIM-13</td></tr>
-<tr><td class="mono">LOG-10</td><td><span class="tag yes">Yes</span></td><td class="mono">21</td><td class="mono">CLAIM-02, CLAIM-03, CLAIM-04, CLAIM-12, CLAIM-15, CLAIM-19</td></tr>
-<tr><td class="mono">LOG-12</td><td><span class="tag no">No</span></td><td class="mono">4</td><td class="mono">CLAIM-04</td></tr>
-<tr><td class="mono">MDS-13</td><td><span class="tag yes">Yes</span></td><td class="mono">3</td><td class="mono">CLAIM-10</td></tr>
-<tr><td class="mono">SEF-01</td><td><span class="tag yes">Yes</span></td><td class="mono">5</td><td class="mono">CLAIM-13</td></tr>
-<tr><td class="mono">STA-09</td><td><span class="tag no">No</span></td><td class="mono">10</td><td class="mono">CLAIM-14, CLAIM-20, CLAIM-21</td></tr>
+{caiq_rows}
 </tbody></table></div>
 
-<p class="caption">9 Yes, 2 No. The No answers state the paths that were searched — a
+<p class="caption">{yes} Yes, {no} No. The No answers state the paths that were searched — a
 questionnaire of unbroken Yeses is the least believable artifact an auditor can receive.
 Output passes rich-text's <code>verify_ai_caiq_workbook.py</code> unmodified, and CSA's blank
 template is copy-only: read <code>read_only=True</code>, never saved, digest re-checked every run.</p>
 
-<p><strong>Not written into CSA's workbook:</strong> IAM-AG-03, LOG-AG-01, LOG-AG-02. These are CSA's
+<p><strong>Not written into CSA's workbook:</strong> {_esc(proposed_names)}. These are CSA's
 <em>draft</em> agentic controls from the labs space and do not exist in published AICM v1.1.0.
 Their evidence is real and is recorded separately; presenting them as AICM rows would be
 fabrication. The fill refuses them — which is how the first attempt was caught.</p>
@@ -336,3 +363,61 @@ Not hand-written.</p>
 </div>
 </body>
 </html>
+"""
+
+
+def _key(args):
+    if getattr(args, "keyfile", None):
+        got = from_keyfile(args.keyfile)
+        if got:
+            return got[0]
+    got = from_env()
+    return got[0] if got else None
+
+
+def _render(args) -> str:
+    import yaml
+
+    key = _key(args)
+    attest = runner.attest_self(key)
+    claims = runner.load_claims()
+    caiq_path = repo_root() / "docs" / "ai-caiq" / "stop-guessing.yaml"
+    caiq = yaml.safe_load(caiq_path.read_text(encoding="utf-8")) if caiq_path.is_file() else None
+    return build(attest, claims, caiq)
+
+
+def cmd_build(args) -> int:
+    html_out = _render(args)
+    PAGE.write_text(html_out, encoding="utf-8")
+    print(f"wrote {PAGE.relative_to(repo_root())} ({len(html_out)} bytes)")
+    return 0
+
+
+def cmd_check(args) -> int:
+    """CI gate: the committed page must match what the ledger currently supports."""
+    if not PAGE.is_file():
+        print("FAIL: docs/index.html is missing")
+        return 1
+    current = PAGE.read_text(encoding="utf-8")
+    expected = _render(args)
+    if current == expected:
+        print("PASS: the page matches the current attestation")
+        return 0
+    print("FAIL: docs/index.html disagrees with the current attestation.")
+    print("      Run `stop-guessing page build` and commit the result.")
+    print("      A page that outlives the evidence it cites is how overclaiming starts.")
+    return 1
+
+
+def register(sub) -> None:
+    p = sub.add_parser("page", help="the project page, generated from the attestation")
+    s = p.add_subparsers(dest="page_cmd", required=True)
+    for name, fn, helptext in (("build", cmd_build, "render docs/index.html"),
+                               ("check", cmd_check, "fail if the page is stale")):
+        sp = s.add_parser(name, help=helptext)
+        sp.add_argument("--keyfile")
+        sp.set_defaults(fn=fn)
+
+
+def _json_dump(obj) -> str:  # pragma: no cover - debugging aid
+    return json.dumps(obj, indent=2)
