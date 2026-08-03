@@ -11,3 +11,4 @@ venv/
 # The blank AI-CAIQ template is a LOCAL BACKUP and is copy-only — see IMPLEMENTATION_PLAN.md §12.
 docs/ai-caiq/reference/*.xlsx
 .venv/
+.stop-guessing/
