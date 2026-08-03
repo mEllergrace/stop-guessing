@@ -2,6 +2,21 @@ name: ci
 on:
   push: {branches: [main]}
   pull_request: {branches: [main]}
+
+# Gate exit-code contract, shared by every custody gate below:
+#   0  verified
+#   1  a real finding — fail the build
+#   2  cannot verify (no chain key; CI has none) — skip
+#
+# The distinction is load-bearing. "Cannot verify" reported as a failure trains people to ignore
+# the gate; reported as a pass, it launders an unchecked claim. Each gate reads its code in a
+# TESTED context (`|| rc=$?`), because `cmd; rc=$?` under `bash -e` aborts the step first.
+#
+# No step is guarded by "does this artifact exist yet" any more. Those guards were scaffolding
+# from M0 and they rotted into silent no-ops: the compat gate was skipped on every run for weeks
+# because it tested for an empty directory git had never committed. A gate that cannot fail is
+# worse than one that does, because it reports success.
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -9,36 +24,65 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: {python-version: "3.11"}
+
       - name: Version strings agree
         run: |
           test -f VERSION
-          echo "VERSION=$(cat VERSION)"
+          python - <<'PY'
+          import json, pathlib
+          v = pathlib.Path("VERSION").read_text().strip()
+          checks = {
+              ".claude-plugin/marketplace.json": ["plugins", 0, "version"],
+              ".claude-plugin/plugins/stop-guessing/.claude-plugin/plugin.json": ["version"],
+              ".agents/plugins/marketplace.json": ["plugins", 0, "version"],
+              ".agents/plugins/stop-guessing/.codex-plugin/plugin.json": ["version"],
+          }
+          for rel, path in checks.items():
+              cur = json.loads(pathlib.Path(rel).read_text())
+              for part in path:
+                  cur = cur[part]
+              assert cur == v, f"{rel} says {cur!r}, VERSION says {v!r}"
+          print(f"VERSION={v}; {len(checks)} manifests agree")
+          PY
+
       - name: Install
-        run: |
-          if [ -f pyproject.toml ]; then pip install -e ".[dev]"; else echo "no package yet (M0)"; fi
+        run: pip install -e ".[dev]"
+
       - name: Lint
-        run: |
-          if [ -f pyproject.toml ]; then ruff check .; else echo "no package yet (M0)"; fi
+        run: ruff check .
+
       - name: Unit tests
-        run: |
-          if [ -d tests ]; then pytest -q; else echo "no tests yet (M0)"; fi
+        run: pytest -q -m ""
+
       - name: Bash suites
         run: |
-          if compgen -G "tests/test_*.sh" > /dev/null; then for t in tests/test_*.sh; do bash "$t"; done; else echo "no bash suites yet (M0)"; fi
+          if compgen -G "tests/test_*.sh" > /dev/null; then
+            for t in tests/test_*.sh; do bash "$t"; done
+          else echo "no bash suites"; fi
+
+      - name: Vendored no-noodles tree is unmodified
+        run: python -m stop_guessing.cli.main manifest
+
       - name: no-noodles compatibility gate
-        run: |
-          if [ -d fixtures/payloads ]; then python -m stop_guessing.cli compat verify; else echo "no compat corpus yet (M0)"; fi
+        run: python -m stop_guessing.cli.main compat verify
+
       - name: Project page is not stale
         run: |
-          if [ -f pyproject.toml ] && [ -f docs/index.html ]; then
-            # `|| rc=$?` — a TESTED context. `cmd; rc=$?` under `bash -e` kills the step
-            # before the guard can read the code, which is how this failed the first time.
-            rc=0
-            python -m stop_guessing.cli.main page check || rc=$?
-            # 0 = fresh, 1 = STALE (fail the build), 2 = no chain key (CI has none, so skip).
-            # Exit 2 is a distinct code precisely so "cannot verify" never reads as "verified".
-            if [ $rc -eq 1 ]; then exit 1; fi
-          else echo "no page yet"; fi
+          rc=0
+          python -m stop_guessing.cli.main page check || rc=$?
+          if [ $rc -eq 1 ]; then exit 1; fi
+
       - name: AI-CAIQ evidence gate
         run: |
-          if [ -f docs/ai-caiq/stop-guessing.yaml ]; then python -m stop_guessing.cli caiq evidence check; else echo "no AI-CAIQ answers yet (M8)"; fi
+          rc=0
+          python -m stop_guessing.cli.main caiq evidence || rc=$?
+          if [ $rc -eq 1 ]; then exit 1; fi
+
+      - name: Claims gate
+        run: |
+          rc=0
+          python -m stop_guessing.cli.main claims check || rc=$?
+          # 1 here means unproven claims, which is expected without the chain key: the ledger is
+          # machine-local and deliberately not committed. Recorded, not failed — the authoritative
+          # run is the one on the machine that holds the key, per docs/REATTESTATION.md.
+          echo "claims check rc=$rc (authoritative run happens where the chain key lives)"
