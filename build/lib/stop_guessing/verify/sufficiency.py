@@ -78,7 +78,15 @@ def assess_record(predicate: dict) -> dict[str, RegimeResult]:
 
 def assess(records: list[dict]) -> dict:
     """Assess a ledger. Every question defaults to `incomplete`, and stays there until earned."""
-    predicates = [r.get("predicate", r) for r in records]
+    # A record may be a bare predicate, a full in-toto Statement, or a ledger entry carrying a
+    # Statement under "statement". Accept all three rather than silently assessing the wrapper and
+    # reporting every regime as missing.
+    predicates = []
+    for r in records:
+        if "statement" in r and isinstance(r["statement"], dict):
+            predicates.append(r["statement"].get("predicate", r["statement"]))
+        else:
+            predicates.append(r.get("predicate", r))
     if not predicates:
         return {
             "records": 0,

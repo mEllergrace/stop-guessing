@@ -147,12 +147,13 @@ def build_parser() -> argparse.ArgumentParser:
 
     csub.add_parser("corpus", help="list the corpus").set_defaults(fn=_cmd_corpus_list)
 
-    from stop_guessing.cli import cmd_caiq, cmd_ledger, cmd_page, cmd_prove
+    from stop_guessing.cli import cmd_caiq, cmd_ledger, cmd_ops, cmd_page, cmd_prove
 
     cmd_ledger.register(sub)
     cmd_prove.register(sub)
     cmd_caiq.register(sub)
     cmd_page.register(sub)
+    cmd_ops.register(sub)
 
     return p
 

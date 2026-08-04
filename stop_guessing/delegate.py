@@ -14,8 +14,14 @@ Three refusals, in order, and each exists because of a specific way the sequence
    green test on a since-edited script is evidence about a file that no longer exists. Digests
    are taken at test time and re-checked at run time.
 
-The executed script gets `network=deny` and an env allowlist, so a delegated handler cannot become
-the egress it was meant to avoid.
+The executed script gets an env allowlist and proxy variables pointing nowhere.
+
+**That is not a sandbox, and this module no longer implies it is (#19).** A script can open a raw
+socket, unset the proxy variables, exec another binary, or use a library that ignores proxies. The
+allowlist does stop a handler inheriting credentials from the parent environment, which is worth
+having on its own merits. A real boundary needs an OS sandbox or a separate uid, and neither
+exists yet, so the record says `kind: env-allowlist-only` and carries the caveat rather than
+letting a reader infer more.
 """
 
 from __future__ import annotations
@@ -169,8 +175,14 @@ def run(deleg: Delegation, artifacts: list[str], *, timeout: int = 120) -> dict:
         "output_digest": bytes_digest(output.encode()),
         "argv_digest": bytes_digest(" ".join(artifacts).encode()),
         "stderr_tail": res.stderr.decode("utf-8", "replace").strip()[-300:],
-        "sandbox": {"network": "deny", "env_allowlist": list(ENV_ALLOWLIST),
-                    "cwd": str(deleg.script.parent)},
+        "sandbox": {
+            # Honest naming (#19): an environment restriction, not a capability boundary.
+            "kind": "env-allowlist-only",
+            "network": "proxy-variables-only, NOT enforced",
+            "env_allowlist": list(ENV_ALLOWLIST),
+            "cwd": str(deleg.script.parent),
+            "caveat": "a script can open raw sockets or exec another binary; this is not a sandbox",
+        },
     }
 
 

@@ -144,7 +144,10 @@ def rebuild(records: list[dict], session_id: str) -> SessionCustodyState:
     """
     state = SessionCustodyState(session_id)
     for r in records:
-        pred = r.get("predicate", r)
+        if "statement" in r and isinstance(r["statement"], dict):
+            pred = r["statement"].get("predicate", r["statement"])
+        else:
+            pred = r.get("predicate", r)
         # Accept BOTH record shapes. The full §7 predicate nests session_id under `lifecycle` and
         # op under `action`; the hook writes them flat. This mismatch silently made every rebuild
         # return an EMPTY state, so the ledger-authoritative path reset taint on every call — a
@@ -156,8 +159,9 @@ def rebuild(records: list[dict], session_id: str) -> SessionCustodyState:
         if sid != session_id:
             continue
         op = _dig(pred, "action", "op") or pred.get("op") or r.get("op")
-        used = (_dig(pred, "resources", "used") or [])
-        generated = (_dig(pred, "resources", "generated") or [])
+        used = (_dig(pred, "resources", "used") or r.get("resources", {}).get("used") or [])
+        generated = (_dig(pred, "resources", "generated")
+                     or r.get("resources", {}).get("generated") or [])
         derived = (_dig(pred, "resources", "derived_from") or [])
 
         if op == "artifact.derive" and generated:

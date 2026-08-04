@@ -715,8 +715,8 @@ def prove_delegation_requires_a_passing_test() -> ProofResult:
         out = run(deleg, ["/tmp/a.csv", "/tmp/b.csv"])
         if out["exit_code"] != 0 or "2 artifact" not in out["output"]:
             return r.fail(f"the delegated run did not produce output: {out}")
-        r.observe(f"delegated run -> {out['output'].strip()!r} "
-                  f"(network={out['sandbox']['network']})")
+        r.observe(f"delegated run -> {out['output'].strip()!r}")
+        r.observe(f"  sandbox kind: {out['sandbox']['kind']} — {out['sandbox']['caveat']}")
 
         deleg.script.write_text(
             deleg.script.read_text() + "\n# edited after the test passed\n", encoding="utf-8")
@@ -947,6 +947,8 @@ def prove_bar_requires_signed_scripts() -> ProofResult:
         r.observe(f"signed + tested script under bar -> ALLOW via {d2.determining_policy}")
 
         out = run(deleg, ["/x/roster.csv"])
+        if out["sandbox"]["kind"] != "env-allowlist-only":
+            return r.fail("the record overstates the isolation the delegated run actually had")
         full = emit_for_model(out["output"], "full")
         handle = emit_for_model(out["output"], "handle", artifact_id="art_roster")
         summary = emit_for_model(out["output"], "summary")

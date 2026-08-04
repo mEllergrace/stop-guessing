@@ -258,11 +258,60 @@ def attest_self(
     filled = sorted(p.name for p in cdir.glob("AI-CAIQ-*.xlsx")) if cdir.is_dir() else []
     answers = cdir / "stop-guessing.yaml"
 
+    # #21: file existence WAS the entire CAIQ leg of the verdict. It did not check that the
+    # workbook is the one the proof was recorded against, that the answers declare themselves
+    # derived, or that their evidence still resolves. "A file named AI-CAIQ-*.xlsx exists" is not
+    # evidence, and a hand-edited workbook kept reporting GOAL MET.
+    caiq_findings = []
+    workbook_bound = False
+    if filled and answers.is_file():
+        from stop_guessing.artifacts.digest import file_digest
+
+        proof = None
+        for e in load(ledger, key).entries:
+            if e.get("op") == "proof.run" and e.get("claim") == "CLAIM-21" and e.get("passed"):
+                proof = e
+        if proof is None:
+            caiq_findings.append("no passing CLAIM-21 proof, so no workbook digest is bound")
+        else:
+            pinned = (proof.get("evidence") or {}).get("workbook_digest")
+            actual = file_digest(cdir / filled[-1])
+            if not pinned:
+                caiq_findings.append("the CLAIM-21 proof pinned no workbook digest")
+            elif pinned != actual:
+                caiq_findings.append(
+                    "the workbook changed since it was proven (proof pinned "
+                    + pinned[:16] + ", on disk " + str(actual)[:16]
+                    + ") - edited outside the pipeline, or re-derived without re-proving"
+                )
+            else:
+                workbook_bound = True
+        try:
+            import yaml as _yaml
+
+            adoc = _yaml.safe_load(answers.read_text(encoding="utf-8"))
+            note = (adoc.get("meta") or {}).get("note") or ""
+            if "DERIVED from proofs" not in note:
+                caiq_findings.append("the answers file does not declare itself derived")
+            live = {r for row in result["rows"] for r in row["live"]}
+            stale = [ev.get("ref") for a in (adoc.get("answers") or [])
+                     for ev in (a.get("evidence") or []) if ev.get("ref") not in live]
+            if stale:
+                caiq_findings.append(
+                    str(len(stale)) + " evidence ref(s) no longer resolve to a live proof, e.g. "
+                    + str(stale[0])
+                )
+        except Exception as exc:  # noqa: BLE001
+            caiq_findings.append("the answers file could not be read: " + str(exc))
+
     result["aicm_controls_evidenced"] = dict(sorted(controls.items()))
     result["caiq"] = {
         "answers_present": answers.is_file(),
         "filled_workbooks": filled,
-        "filled_from_proofs": bool(filled) and answers.is_file(),
+        "workbook_digest_bound": workbook_bound,
+        "findings": caiq_findings,
+        "filled_from_proofs": (bool(filled) and answers.is_file() and workbook_bound
+                               and not caiq_findings),
     }
     result["goal_met"] = bool(
         result["ok"] and result["chain_keyed"] and result["caiq"]["filled_from_proofs"]

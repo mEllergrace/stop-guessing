@@ -103,6 +103,9 @@ def cmd_attest(args) -> int:
     caiq = result["caiq"]
     print(f"AI-CAIQ answers    : {'present' if caiq['answers_present'] else 'ABSENT'}")
     print(f"AI-CAIQ workbooks  : {caiq['filled_workbooks'] or 'NONE'}")
+    print(f"workbook bound     : {caiq.get('workbook_digest_bound')}")
+    for f in caiq.get("findings") or []:
+        print(f"  CAIQ FINDING     : {f}")
     print()
     if result["goal_met"]:
         print("GOAL MET.")

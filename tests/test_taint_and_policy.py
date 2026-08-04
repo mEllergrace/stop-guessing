@@ -330,14 +330,26 @@ def test_run_refuses_after_a_failing_test(tmp_path):
         run(d, [])
 
 
-def test_implemented_script_runs_and_is_sandboxed(tmp_path):
+def test_implemented_script_runs_under_an_env_allowlist_not_a_sandbox(tmp_path):
+    """Renamed and re-asserted for #19.
+
+    The old name said "is_sandboxed" and the old assertion checked `network == "deny"`. Neither
+    was true: proxy variables and an env allowlist are not a capability boundary, and a test
+    asserting the comfortable string is how the overclaim survived. It now asserts the honest
+    record, including the caveat, so the test fails if the record ever overstates the isolation
+    again.
+    """
     d = scaffold(tmp_path, "thing", "x")
     d.script.write_text("import sys\n\n\ndef handle(p):\n    return f'{len(p)} in'\n\n\n"
                         "if __name__ == '__main__':\n    print(handle(sys.argv[1:]))\n")
     assert run_test(d)["passed"]
     out = run(d, ["/a", "/b"])
     assert "2 in" in out["output"]
-    assert out["sandbox"]["network"] == "deny"
+    sb = out["sandbox"]
+    assert sb["kind"] == "env-allowlist-only"
+    assert "NOT enforced" in sb["network"]
+    assert "not a sandbox" in sb["caveat"]
+    assert "PATH" in sb["env_allowlist"]
 
 
 def test_run_refuses_a_script_edited_after_its_test_passed(tmp_path):

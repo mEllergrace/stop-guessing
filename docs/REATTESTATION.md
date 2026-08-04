@@ -71,8 +71,11 @@ stop-guessing claims check               # must be N/N
 # 4. Re-derive the answers FROM the new proofs.
 stop-guessing caiq derive
 
-# 5. Fill the workbook. This is LAST, and it is a rendering, not an input.
-stop-guessing caiq fill
+# 5. Prove CLAIM-21 LAST. Its procedure does the fill and pins the workbook digest into the
+#    proof record, which is what binds them. Do NOT run `caiq fill` after this: the fill would
+#    produce a new digest that no proof pinned, and `attest --self` correctly refuses that as
+#    "edited outside the pipeline". Found the hard way — see the note below.
+stop-guessing prove --claim CLAIM-21
 
 # 6. Re-resolve every evidence ref against the ledger.
 stop-guessing caiq evidence
@@ -80,6 +83,19 @@ stop-guessing caiq evidence
 # 7. The single command that answers the goal.
 stop-guessing attest --self              # must exit 0 and print GOAL MET
 ```
+
+**Ordering is load-bearing, not stylistic.** `caiq fill` and `prove --claim CLAIM-21` both write
+the workbook, and only the proof records its digest. Running `fill` afterwards leaves a workbook
+that no proof vouches for, and the attestation says so:
+
+```
+workbook bound     : False
+  CAIQ FINDING     : the workbook changed since it was proven (proof pinned 8715893b…,
+                     on disk e544fdf8…) - edited outside the pipeline, or re-derived
+                     without re-proving
+```
+
+That is the gate working. The fix is to re-prove, never to re-fill.
 
 Steps 4–6 exist as separate commands so each can be read, but they are one act: **the workbook is
 regenerated from scratch every time.** There is no incremental update path, on purpose. An

@@ -6,6 +6,7 @@ the judgement is the part that must be testable without spawning a session.
 
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 
@@ -140,39 +141,115 @@ def decide(payload: dict, posture: str = "steer") -> dict | None:
 
 
 def _record_decision(payload, tool, d, artifact, ident, state, call, posture, cache_agreed):
-    """Append the custody record for this decision. Returns its ref, or None if unrecordable."""
+    """Append the custody record for this decision, in the §7 predicate shape.
+
+    The gate previously wrote a flat ad-hoc dict and never used `ledger.entry.CustodyRecord` — so
+    the deployed path produced records that failed the project's OWN sufficiency measure: 0 of 4
+    governance questions answerable, because none of the eight evidence regimes was populated.
+    Another instance of #13: the builder existed and the deployed path did not use it.
+    """
+    from stop_guessing.ledger.entry import CustodyRecord, RecordInvalid
     from stop_guessing.ledger.sink import record
 
     op = _op_for(tool, call)
     used = []
+    subjects = []
     if ident is not None:
         used.append({"artifact_id": ident.artifact_id, "path": ident.canonical_path,
                      "digest": ident.content_digest, "labels": artifact.get("labels") or [],
                      "role": "input"})
+        subjects.append({
+            "name": f"file://{ident.canonical_path}",
+            "uri": f"file://{ident.canonical_path}",
+            "digest": {"sha256": ident.content_digest or ""},
+            "annotations": {
+                "csa.coc/artifact_id": ident.artifact_id,
+                "csa.coc/classification": artifact.get("labels") or [],
+                "csa.coc/digest_scope": "absent" if ident.content_digest is None else "full",
+            },
+        })
+
     gaps = [] if cache_agreed else ["state cache disagreed with the ledger; ledger won"]
+    if ident is not None and ident.content_digest is None:
+        gaps.append("artifact content was not digested at decision time (PreToolUse budget)")
+    session_id = str(payload.get("session_id") or "unknown")
+    prompt_id = payload.get("prompt_id")
+
     try:
-        entry = record(ledger_path(), {
-            "op": op,
-            "actor": "stop-guessing/hook_gate",
-            "at": _now(),
-            "severity": "warn" if d.outcome == "deny" else "info",
-            "session_id": payload.get("session_id"),
-            "prompt_id": payload.get("prompt_id"),
-            "runtime_action_id": payload.get("tool_use_id"),
-            "tool": {"name": tool, "source": payload.get("tool_source")},
-            "posture": posture,
-            "outcome": d.outcome,
-            "determining_policy": d.determining_policy,
-            "policy_set_digest": policies().digest,
-            "resources": {"used": used},
-            "basis": {"taint": sorted(state.labels), "taint_depth": state.depth,
-                      "custody_digest": state.digest, "cache_agreed": cache_agreed},
-            "known_gaps": gaps,
-            "alterations": [],
-        }, chain_key())
+        stmt = CustodyRecord(
+            op=op,
+            agent_id=f"spiffe://local/claude-code/session/{session_id}/agent/main",
+            runtime_action_id=str(payload.get("tool_use_id") or f"{op}:{_now()}"),
+            operator={"identity": f"{os.environ.get('USER', 'unknown')}@{_host()}",
+                      "uid": os.getuid(), "host": _host()},
+            session_id=session_id,
+            posture=posture,
+            outcome=d.outcome,
+            channel="hookSpecificOutput.permissionDecision",
+            at=_now(),
+            recorded_at=_now(),
+            record_id=f"sg:{session_id}:{payload.get('tool_use_id') or op}",
+            method_kind=("denied" if d.outcome == "deny" else
+                         "delegated-script" if call.get("delegated_script") else "direct-model"),
+            input_digest=_input_digest(payload),
+            policy_set_digest=policies().digest,
+            determining_policy=d.determining_policy,
+            known_gaps=gaps,
+            extra={
+                "actor": {"acted_on_behalf_of": {
+                    "prov_type": "prov:Person",
+                    "human_id": f"local:{os.environ.get('USER', 'unknown')}",
+                    "authority": "prompt", "prompt_id": prompt_id,
+                    "delegation_depth": 0}},
+                "authority": {"capability": {
+                    "grant_id": f"cap:{posture}", "granted_by": d.determining_policy,
+                    "scope": [op]}},
+                "action": {"tool": {"name": tool, "source": payload.get("tool_source")},
+                           "gen_ai": {"operation_name": "execute_tool", "tool_name": tool,
+                                      "tool_call_id": payload.get("tool_use_id")}},
+                "decision": {"reason": d.reason, "basis": {
+                    "taint_labels": sorted(state.labels), "taint_depth": state.depth,
+                    "taint_sources": sorted(state.sources),
+                    "session_custody_digest": state.digest,
+                    "cache_agreed": cache_agreed,
+                    "counterfactual": d.counterfactual}},
+                "resources": {"used": used},
+                "lifecycle": {"prompt_id": prompt_id, "cwd": payload.get("cwd"),
+                              "transcript_path": payload.get("transcript_path")},
+                "verification": {"chain": {"algo": "hmac-sha256" if chain_key() else "sha256"},
+                                 "recorder": {"writer": "hook_gate", "isolation_tier": 0}},
+            },
+        ).build(subjects=subjects)
+    except RecordInvalid:
+        return None
+
+    try:
+        entry = record(ledger_path(), {"op": op, "at": _now(),
+                                       "actor": "stop-guessing/hook_gate",
+                                       "severity": "warn" if d.outcome == "deny" else "info",
+                                       "statement": stmt,
+                                       # Flat mirrors, so a reader does not have to walk the
+                                       # predicate to answer the common questions.
+                                       "session_id": session_id,
+                                       "outcome": d.outcome,
+                                       "resources": {"used": used}}, chain_key())
         return f"sg:{entry['seq']}:{entry['hash'][:16]}"
     except Exception:  # noqa: BLE001 - a refusal to write is reported by the caller's gap record
         return None
+
+
+def _host() -> str:
+    import socket
+    try:
+        return socket.gethostname()
+    except OSError:
+        return "unknown"
+
+
+def _input_digest(payload: dict) -> str:
+    from stop_guessing.artifacts.digest import bytes_digest
+    return "sha256:" + bytes_digest(
+        json.dumps(payload.get("tool_input") or {}, sort_keys=True, default=str).encode())
 
 
 def _op_for(tool: str, call: dict) -> str:
