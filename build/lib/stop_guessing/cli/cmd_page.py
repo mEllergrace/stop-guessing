@@ -151,6 +151,22 @@ def build(attest: dict, claims: dict, caiq: dict | None) -> str:
 
     proposed_names = ", ".join(a["control"] for a in proposed)
 
+    j = attest.get("judge") or {}
+    if j:
+        rows = "\n".join(
+            f'<tr><td class="mono">{_esc(lens)}</td><td class="mono">{n}</td></tr>'
+            for lens, n in (j.get("by_lens") or {}).items())
+        judge_block = (
+            '<div class="tablewrap"><table>'
+            '<thead><tr><th class="mono">lens</th>'
+            '<th class="mono">deferred disapprovals</th></tr></thead>'
+            f"<tbody>{rows}</tbody></table></div>"
+            f"<p>{j['claims_judged']} claims, {j['verdicts']} verdicts, "
+            f"<strong>{j['deferred_disapprovals']} deferred disapproval(s)</strong>.</p>"
+        )
+    else:
+        judge_block = "<p>No judge panel has run.</p>"
+
     return f"""<!doctype html>
 <html lang="en">
 <head>
@@ -319,6 +335,19 @@ The distinction it drew is the one that matters here:</p>
     <td>That signing is publicly verifiable — it is HMAC, so a verifier needs the signing key</td></tr>
 </tbody></table></div>
 
+<h2>What the judge panel says</h2>
+
+<p>A panel of mechanical lenses reviews each proof procedure for <em>adequacy</em> — whether the
+test inside it is strong, not merely whether it ran. Disapproval is <strong>deferred</strong>: it is
+recorded in the ledger and shown here, and it does not flip the verdict. A heuristic is qualified to
+make a human look, not to void a proof.</p>
+
+{judge_block}
+
+<p class="caption">The <code>independence</code> lens dissents on every claim and always will. The
+claim, the procedure and the panel share one author, so no independent party has verified any of
+this. That is the gap, stated rather than averaged away.</p>
+
 <h2>Claims</h2>
 <div class="tablewrap"><table>
 <thead><tr><th class="mono">id</th><th class="mono">kind</th><th>claim</th><th class="mono">proofs</th></tr></thead>
@@ -432,6 +461,7 @@ def readme_status(attest: dict, claims: dict, caiq: dict | None) -> str:
 | AICM controls evidenced | {len(controls)} |
 | Chain | intact, {"keyed-verified" if attest["chain_keyed"] else "NOT keyed-verified"} |
 | Carried AI-CAIQ | {len(published)} published controls answered ({yes} Yes, {no} No), derived from those proofs |
+| Judge panel | {(attest.get("judge") or {}).get("deferred_disapprovals", "?")} deferred disapprovals, recorded not blocking — including `independence` on every claim |
 
 A **proof** is a record in this toolchain's own ledger, produced by a procedure that exercises the
 real surface — not a passing test. `proofs:` in [`docs/claims.yaml`](docs/claims.yaml) is written

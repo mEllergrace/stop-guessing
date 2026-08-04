@@ -3,6 +3,42 @@
 All notable changes to STOP-GUESSING. Format follows [Keep a Changelog](https://keepachangelog.com/);
 this project uses semantic versioning and bumps `VERSION` on every code-changing push.
 
+## [0.3.0] — 2026-08-03
+
+Acted on an independent review (18 findings, all accurate) plus two rounds of
+adversarial self-testing that found three more.
+
+### Added
+- **Execution witness** — proof procedures run instrumented; the package modules they enter are
+  recorded and claims declare `must_touch`. Closes the worst defect found: all 21 procedures could
+  be replaced with `lambda: ProofResult(True)` and every claim still reported PROVEN.
+- **Judge panel** (#29) — mechanical lenses over each procedure's *adequacy*, in rockin-robin's
+  shape: **disapproval is deferred**, recorded and surfaced, never blocking. The `independence`
+  lens dissents on all 21 and always will.
+- **PostToolUse capture** — execution, success, generated artifacts and derivation edges.
+- Seal MACs, ledger write locks, stable artifact identity, ledger-authoritative state, posture
+  resolution, gap recording on gate failure, and the `verify / doctor / state / delegate / run /
+  trust / policy` CLI surface.
+- Fuzz suite (28 hostile payloads x 2 hooks) and a mutation-test suite (43 cases).
+
+### Fixed
+- The installed plugin wrote no custody record and registered no PostToolUse hook.
+- Enforcement trusted a deletable cache; artifact ids came from per-process `hash()`; seals were
+  unauthenticated; a keyed ledger accepted unkeyed appends; posture was hard-coded; a crashed gate
+  returned success silently; `cat api_keys.txt` produced no artifact at all; the plugin assumed the
+  package was importable; `install.sh` lacked `set -e`; the template path was machine-specific.
+- The deployed path's own records scored 0/4 on the project's sufficiency measure because the gate
+  never used `CustodyRecord`. Now 4/4, all eight regimes populated.
+- `GOAL MET` accepted file existence as CAIQ evidence; it now binds the workbook digest.
+- The Cedar export rendered inexpressible conditions as `true`, making unrepresentable rules
+  universal. Now `false` — inert.
+- Stopped calling proxy variables a sandbox.
+
+### Notes
+- Ordering is load-bearing: `prove --claim CLAIM-21` must be last, because it fills the workbook
+  and pins its digest. Running `caiq fill` after it leaves a workbook no proof vouches for.
+- 47 deferred disapprovals stand, including `control-present` on 19 claims (#33).
+
 ## [0.2.0] — 2026-08-03
 
 Implemented. `stop-guessing attest --self` exits 0: 21/21 claims proven by records in the

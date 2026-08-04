@@ -119,6 +119,7 @@ def run_one(
             "procedure": proc.fn.__name__,
             "procedure_digest": proc.source_digest(),
             "witness": wit.to_dict(),
+            "judge": _judge_panel(claim_id, proc, wit, result).to_dict(),
             "summary": proc.summary,
             "passed": result.passed,
             "observations": result.observations,
@@ -142,6 +143,18 @@ def run_one(
         save_claims(doc)
 
     return RunOutcome(claim_id, result.passed, ref, result.observations, result.detail)
+
+
+def _judge_panel(claim_id: str, proc, wit, result):
+    """Judge the procedure's adequacy. Disapproval is DEFERRED, never blocking (#29).
+
+    A mechanical lens is qualified to make a human look, not to void a proof. Blocking on a
+    heuristic would either be ignored or would train people to weaken the heuristic.
+    """
+    from stop_guessing.prove import judge as _judge
+
+    return _judge.judge(claim_id, proc.fn, proc.kind,
+                        {"witness": wit.to_dict(), "evidence": result.evidence})
 
 
 def _witness_mode(claim_id: str) -> str:
@@ -313,6 +326,21 @@ def attest_self(
         "filled_from_proofs": (bool(filled) and answers.is_file() and workbook_bound
                                and not caiq_findings),
     }
+    from stop_guessing.prove.judge import Panel, Verdict
+
+    panels = []
+    for e in load(ledger, key).entries:
+        if e.get("op") == "proof.run" and e.get("passed") and e.get("judge"):
+            j = e["judge"]
+            panels.append(Panel(j["claim"], [Verdict(**v) for v in j["verdicts"]]))
+    latest = {}
+    for pn in panels:
+        latest[pn.claim_id] = pn
+    from stop_guessing.prove.judge import summarise as _sum
+
+    result["judge"] = _sum(list(latest.values()))
+
+    # Deliberately NOT part of goal_met. Deferred means recorded and surfaced, not blocking.
     result["goal_met"] = bool(
         result["ok"] and result["chain_keyed"] and result["caiq"]["filled_from_proofs"]
     )

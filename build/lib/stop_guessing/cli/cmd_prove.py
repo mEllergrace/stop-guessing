@@ -106,6 +106,13 @@ def cmd_attest(args) -> int:
     print(f"workbook bound     : {caiq.get('workbook_digest_bound')}")
     for f in caiq.get("findings") or []:
         print(f"  CAIQ FINDING     : {f}")
+    j = result.get("judge") or {}
+    if j:
+        print(f"\njudge panel        : {j['claims_judged']} claims, {j['verdicts']} verdicts, "
+              f"{j['deferred_disapprovals']} deferred disapproval(s)")
+        for lens, n in (j.get("by_lens") or {}).items():
+            print(f"    {lens:<24} {n} claim(s)")
+        print(f"    {j['disclosure']}")
     print()
     if result["goal_met"]:
         print("GOAL MET.")

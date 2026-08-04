@@ -1,15 +1,16 @@
 # STOP-GUESSING
 
 <!-- BEGIN GENERATED STATUS -->
-**Version 0.2.0 — `stop-guessing attest --self` reports GOAL MET.**
+**Version 0.3.0 — `stop-guessing attest --self` reports GOAL MET.**
 
 | | |
 |---|---|
-| Claims proven | **21/21**, by 268 records in its own keyed ledger |
+| Claims proven | **21/21**, by 313 records in its own keyed ledger |
 | Proof kinds | 3 adversarial, 8 live-run, 7 negative, 3 property — negative and adversarial are not optional |
 | AICM controls evidenced | 14 |
 | Chain | intact, keyed-verified |
 | Carried AI-CAIQ | 11 published controls answered (9 Yes, 2 No), derived from those proofs |
+| Judge panel | 47 deferred disapprovals, recorded not blocking — including `independence` on every claim |
 
 A **proof** is a record in this toolchain's own ledger, produced by a procedure that exercises the
 real surface — not a passing test. `proofs:` in [`docs/claims.yaml`](docs/claims.yaml) is written
