@@ -828,7 +828,84 @@ def prove_recorder_isolation() -> ProofResult:
             return r.fail(f"self-check did not recover after restoration: {clean.findings}")
         r.observe(f"restored -> passes again; isolation_tier reported as {clean.isolation_tier} "
                   "(fallback, recorded, never silent)")
-        r.evidence = {"attacks_caught": 5, "postures_denying_ledger_write": 3}
+
+    # ── the recorder boundary, driven live ──────────────────────────────────
+    # Until the daemon existed this claim rested on checks alone: the "recorder" was library code
+    # in the agent's own process with the key in its own environment, so tier > 0 was aspirational.
+    import threading
+
+    from stop_guessing.ledger.chain import ChainKey, verify
+    from stop_guessing.ledger.sink import load
+    from stop_guessing.recorder import client, daemon
+
+    dkey = ChainKey("proof-daemon", b"a-key-the-hook-never-sees-32b!!!")
+    with tempfile.TemporaryDirectory(prefix="sg-proof-") as td:
+        cfg = Path(td) / "claude"
+        tier0, why0 = client.isolation_tier(cfg)
+        if tier0 != 0:
+            return r.fail(f"no daemon should mean tier 0, got {tier0}")
+        r.observe(f"no daemon -> tier 0 ({why0})")
+
+        ready = threading.Event()
+        server = daemon.serve(cfg, key=dkey, ready=ready)
+        th = threading.Thread(target=server.serve_forever, daemon=True)
+        th.start()
+        ready.wait(5)
+        try:
+            info = client.daemon_info(cfg)
+            if not info or not info.get("keyed"):
+                return r.fail("the daemon did not come up keyed")
+            tier, why = client.isolation_tier(cfg)
+            r.observe(f"daemon up -> tier {tier} ({why}), pid {info['pid']}")
+
+            # The caller holds NO key and still gets a keyed record.
+            out = client.append(cfg, {"op": "artifact.read", "at": "t", "actor": "hook"},
+                                fallback_key=None)
+            if out.ref is None or out.via != "daemon":
+                return r.fail(f"the daemon did not record: {out.to_dict()}")
+            entries = load(daemon.ledger_path(cfg), dkey).entries
+            if entries[0]["hash_alg"] != "hmac-sha256":
+                return r.fail("the record is not keyed")
+            if not verify(entries, dkey).intact:
+                return r.fail("the record does not verify under the daemon's key")
+            r.observe("a caller holding NO key produced a keyed record that verifies under the "
+                      "daemon's key — key separation, not policy")
+
+            # A caller cannot choose its own place in history.
+            client.append(cfg, {"op": "artifact.read", "at": "t", "actor": "hook",
+                                "seq": 999, "prev_hash": "0" * 64, "hash": "f" * 64,
+                                "hash_alg": "sha256", "keyid": "mine"})
+            entries = load(daemon.ledger_path(cfg), dkey).entries
+            if [e["seq"] for e in entries] != [0, 1] or entries[1]["hash_alg"] != "hmac-sha256":
+                return r.fail("a caller chose its own sequence or algorithm")
+            r.observe("a caller supplying its own seq/prev_hash/hash was overridden by the "
+                      "recorder — it cannot insert itself anywhere in history")
+
+            # Integrity refusals are not laundered by the fallback.
+            led = daemon.ledger_path(cfg)
+            lines = led.read_text().splitlines()
+            d0 = json.loads(lines[0])
+            d0["detail"] = "TAMPERED"
+            lines[0] = json.dumps(d0, sort_keys=True, separators=(",", ":"))
+            led.write_text("\n".join(lines) + "\n")
+            before = len(led.read_text().splitlines())
+            out = client.append(cfg, {"op": "artifact.read", "at": "t"}, fallback_key=dkey)
+            if out.ref is not None or len(led.read_text().splitlines()) != before:
+                return r.fail("a daemon integrity refusal was laundered by the fallback")
+            r.observe("daemon refused on a tampered chain, and the fallback did NOT launder it")
+        finally:
+            server.shutdown()
+            server.server_close()
+            daemon.socket_path(cfg).unlink(missing_ok=True)
+
+        after, _ = client.isolation_tier(cfg)
+        if after != 0:
+            return r.fail("tier did not drop when the daemon stopped")
+        r.observe("daemon stopped -> tier drops back to 0; the tier is derived, never asserted")
+
+    r.evidence = {"attacks_caught": 5, "postures_denying_ledger_write": 3,
+                  "recorder_boundary_verified": True, "max_tier_observed": 1,
+                  "tier_2_note": "needs a service account; not created here, so not claimed"}
     return r
 
 

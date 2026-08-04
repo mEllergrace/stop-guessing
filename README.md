@@ -5,7 +5,7 @@
 
 | | |
 |---|---|
-| Claims proven | **21/21**, by 313 records in its own keyed ledger |
+| Claims proven | **21/21**, by 335 records in its own keyed ledger |
 | Proof kinds | 3 adversarial, 8 live-run, 7 negative, 3 property — negative and adversarial are not optional |
 | AICM controls evidenced | 14 |
 | Chain | intact, keyed-verified |

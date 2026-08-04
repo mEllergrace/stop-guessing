@@ -219,8 +219,99 @@ EOF
   fi
 
   apply_settings "$claude_dir" "install" "$DRY_RUN" "$SUPERSEDE"
-  [ "$ISOLATED" -eq 1 ] && echo "  isolation tier 2 requested (daemon under its own uid)"
+  [ "$DRY_RUN" -eq 0 ] && install_recorder "$claude_dir"
   return 0
+}
+
+# ── the recorder ─────────────────────────────────────────────────────────────
+# Without this the "recorder" is library code inside the agent's own process, under the agent's
+# own uid, with the chain key in the agent's own environment. Every isolation claim above tier 0
+# was aspirational until the daemon existed.
+#
+#   tier 1  daemon on this uid      key separation + single writer; the agent can still kill it
+#   tier 2  daemon on its own uid   the ledger is not writable by the agent at all
+#
+# Tier 2 needs a service account, which needs sudo. If that is not available the installer says
+# so and installs tier 1 rather than printing a tier it did not achieve.
+
+SERVICE_USER="_stopguessing"
+
+install_recorder() {
+  local claude_dir="$1"
+  local runtime="$claude_dir/stop-guessing/runtime"
+  local ledger_dir="$claude_dir/stop-guessing/ledger"
+  local keyfile="$claude_dir/stop-guessing/chain.key"
+  mkdir -p "$ledger_dir"
+
+  if [ ! -f "$keyfile" ]; then
+    python3 - "$keyfile" <<'PYKEY'
+import os, secrets, sys
+p = sys.argv[1]
+fd = os.open(p, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+os.write(fd, secrets.token_bytes(32).hex().encode())
+os.close(fd)
+PYKEY
+    chmod 600 "$keyfile"
+    echo "  generated a chain key at $keyfile (mode 600)"
+  fi
+
+  local plist="$HOME/Library/LaunchAgents/com.mellergrace.stop-guessing.cocd.plist"
+  local target_uid tier
+  target_uid="$(id -u)"
+  tier=1
+
+  if [ "$ISOLATED" -eq 1 ]; then
+    if id "$SERVICE_USER" >/dev/null 2>&1; then
+      target_uid="$(id -u "$SERVICE_USER")"
+      tier=2
+      echo "  service account $SERVICE_USER exists (uid $target_uid) — installing tier 2"
+    else
+      cat <<EOF
+  --isolated requested but the service account does not exist, so tier 2 is NOT installed.
+  Create it, then re-run with --isolated:
+
+    sudo dscl . -create /Users/$SERVICE_USER UserShell /usr/bin/false
+    sudo dscl . -create /Users/$SERVICE_USER UniqueID 499
+    sudo dscl . -create /Users/$SERVICE_USER PrimaryGroupID 499
+    sudo dscl . -create /Users/$SERVICE_USER NFSHomeDirectory /var/empty
+    sudo dseditgroup -o create -r "STOP-GUESSING recorder" -i 499 $SERVICE_USER
+
+  Installing tier 1 instead: the recorder is a separate process with the key out of the
+  agent's environment, but on the agent's own uid, so the agent can still stop it.
+EOF
+    fi
+  fi
+
+  if [ "$tier" -eq 2 ]; then
+    # The asymmetry that IS the boundary: the agent may ask the recorder to record, and may not
+    # write the record. Socket is group-reachable; the ledger directory is not agent-writable.
+    sudo chown -R "$SERVICE_USER" "$ledger_dir" 2>/dev/null || true
+    sudo chmod 750 "$ledger_dir" 2>/dev/null || true
+    sudo chown "$SERVICE_USER" "$keyfile" 2>/dev/null || true
+  fi
+
+  mkdir -p "$(dirname "$plist")"
+  cat > "$plist" <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>Label</key><string>com.mellergrace.stop-guessing.cocd</string>
+  <key>ProgramArguments</key><array>
+    <string>/usr/bin/env</string>
+    <string>PYTHONPATH=$runtime</string>
+    <string>python3</string><string>-m</string><string>stop_guessing.recorder.daemon</string>
+    <string>--config-dir</string><string>$claude_dir</string>
+    <string>--keyfile</string><string>$keyfile</string>
+  </array>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>StandardErrorPath</key><string>$claude_dir/stop-guessing/cocd.log</string>
+</dict></plist>
+EOF
+  echo "  wrote $plist"
+  echo "  start it with:  launchctl bootstrap gui/\$(id -u) $plist"
+  echo "  recorder tier when running: $tier"
 }
 
 uninstall_profile() {
@@ -229,6 +320,9 @@ uninstall_profile() {
   apply_settings "$claude_dir" "uninstall" "$DRY_RUN" 0
   if [ "$DRY_RUN" -eq 0 ]; then
     rm -f "$claude_dir/hooks/coc_gate.sh" "$claude_dir/hooks/coc_post.sh"
+    rm -f "$HOME/Library/LaunchAgents/com.mellergrace.stop-guessing.cocd.plist"
+    # The chain key is NOT removed with --uninstall: without it the accumulated ledger becomes
+    # unverifiable, and destroying the ability to check evidence is not an uninstall.
     rm -rf "$claude_dir/stop-guessing/runtime"
     rm -f "$claude_dir/commands/custody.md" "$claude_dir/commands/custody-options.md"
     rm -f "$claude_dir/skills/custody.md" "$claude_dir/skills/custody-options.md"

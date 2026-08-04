@@ -54,7 +54,15 @@ def state_for(session_id: str) -> tuple[SessionCustodyState, bool]:
     the caller records rather than swallowing.
     """
     from stop_guessing.ledger.sink import load as load_ledger
+    from stop_guessing.recorder import client
     from stop_guessing.taint import persist
+
+    cfg = Path(os.environ.get("CLAUDE_CONFIG_DIR") or os.path.expanduser("~/.claude"))
+    # Prefer the recorder's own derivation: the party that owns the history derives the state.
+    remote = client.custody_state(cfg, session_id)
+    if remote is not None:
+        cached = persist.load(session_id)
+        return _state_from(remote, session_id), cached.digest == remote["digest"]
 
     try:
         records = load_ledger(ledger_path(), chain_key()).entries
@@ -63,6 +71,16 @@ def state_for(session_id: str) -> tuple[SessionCustodyState, bool]:
     if not records:
         return persist.load(session_id), True
     return persist.reconcile_with_ledger(session_id, records)
+
+
+def _state_from(remote: dict, session_id: str) -> SessionCustodyState:
+    st = SessionCustodyState(session_id, labels=frozenset(remote["labels"]),
+                             touched=remote.get("touched", 0),
+                             since_last_egress=remote.get("since_last_egress", 0))
+    for aid, d in (remote.get("sources") or {}).items():
+        st.sources[aid] = ArtifactRef(aid, d.get("path", ""), d.get("digest"),
+                                      frozenset(d.get("labels") or {"public"}))
+    return st
 
 
 def decide(payload: dict, posture: str = "steer") -> dict | None:
@@ -149,7 +167,6 @@ def _record_decision(payload, tool, d, artifact, ident, state, call, posture, ca
     Another instance of #13: the builder existed and the deployed path did not use it.
     """
     from stop_guessing.ledger.entry import CustodyRecord, RecordInvalid
-    from stop_guessing.ledger.sink import record
 
     op = _op_for(tool, call)
     used = []
@@ -216,26 +233,55 @@ def _record_decision(payload, tool, d, artifact, ident, state, call, posture, ca
                 "resources": {"used": used},
                 "lifecycle": {"prompt_id": prompt_id, "cwd": payload.get("cwd"),
                               "transcript_path": payload.get("transcript_path")},
-                "verification": {"chain": {"algo": "hmac-sha256" if chain_key() else "sha256"},
+                # The algo is asked, not guessed. With a daemon the hook holds no key, so
+                # `chain_key()` is None while the record is in fact keyed — guessing here made
+                # the record UNDERSTATE its own strength, which is the same class of error as
+                # overstating it: the record stopped describing reality.
+                "verification": {"chain": {"algo": _chain_algo()},
                                  "recorder": {"writer": "hook_gate", "isolation_tier": 0}},
             },
         ).build(subjects=subjects)
     except RecordInvalid:
         return None
 
-    try:
-        entry = record(ledger_path(), {"op": op, "at": _now(),
-                                       "actor": "stop-guessing/hook_gate",
-                                       "severity": "warn" if d.outcome == "deny" else "info",
-                                       "statement": stmt,
-                                       # Flat mirrors, so a reader does not have to walk the
-                                       # predicate to answer the common questions.
-                                       "session_id": session_id,
-                                       "outcome": d.outcome,
-                                       "resources": {"used": used}}, chain_key())
-        return f"sg:{entry['seq']}:{entry['hash'][:16]}"
-    except Exception:  # noqa: BLE001 - a refusal to write is reported by the caller's gap record
-        return None
+    # Through the recorder, not straight to the file. When a daemon is running the hook holds no
+    # chain key and does not own the ledger; when it is not, the fallback records tier 0 and why.
+    from stop_guessing.recorder import client
+
+    cfg = Path(os.environ.get("CLAUDE_CONFIG_DIR") or os.path.expanduser("~/.claude"))
+    tier, _why = client.isolation_tier(cfg)
+    stmt["predicate"]["verification"]["recorder"] = {
+        "writer": "cocd" if tier > 0 else "hook_gate", "isolation_tier": tier,
+    }
+    stmt["predicate"]["verification"]["strength"] = _strength_for(stmt["predicate"])
+    out = client.append(cfg, {"op": op, "at": _now(),
+                              "actor": "stop-guessing/hook_gate",
+                              "severity": "warn" if d.outcome == "deny" else "info",
+                              "statement": stmt,
+                              # Flat mirrors, so a reader does not have to walk the predicate
+                              # to answer the common questions.
+                              "session_id": session_id,
+                              "outcome": d.outcome,
+                              "resources": {"used": used}},
+                        fallback_key=chain_key())
+    return out.ref
+
+
+def _strength_for(pred: dict) -> str:
+    from stop_guessing.ledger.entry import strength
+
+    return strength(pred)
+
+
+def _chain_algo() -> str:
+    """What the ledger is ACTUALLY chained with, from whoever is doing the chaining."""
+    from stop_guessing.recorder import client
+
+    cfg = Path(os.environ.get("CLAUDE_CONFIG_DIR") or os.path.expanduser("~/.claude"))
+    info = client.daemon_info(cfg)
+    if info and info.get("ok"):
+        return "hmac-sha256" if info.get("keyed") else "sha256"
+    return "hmac-sha256" if chain_key() else "sha256"
 
 
 def _host() -> str:

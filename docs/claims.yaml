@@ -43,7 +43,8 @@ claims:
   - sg:254:0db7ce23ccc53be3
   - sg:276:4bbae7bcafd12d98
   - sg:297:7e43ee8cd5f34c63
-  last_proved: '2026-08-04T02:47:18.742Z'
+  - sg:322:a4cb203e20d3eb1f
+  last_proved: '2026-08-04T15:49:49.885Z'
   must_touch:
   - stop_guessing.taint.state
 - id: CLAIM-02
@@ -74,7 +75,8 @@ claims:
   - sg:277:fd3a8aa73909435b
   - sg:298:01ad0ac7f4518cb0
   - sg:319:6573641a8a90838a
-  last_proved: '2026-08-04T02:53:30.277Z'
+  - sg:323:98bec67565602291
+  last_proved: '2026-08-04T15:49:52.098Z'
   must_touch:
   - stop_guessing.ledger.chain
 - id: CLAIM-03
@@ -102,7 +104,8 @@ claims:
   - sg:256:8548adf23e7b24c7
   - sg:278:c4bf3eedc0efbd9d
   - sg:299:aac6ce5f2fda13ce
-  last_proved: '2026-08-04T02:47:21.574Z'
+  - sg:324:7488d2d0ae03eb49
+  last_proved: '2026-08-04T15:49:52.192Z'
   must_touch:
   - stop_guessing.ledger.sink
 - id: CLAIM-04
@@ -131,7 +134,8 @@ claims:
   - sg:257:a9a52f5a89458875
   - sg:279:7142c6b87fd79ff2
   - sg:300:1b44cef550a2dd88
-  last_proved: '2026-08-04T02:47:21.803Z'
+  - sg:325:3b1d2672c8cb0051
+  last_proved: '2026-08-04T15:49:52.393Z'
   must_touch:
   - stop_guessing.ledger.segments
 - id: CLAIM-05
@@ -159,7 +163,8 @@ claims:
   - sg:258:b0024a88e878db5d
   - sg:280:dd326b8bbbd4e63c
   - sg:301:6859f91aa9ed302a
-  last_proved: '2026-08-04T02:47:21.884Z'
+  - sg:326:bbe8ec2e854fb444
+  last_proved: '2026-08-04T15:49:52.472Z'
   must_touch:
   - stop_guessing.ledger.entry
 - id: CLAIM-06
@@ -188,7 +193,8 @@ claims:
   - sg:259:881f49b604e9cbd3
   - sg:281:52e551b5fc9278ad
   - sg:302:56b983a216b4cd18
-  last_proved: '2026-08-04T02:47:21.961Z'
+  - sg:327:7e26102923a5fa2a
+  last_proved: '2026-08-04T15:49:52.581Z'
   must_touch:
   - stop_guessing.verify.sufficiency
 - id: CLAIM-07
@@ -220,7 +226,8 @@ claims:
   - sg:260:400efe2f44aa8a1d
   - sg:282:cdc77fb63822474d
   - sg:303:e87c265eb14beb6d
-  last_proved: '2026-08-04T02:47:26.883Z'
+  - sg:328:742d8f3afc43b5fe
+  last_proved: '2026-08-04T15:49:57.832Z'
   must_touch:
   - stop_guessing.policy.engine
   - stop_guessing.taint.state
@@ -250,7 +257,8 @@ claims:
   - sg:261:365b5881e76193a9
   - sg:283:896c397b8d94a589
   - sg:304:3ec3de027f118201
-  last_proved: '2026-08-04T02:47:26.985Z'
+  - sg:329:76ba8e01f6a34dac
+  last_proved: '2026-08-04T15:49:57.946Z'
   must_touch:
   - stop_guessing.policy.engine
 - id: CLAIM-09
@@ -280,7 +288,8 @@ claims:
   - sg:262:3469a49c5dfe33df
   - sg:284:f0cc0e2554ff036e
   - sg:305:13464f3fece64c57
-  last_proved: '2026-08-04T02:47:27.632Z'
+  - sg:330:9885585e2ce75432
+  last_proved: '2026-08-04T15:49:58.467Z'
   must_touch:
   - stop_guessing.delegate
 - id: CLAIM-10
@@ -308,7 +317,8 @@ claims:
   - sg:263:28fb5e8aa73620af
   - sg:285:6ddb23f185aaff4f
   - sg:306:99555fd6fcbe2e30
-  last_proved: '2026-08-04T02:47:27.990Z'
+  - sg:331:a5424bddd236dd80
+  last_proved: '2026-08-04T15:49:58.837Z'
   must_touch:
   - stop_guessing.delegate
   - stop_guessing.policy.engine
@@ -338,7 +348,8 @@ claims:
   - sg:264:9b2e82d4dc012651
   - sg:286:aa46cef015a20f2a
   - sg:307:9f8e05f5fd53a048
-  last_proved: '2026-08-04T02:47:28.089Z'
+  - sg:332:fa02484bd377c72e
+  last_proved: '2026-08-04T15:49:58.925Z'
   must_touch:
   - stop_guessing.taint.state
 - id: CLAIM-12
@@ -367,7 +378,9 @@ claims:
   - sg:265:99c5554aae1129ba
   - sg:287:6ae0009f5fb3c8c9
   - sg:308:ec5f2f5862aa4937
-  last_proved: '2026-08-04T02:47:28.234Z'
+  - sg:321:1bbead68531e5626
+  - sg:333:4c89c214286ce7ef
+  last_proved: '2026-08-04T15:49:59.663Z'
   must_touch:
   - stop_guessing.recorder.guard
 - id: CLAIM-13
@@ -397,7 +410,8 @@ claims:
   - sg:266:92bc3e0f05ebea4e
   - sg:288:96af66ac3d62eb4b
   - sg:309:98823423f402cc78
-  last_proved: '2026-08-04T02:47:28.322Z'
+  - sg:334:d81ba83ba10a49f5
+  last_proved: '2026-08-04T15:49:59.786Z'
   must_touch:
   - stop_guessing.ledger.reconcile
 - id: CLAIM-14
@@ -427,7 +441,8 @@ claims:
   - sg:267:92b6a086249dffe3
   - sg:289:30f1e565fa854137
   - sg:310:451b8c6abb6d6996
-  last_proved: '2026-08-04T02:47:30.257Z'
+  - sg:335:262ff98740f3cdc3
+  last_proved: '2026-08-04T15:50:01.767Z'
   must_touch:
   - stop_guessing.caiq.workbook
 - id: CLAIM-15
@@ -455,7 +470,8 @@ claims:
   - sg:268:2bee81eec3bf6fb7
   - sg:290:705836796517f406
   - sg:311:95ec1f7a98fc8040
-  last_proved: '2026-08-04T02:47:35.378Z'
+  - sg:336:3b27b22bf6fb39ae
+  last_proved: '2026-08-04T15:50:07.258Z'
   must_touch:
   - stop_guessing.caiq.fill
 - id: CLAIM-16
@@ -481,7 +497,8 @@ claims:
   - sg:269:1b515696ec660f7e
   - sg:291:65036624ecd070da
   - sg:312:719cda02320ce051
-  last_proved: '2026-08-04T02:49:07.124Z'
+  - sg:337:caa73d022439fdbd
+  last_proved: '2026-08-04T15:51:54.161Z'
   witness_mode: subprocess
 - id: CLAIM-17
   statement: Every no-noodles surface keeps working after supersession — the three escape markers, the
@@ -510,7 +527,8 @@ claims:
   - sg:270:bed799f2391778f8
   - sg:292:db118c5c341e9374
   - sg:313:2c32160817ca4657
-  last_proved: '2026-08-04T02:49:19.674Z'
+  - sg:338:a3d61192cd7bd32f
+  last_proved: '2026-08-04T15:52:11.231Z'
   witness_mode: subprocess
 - id: CLAIM-18
   statement: 'No statically detectable network call site exists in the shipped Python package except the
@@ -566,7 +584,8 @@ claims:
   - sg:272:1b9b7f40f252c52a
   - sg:294:ff5c7e6fb37d81ef
   - sg:315:2bc1dca6b1bab0e5
-  last_proved: '2026-08-04T02:49:26.154Z'
+  - sg:340:e730e19687343741
+  last_proved: '2026-08-04T15:52:25.569Z'
   witness_mode: subprocess
 - id: CLAIM-20
   statement: Every distributed surface — plugin, skill, slash-command and CLI — has been exercised by
@@ -594,7 +613,8 @@ claims:
   - sg:273:868256386c8ff208
   - sg:295:8e33873d245ad0bf
   - sg:316:f060754097c8b8c2
-  last_proved: '2026-08-04T02:49:48.869Z'
+  - sg:341:3f75441deb6aa518
+  last_proved: '2026-08-04T15:52:54.487Z'
   witness_mode: subprocess
 - id: CLAIM-21
   statement: This toolchain's own AI-CAIQ was filled from proofs produced by this toolchain, as the last
@@ -628,7 +648,9 @@ claims:
   - sg:317:bdd759456a8aadde
   - sg:318:d12551e640049a82
   - sg:320:c727c52f6dd3db20
-  last_proved: '2026-08-04T02:54:33.352Z'
+  - sg:342:e2d4439eae2b1f10
+  - sg:343:aaa80676409c04e6
+  last_proved: '2026-08-04T15:55:06.377Z'
   must_touch:
   - stop_guessing.caiq.answers
   - stop_guessing.caiq.fill
