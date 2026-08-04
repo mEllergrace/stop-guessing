@@ -25,8 +25,13 @@ def ledger_path() -> Path:
 
 
 def chain_key():
-    from stop_guessing.attest.keys import from_env
-    got = from_env()
+    # The hook runs inside an installed profile, where the key is a mode-600
+    # keyfile written by install.sh — not an environment variable. Consulting
+    # only the environment meant every hook-written record was unkeyed while a
+    # tier-2 key sat at a known path beside it, and `attest --self` reported
+    # GOAL NOT MET for want of looking.
+    from stop_guessing.attest.keys import discover
+    got = discover()
     return got[0] if got else None
 
 

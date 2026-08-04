@@ -107,6 +107,32 @@ def _reject_downgrade(loaded: LoadedLog, key: ChainKey | None, p: Path) -> None:
         )
 
 
+def _reject_wrong_key(loaded, key: ChainKey | None, p: Path) -> None:
+    """A key MISMATCH is not tampering, and must not be reported as tampering.
+
+    Every entry records the `keyid` that would verify it, precisely so a reader can
+    tell which key it needs. Without this check, presenting a different key made an
+    intact ledger fail HMAC verification and surface as "entry 0 content does not
+    match its own hash — it was edited in place", which is both false and the most
+    alarming thing the tool can say.
+
+    The cost of that confusion is specific: an operator who sees "tampered" after an
+    innocent key rotation learns to dismiss the word, and dismissing it is exactly
+    how a real tamper gets through.
+    """
+    if key is None:
+        return
+    recorded = {e.get("keyid") for e in loaded.entries if e.get("keyid")}
+    if recorded and key.keyid not in recorded:
+        raise LedgerError(
+            f"refusing to append to {p}: KEY MISMATCH, not tampering. This ledger was "
+            f"written under {', '.join(sorted(recorded))} and the key supplied is "
+            f"{key.keyid}. A chain cannot be verified with a key it was not written "
+            "under. Supply the original key, or record to a different ledger — do not "
+            "assume the contents were altered."
+        )
+
+
 def record(path: str | Path, event: dict, key: ChainKey | None = None) -> dict:
     """Append one event, chained to whatever is already on disk.
 
@@ -122,6 +148,9 @@ def record(path: str | Path, event: dict, key: ChainKey | None = None) -> dict:
 def _record_locked(p: Path, event: dict, key: ChainKey | None) -> dict:
     loaded = load(p, key)
     _reject_downgrade(loaded, key, p)
+    # Before the tamper check: a wrong key FAILS that check, and saying "tampered"
+    # when the truth is "wrong key" is the more damaging error of the two.
+    _reject_wrong_key(loaded, key, p)
 
     if not loaded.chain.intact:
         raise LedgerError(

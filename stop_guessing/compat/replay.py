@@ -56,7 +56,11 @@ def _seed_config_dir(tmp: Path) -> Path:
     hooks.mkdir(parents=True, exist_ok=True)
     src = vendored_dir()
     for f in src.iterdir():
-        if f.name == "UPSTREAM_VERSION":
+        # not is_file(): an installed runtime grows a __pycache__ directory in
+        # here, and copy2 on a directory raises IsADirectoryError — which took
+        # out the whole acceptance gate for superseding no-noodles, at exactly
+        # the moment the gate is what you want to trust.
+        if f.name == "UPSTREAM_VERSION" or not f.is_file():
             continue
         shutil.copy2(f, hooks / f.name)
         if f.suffix == ".sh":

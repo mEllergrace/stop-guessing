@@ -5,18 +5,25 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from stop_guessing.attest.keys import from_env, from_keyfile
+from stop_guessing.attest.keys import discover, keyid_of_ledger
 from stop_guessing.ledger.chain import ChainKey
 from stop_guessing.prove import runner
 from stop_guessing.prove.registry import all_procedures
 
 
 def _key(args) -> ChainKey | None:
-    if getattr(args, "keyfile", None):
-        got = from_keyfile(args.keyfile)
-        if got:
-            return got[0]
-    got = from_env()
+    # discover(), not from_env(): an installed profile keeps its key in a
+    # mode-600 keyfile that install.sh writes, and looking only at the
+    # environment meant that key was never found. --keyfile still wins.
+    #
+    # prefer_keyid: when a ledger already exists, the key it was WRITTEN under
+    # beats the best-protected key available. Otherwise adding a stronger
+    # provider silently re-keys an existing chain and every prior entry starts
+    # failing verification — reported, misleadingly, as tampering.
+    got = discover(
+        getattr(args, "keyfile", None),
+        prefer_keyid=keyid_of_ledger(_ledger(args)),
+    )
     return got[0] if got else None
 
 

@@ -25,6 +25,9 @@ ENV_VAR = "STOP_GUESSING_CHAIN_KEY"
 KEYCHAIN_SERVICE = "stop-guessing-chain-key"
 KEY_BYTES = 32
 
+#: Where install.sh writes the generated key, relative to a CLAUDE_CONFIG_DIR.
+INSTALLED_KEYFILE = ("stop-guessing", "chain.key")
+
 
 @dataclass(frozen=True)
 class KeySource:
@@ -125,6 +128,92 @@ def resolve(
         "no chain key available. The ledger can still be written unkeyed, but it will be "
         "reported as 'chain-only' strength and a rewrite would not be detectable."
     )
+
+
+def installed_keyfile(config_dir: str | Path | None = None) -> Path:
+    """The path `install.sh` writes the generated key to, for a given profile."""
+    base = Path(
+        config_dir
+        or os.environ.get("CLAUDE_CONFIG_DIR")
+        or os.path.expanduser("~/.claude")
+    )
+    return base.joinpath(*INSTALLED_KEYFILE)
+
+
+def keyid_of_ledger(path: str | Path) -> str | None:
+    """The keyid an existing ledger was written under, or None.
+
+    `keyid` exists so a ledger can say which key would verify it without
+    disclosing anything forgeable. This reads that, and nothing else.
+    """
+    import json
+
+    p = Path(path)
+    if not p.exists():
+        return None
+    try:
+        with p.open(encoding="utf-8") as fh:
+            for line in fh:
+                if not line.strip():
+                    continue
+                kid = json.loads(line).get("keyid")
+                if kid:
+                    return str(kid)
+    except (OSError, json.JSONDecodeError):
+        return None
+    return None
+
+
+def discover(
+    explicit_keyfile: str | Path | None = None,
+    *,
+    account: str | None = None,
+    config_dir: str | Path | None = None,
+    allow_env: bool = True,
+    prefer_keyid: str | None = None,
+) -> tuple[ChainKey, KeySource] | None:
+    """The key an *installed* toolchain should use. Returns None rather than raising.
+
+    Ordered most-protected first, with one addition over `resolve()`: the keyfile
+    `install.sh` actually writes. Without it the installer generated a mode-600
+    key at a known path and nothing ever looked there, so every command fell
+    through to the environment provider, found nothing, and refused — with a
+    tier-2 key sitting on disk beside it.
+
+    Precedence, and every existing route still wins where it used to:
+
+    1. an explicit ``--keyfile`` — the caller said so, the caller decides;
+    2. ``prefer_keyid`` — whichever provider holds the key an EXISTING ledger was
+       written under. Protection order is the right default for a new ledger and
+       the wrong one for an old ledger: promoting a better key mid-chain makes
+       every prior entry fail verification and surface as tampering.
+    3. the login keychain — the only provider the recorded agent cannot read;
+    4. the installed keyfile — mode 600, tier 2;
+    5. ``$STOP_GUESSING_CHAIN_KEY`` — tier 1, for CI and tests.
+    """
+    if explicit_keyfile:
+        got = from_keyfile(explicit_keyfile)
+        if got:
+            return got
+
+    if account is None:
+        account = os.environ.get("USER") or ""
+
+    def providers():
+        if account:
+            yield from_keychain(account)
+        yield from_keyfile(installed_keyfile(config_dir))
+        if allow_env:
+            yield from_env()
+
+    found = [got for got in providers() if got]
+
+    if prefer_keyid:
+        for got in found:
+            if got[0].keyid == prefer_keyid:
+                return got
+
+    return found[0] if found else None
 
 
 def generate() -> bytes:

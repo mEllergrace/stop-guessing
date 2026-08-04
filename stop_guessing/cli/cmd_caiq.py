@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from stop_guessing.attest.keys import from_env, from_keyfile
+from stop_guessing.attest.keys import discover
 from stop_guessing.version import repo_root
 
 #: Fixes #26. The default was hard-coded to one machine's path, so every `caiq` subcommand was
@@ -53,11 +53,10 @@ WORKBOOK = CAIQ_DIR / "AI-CAIQ-stop-guessing-v1.1.0.xlsx"
 
 
 def _key(args):
-    if getattr(args, "keyfile", None):
-        got = from_keyfile(args.keyfile)
-        if got:
-            return got[0]
-    got = from_env()
+    # discover(), not from_env(): an installed profile keeps its key in a
+    # mode-600 keyfile that install.sh writes, and looking only at the
+    # environment meant that key was never found. --keyfile still wins.
+    got = discover(getattr(args, "keyfile", None))
     return got[0] if got else None
 
 
