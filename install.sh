@@ -152,10 +152,30 @@ if before == after:
     print(f"  {settings}: already correct")
     sys.exit(0)
 
+# #70 (SG-HARD-037). settings.json was rewritten IN PLACE. An installer interrupted between
+# truncate and write leaves a live profile with a half-written or empty settings.json — every
+# hook gone, and the file that says how to get them back destroyed. Temp file in the same
+# directory, fsync, then atomic rename; plus a timestamped backup of what was there before, so a
+# bad rewrite is recoverable rather than merely detectable.
+import shutil, tempfile, time
+
 os.makedirs(claude_dir, exist_ok=True)
-with open(settings, "w") as fh:
-    json.dump(data, fh, indent=1, sort_keys=True)   # indent=1 matches no-noodles' existing files
-    fh.write("\n")
+if os.path.exists(settings):
+    backup = f"{settings}.bak-{time.strftime('%Y%m%d-%H%M%S')}"
+    shutil.copy2(settings, backup)
+    print(f"    backed up {os.path.basename(settings)} -> {os.path.basename(backup)}")
+
+fd, tmp = tempfile.mkstemp(dir=claude_dir, prefix=".settings-", suffix=".json")
+try:
+    with os.fdopen(fd, "w") as fh:
+        json.dump(data, fh, indent=1, sort_keys=True)  # indent=1 matches no-noodles' files
+        fh.write("\n")
+        fh.flush()
+        os.fsync(fh.fileno())
+    os.replace(tmp, settings)          # atomic: readers see the old file or the new one
+except BaseException:
+    os.unlink(tmp)
+    raise
 for r in removed:
     print(f"    - {r}")
 for a in added:
@@ -175,18 +195,38 @@ install_profile() {
 
     # #17: the hook must be runnable without the repo happening to be on PYTHONPATH. Prefer a
     # real install into the profile; fall back to pointing PYTHONPATH at the package directory.
+    # #69 (SG-HARD-036). `pip install --target` into an EXISTING directory merges: a module a new
+    # release deleted stays behind, recursive copies retain it, and the installer then stamps the
+    # new version over a mixed runtime. A reported 0.4.0 install could be executing 0.3.0 code.
+    # Build into a fresh directory and swap it in atomically; keep the previous one for rollback.
     local runtime="$state_dir/runtime"
-    if python3 -m pip install --quiet --target "$runtime" "$PKG_DIR" 2>/dev/null; then
-      echo "  installed the Python package into $runtime"
+    local staging="$state_dir/runtime.new.$$"
+    rm -rf "$staging"
+    mkdir -p "$staging"
+    if python3 -m pip install --quiet --target "$staging" "$PKG_DIR" 2>/dev/null; then
+      echo "  built the Python package into $staging"
     else
-      mkdir -p "$runtime"
-      cp -R "$PKG_DIR/stop_guessing" "$runtime/"
-      echo "  pip unavailable; copied the package into $runtime"
+      cp -R "$PKG_DIR/stop_guessing" "$staging/"
+      echo "  pip unavailable; copied the package into $staging"
     fi
     # The package reads VERSION and policy/rules relative to its root, so carry those too.
     for extra in VERSION policy rules docs; do
-      [ -e "$PKG_DIR/$extra" ] && cp -R "$PKG_DIR/$extra" "$runtime/" || true
+      [ -e "$PKG_DIR/$extra" ] && cp -R "$PKG_DIR/$extra" "$staging/" || true
     done
+
+    # Health-check the staged runtime BEFORE it becomes the live one. A runtime that cannot
+    # import is a broken profile, and swapping it in first would mean discovering that per hook.
+    if ! python3 -c "import sys; sys.path.insert(0, '$staging'); import stop_guessing" 2>/dev/null; then
+      echo "  REFUSED: the staged runtime at $staging does not import; leaving the existing one."
+      rm -rf "$staging"
+      return 1
+    fi
+    if [ -d "$runtime" ]; then
+      rm -rf "$runtime.prev"
+      mv "$runtime" "$runtime.prev"      # kept for rollback, not merged into
+    fi
+    mv "$staging" "$runtime"
+    echo "  swapped in the new runtime (previous kept at $runtime.prev)"
 
     for pair in "coc_gate.sh:hook_gate:Chain-of-custody gate" \
                 "coc_post.sh:hook_post:Recording custody"; do

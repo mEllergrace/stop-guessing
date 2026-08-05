@@ -1,4 +1,18 @@
-"""Classify an artifact by its identity, and a command by its shape.
+"""ADVISORY DETECTION, NOT A BOUNDARY — read this before relying on it.
+
+#65 (SG-HARD-028). `classify_egress` and `paths_in` are regular expressions over a command string.
+They cannot be complete and are not intended to be: a shell can reach the network through a raw
+socket in an interpreter, `/dev/tcp`, a variable-composed URL, an alternative client, or a local
+relay, and a path can be spelled with quotes, globs, variables or command substitution. Every one
+of those is a real bypass and none of them is a defect in the pattern list.
+
+What this is FOR: recognising the common shapes so a decision can be recorded with the right
+labels, and so an operator sees the ones that are recognisable. What ENFORCES a boundary is the
+OS sandbox in `stop_guessing/sandbox.py` (#54), which denies the network outright rather than
+trying to recognise it. Treating this module as a DLP boundary would be exactly the overclaim the
+rest of this project exists to prevent.
+
+Classify an artifact by its identity, and a command by its shape.
 
 Two deliberate choices:
 

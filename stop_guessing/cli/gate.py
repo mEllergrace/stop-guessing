@@ -184,6 +184,42 @@ def _join_classification(a, b):
     )
 
 
+def _session_lock(session_id: str):
+    """Serialise the whole read-state -> decide -> append transaction for one session.
+
+    #57 (SG-HARD-022). The recorder serialises APPENDS, which keeps the chain well-formed, but
+    two parallel hooks could both read the same pre-call state and decide against it: a classified
+    read and an egress evaluating concurrently would both see a clean session, and the egress would
+    be allowed before the read's record became authoritative. Accumulation is the mechanism this
+    tool is built around, so a race that resets it is not a small defect.
+
+    A per-session file lock, not a process-global one: two different sessions have no reason to
+    block each other, and a global lock would make parallel tool calls serial across the machine.
+    """
+    import fcntl
+
+    cfg = Path(os.environ.get("CLAUDE_CONFIG_DIR") or os.path.expanduser("~/.claude"))
+    d = cfg / "stop-guessing" / "locks"
+    d.mkdir(parents=True, exist_ok=True)
+    safe = __import__("hashlib").sha256(session_id.encode()).hexdigest()[:32]
+    fd = os.open(d / f"{safe}.lock", os.O_RDWR | os.O_CREAT, 0o600)
+
+    class _Lock:
+        def __enter__(self):
+            fcntl.flock(fd, fcntl.LOCK_EX)
+            return self
+
+        def __exit__(self, *exc):
+            import contextlib as _c
+
+            with _c.suppress(OSError):
+                fcntl.flock(fd, fcntl.LOCK_UN)
+            os.close(fd)
+            return False
+
+    return _Lock()
+
+
 def decide(payload: dict, posture: str = "observe") -> dict | None:
     """Returns a decision dict, or None when nothing custody-relevant is happening.
 
@@ -194,6 +230,12 @@ def decide(payload: dict, posture: str = "observe") -> dict | None:
     tool = payload.get("tool_name", "")
     tool_input = payload.get("tool_input", {}) or {}
     session_id = payload.get("session_id", "unknown")
+    # #57: everything from here to the append is one transaction for this session.
+    with _session_lock(session_id):
+        return _decide_locked(payload, posture, tool, tool_input, session_id)
+
+
+def _decide_locked(payload, posture, tool, tool_input, session_id):
     state, cache_agreed = state_for(session_id)
     ps = policies()
 
@@ -211,6 +253,7 @@ def decide(payload: dict, posture: str = "observe") -> dict | None:
     # itself is recorded rather than resolved away silently.
     candidates = paths_in(tool, tool_input)
     worst = None
+    classified_inputs: list[tuple[str, object]] = []
     aliases: list[dict] = []
     for p in candidates:
         c = classify_path(p)
@@ -221,8 +264,15 @@ def decide(payload: dict, posture: str = "observe") -> dict | None:
                 aliases.append({"given": p, "resolves_to": canon,
                                 "labels_gained": sorted(c_canon.labels)})
             c = _join_classification(c, c_canon)
-        if c.classified and (worst is None or len(c.labels) > len(worst[1].labels)):
-            worst = (p, c)
+        if c.classified:
+            # #60 (SG-HARD-027). The gate kept only the single "worst" candidate, so a command
+            # touching several classified files recorded ONE of them: the taint sources, the
+            # derivation inputs and the record's subjects all understated what the call actually
+            # read. Confirmed live by tests/test_adversarial.py — `cat id_rsa .env` recorded one.
+            # The decision can still turn on the worst one; the RECORD must carry them all.
+            classified_inputs.append((p, c))
+            if worst is None or len(c.labels) > len(worst[1].labels):
+                worst = (p, c)
 
     if worst is None and not (egress and egress.is_egress):
         return None
@@ -243,6 +293,7 @@ def decide(payload: dict, posture: str = "observe") -> dict | None:
                     # eventual correct label.
                     "aliases": aliases,
                     "requested_path": path,
+                    "all_classified": [(pp, sorted(cc.labels)) for pp, cc in classified_inputs],
                     "is_ledger": "stop-guessing" in ident.canonical_path
                     and "ledger" in ident.canonical_path}
     else:
@@ -384,6 +435,23 @@ def _record_decision(payload, tool, d, artifact, ident, state, call, posture, ca
                 "csa.coc/requested_path": artifact.get("requested_path") or ident.canonical_path,
             },
         })
+
+    # #60: every classified input becomes a subject, not just the one the decision turned on.
+    for other_path, other_c in artifact.get("all_classified") or []:
+        if other_path == getattr(ident, "canonical_path", None):
+            continue
+        subjects.append({
+            "name": f"file://{other_path}",
+            "uri": f"file://{other_path}",
+            "digest": {"sha256": ""},
+            "annotations": {
+                "csa.coc/classification": sorted(other_c),
+                "csa.coc/digest_scope": "absent",
+                "csa.coc/role": "additional classified input in the same call",
+            },
+        })
+        used.append({"artifact_id": "", "path": other_path, "digest": None,
+                     "labels": sorted(other_c)})
 
     gaps = [] if cache_agreed else ["state cache disagreed with the ledger; ledger won"]
     # #59: an unverifiable ledger is a critical condition, not a cache disagreement. Saying so in

@@ -160,3 +160,28 @@ def _record_loss(event: dict, appended) -> None:
         }, got[0] if got else None)
     except Exception:  # noqa: BLE001
         print(f"STOP-GUESSING: {detail}", file=sys.stderr)
+
+
+def _content_binding(used: list[dict]) -> dict:
+    """Digest what is on disk at result time, and say exactly what that does and does not bind."""
+    from stop_guessing.artifacts.digest import file_digest
+
+    digests = {}
+    for u in used:
+        path = u.get("path")
+        if not path:
+            continue
+        try:
+            digests[path] = file_digest(path)
+        except OSError:
+            digests[path] = None
+    return {
+        "digests_at_result": digests,
+        "scope": "post-execution digest of the artifact path",
+        "caveat": (
+            "This binds the bytes present when the result hook ran, NOT the exact bytes the host "
+            "returned to the model. A file replaced between the read and this hook binds a "
+            "different digest. Closing that window needs a host-provided result digest at the "
+            "execution boundary, which no hook event currently supplies."
+        ),
+    }

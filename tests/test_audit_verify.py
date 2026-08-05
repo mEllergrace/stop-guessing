@@ -88,6 +88,18 @@ FIXED = {
     "SG-HARD-051": "regimes are assessed over applicable record kinds; empty is not a pass",
     "SG-HARD-006": "install.sh generates and (as root) installs a tier-2 LaunchDaemon",
     "SG-HARD-021": "delegated execution runs under an OS capability boundary, self-tested",
+    # Settled by live adversarial tests, 2026-08-05. Three of these were CONFIRMED by the attack
+    # before they were fixed: the hostile paired test, the TOCTOU race, and the multi-artifact call.
+    "SG-HARD-018": "the script is digested before its test runs; a rewrite is refused",
+    "SG-HARD-019": "execution runs an immutable snapshot, not the mutable pathname",
+    "SG-HARD-022": "decide() holds a per-session lock across state read, decision and append",
+    "SG-HARD-025": "replay skips denied effects, dedupes paired records, keeps all outputs",
+    "SG-HARD-026": "a content digest is bound at result time with its remaining window stated",
+    "SG-HARD-027": "every classified input in a call is recorded, not only the worst",
+    "SG-HARD-028": "the detector states that it is advisory and names the enforced boundary",
+    "SG-HARD-036": "the runtime is built fresh, health-checked and swapped in, never merged",
+    "SG-HARD-037": "settings.json is temp-written, fsynced, renamed, and backed up",
+    "SG-HARD-042": "the answers document is re-derived and compared field by field",
 }
 
 

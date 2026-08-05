@@ -14,14 +14,16 @@ Three refusals, in order, and each exists because of a specific way the sequence
    green test on a since-edited script is evidence about a file that no longer exists. Digests
    are taken at test time and re-checked at run time.
 
-The executed script gets an env allowlist and proxy variables pointing nowhere.
+The executed script gets an env allowlist, and — since #54 — a real OS capability boundary from
+`stop_guessing/sandbox.py`: macOS `sandbox-exec` or Linux `bwrap`, denying all network, writes
+outside the declared outputs, and reads of the custody directory. Where a host offers neither, the
+record says `mechanism: none` and keeps the old caveat, because a sandbox that silently degrades
+to nothing is worse than none.
 
-**That is not a sandbox, and this module no longer implies it is (#19).** A script can open a raw
-socket, unset the proxy variables, exec another binary, or use a library that ignores proxies. The
-allowlist does stop a handler inheriting credentials from the parent environment, which is worth
-having on its own merits. A real boundary needs an OS sandbox or a separate uid, and neither
-exists yet, so the record says `kind: env-allowlist-only` and carries the caveat rather than
-letting a reader infer more.
+**The executed subject is a snapshot, not the path (#52).** The digest check and the execution
+used to read the same mutable pathname twice, and a concurrent replacer drove through the window —
+demonstrated live in `tests/test_adversarial.py`, where the payload ran. The checked bytes are now
+copied once, re-digested, and the COPY is executed, at a path nothing else knows about.
 """
 
 from __future__ import annotations
@@ -123,20 +125,48 @@ def run_test(deleg: Delegation, *, timeout: int = 120) -> dict:
         raise DelegationRefused(
             f"no paired test at {deleg.test}. A script without a test does not touch live data."
         )
+    # #51/#52 (SG-HARD-018/019). The digest was taken AFTER the test ran, so a hostile paired test
+    # that rewrote the script had its REPLACEMENT certified: `run()` then compared the rewritten
+    # bytes against a digest of the rewritten bytes, found them equal, and executed the payload.
+    # Confirmed live by tests/test_adversarial.py before this change — the test wrote a marker file
+    # and `run()` did not refuse.
+    #
+    # The subject is now pinned BEFORE the test is allowed near it, and a change across the test is
+    # a refusal in its own right. A test may verify a script; it may not modify the script it is
+    # verifying, and "the test passed" must mean "the test passed on THESE bytes".
+    digest_before = file_digest(deleg.script)
+    test_before = file_digest(deleg.test)
+
     res = subprocess.run(  # noqa: S603
         [sys.executable, "-m", "pytest", "-q", str(deleg.test)],
         capture_output=True, cwd=str(deleg.script.parent), timeout=timeout,
         env={**_clean_env(), "PYTHONPATH": str(deleg.script.parent)},
     )
     out = (res.stdout + res.stderr).decode("utf-8", "replace")
-    deleg.script_digest = file_digest(deleg.script)
-    deleg.test_digest = file_digest(deleg.test)
+
+    digest_after = file_digest(deleg.script)
+    if digest_after != digest_before:
+        raise DelegationRefused(
+            f"{deleg.script} was MODIFIED BY ITS OWN TEST "
+            f"(before {str(digest_before)[:16]}…, after {str(digest_after)[:16]}…). "
+            "A test may verify a script; it may not rewrite the script it is certifying. "
+            "Nothing is executed and no result is recorded."
+        )
+    if file_digest(deleg.test) != test_before:
+        raise DelegationRefused(
+            f"{deleg.test} rewrote itself during the run. The evidence would describe a test "
+            "that no longer exists."
+        )
+
+    deleg.script_digest = digest_before
+    deleg.test_digest = test_before
     deleg.test_result = {
         "passed": res.returncode == 0,
         "exit_code": res.returncode,
         "evidence_digest": bytes_digest(out.encode()),
         "tail": out.strip().splitlines()[-1] if out.strip() else "",
-        "script_digest_at_test": deleg.script_digest,
+        # The digest of the bytes the test was run AGAINST, not of whatever exists afterwards.
+        "script_digest_at_test": digest_before,
     }
     return deleg.test_result
 
@@ -166,11 +196,33 @@ def run(deleg: Delegation, artifacts: list[str], *, timeout: int = 120) -> dict:
     # module's own docstring said so — and the application claims leaned on "capability-
     # constrained" anyway. There is a real OS boundary now, and where the host cannot provide one
     # the record says `mechanism: none` rather than implying otherwise.
+    # #52 (SG-HARD-019). The digest check above reads the path, and then execution reads it AGAIN
+    # — a window a concurrent replacer can drive through, which tests/test_adversarial.py did:
+    # the payload ran. A mutable pathname cannot be the security subject.
+    #
+    # So the checked bytes are SNAPSHOTTED and the snapshot is what executes. The copy is made
+    # once, re-digested, and compared to the tested digest; nothing after that point can be
+    # swapped, because the path being executed is one nothing else knows about.
+    import shutil as _shutil
+    import tempfile as _tempfile
+
+    snap_dir = _tempfile.mkdtemp(prefix="sg-exec-")
+    snapshot = Path(snap_dir) / deleg.script.name
+    _shutil.copy2(deleg.script, snapshot)
+    snap_digest = file_digest(snapshot)
+    if snap_digest != deleg.test_result.get("script_digest_at_test"):
+        _shutil.rmtree(snap_dir, ignore_errors=True)
+        raise DelegationRefused(
+            f"{deleg.script} changed while it was being snapshotted for execution "
+            f"(tested {str(deleg.test_result.get('script_digest_at_test'))[:16]}…, "
+            f"snapshot {str(snap_digest)[:16]}…). Nothing was executed."
+        )
+
     from stop_guessing import sandbox as _sandbox
 
     argv, sb = _sandbox.wrap(
-        [sys.executable, str(deleg.script), *artifacts],
-        reads=[str(deleg.script.parent), *artifacts],
+        [sys.executable, str(snapshot), *artifacts],
+        reads=[str(deleg.script.parent), snap_dir, *artifacts],
         writes=[str(deleg.script.parent)],
     )
     res = subprocess.run(  # noqa: S603
@@ -179,6 +231,7 @@ def run(deleg: Delegation, artifacts: list[str], *, timeout: int = 120) -> dict:
         env={**_clean_env(), "PYTHONPATH": str(deleg.script.parent),
              "SG_NETWORK": "deny", "http_proxy": "127.0.0.1:1", "https_proxy": "127.0.0.1:1"},
     )
+    _shutil.rmtree(snap_dir, ignore_errors=True)
     output = res.stdout.decode("utf-8", "replace")
     return {
         "exit_code": res.returncode,

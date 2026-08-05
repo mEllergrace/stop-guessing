@@ -726,6 +726,133 @@ def c_disable_switch_silent():
     return ABSENT, "the disable switch records a transition"
 
 
+
+
+# ── predicates for findings that needed a live attack to settle ──────────────
+
+
+def _adversarial() -> str:
+    return _read("tests/test_adversarial.py")
+
+
+def c_test_can_rewrite_signed_script():
+    """#51/#52: is the tested subject pinned BEFORE the test is allowed near it?"""
+    src = _code("stop_guessing/delegate.py")
+    m = re.search(r"def run_test.*?(?=\ndef )", src, re.S)
+    body = m.group(0) if m else ""
+    before = re.search(r"digest_before\s*=\s*file_digest", body)
+    refuses = re.search(r"MODIFIED BY ITS OWN TEST", body)
+    pins_before = re.search(r'"script_digest_at_test":\s*digest_before', body)
+    covered = "MODIFIED BY ITS OWN TEST" in _adversarial()
+    if before and refuses and pins_before and covered:
+        return ABSENT, ("the script is digested before the test runs, a change across the test is "
+                        "refused, and the recorded digest is the bytes tested — with a live "
+                        "attack test that rewrites the script from inside its own test")
+    return PRESENT, ("run_test pins the digest AFTER the test, so a test that rewrites the script "
+                     "has its replacement certified")
+
+
+def c_delegation_toctou():
+    src = _code("stop_guessing/delegate.py")
+    checks = re.search(r"changed after its test passed", src)
+    raced = "racing_the_run" in _adversarial()
+    if checks and raced:
+        return ABSENT, ("execution is gated on the digest recorded at test time, and a concurrent "
+                        "replacer racing the run is exercised live")
+    return PRESENT, "the mutable pathname is the security subject with no digest gate"
+
+
+def c_multi_artifact():
+    src = _code("stop_guessing/cli/gate.py")
+    if "classified_inputs" in src and "all_classified" in src:
+        return ABSENT, ("every classified input in a call is recorded as a subject, not only the "
+                        "one the decision turned on")
+    return PRESENT, "only one 'worst' candidate is recorded; other inputs vanish from the record"
+
+
+def c_egress_heuristics():
+    src = _read("stop_guessing/artifacts/classify.py")
+    if re.search(r"ADVISORY DETECTION, NOT A BOUNDARY", src):
+        return ABSENT, ("the detector states plainly that it cannot be complete and names the "
+                        "sandbox as the enforced boundary")
+    return PRESENT, "regex egress detection is presented without stating what it cannot catch"
+
+
+def c_installer_atomic():
+    src = _read("install.sh")
+    atomic = "os.replace(tmp, settings)" in src
+    backed = ".bak-" in src
+    if atomic and backed:
+        return ABSENT, "settings.json is written to a temp file, fsynced, renamed, and backed up"
+    return PRESENT, "settings.json is rewritten in place; an interrupted installer destroys it"
+
+
+def c_attest_validates_caiq_mapping():
+    src = _code("stop_guessing/cli/cmd_caiq.py")
+    if "_answers_drift" in src and re.search(r"implementation text differs", src):
+        return ABSENT, ("the answers document is re-derived and compared field by field — answer, "
+                        "ssrm, implementation text, claim set and evidence refs")
+    return PRESENT, "only evidence refs are checked; a hand-edited answer with live refs passes"
+
+
+
+def c_decision_not_atomic():
+    """#57: is the whole read-state -> decide -> append one transaction for the session?"""
+    src = _code("stop_guessing/cli/gate.py")
+    locked = "_session_lock(" in src and "_decide_locked(" in src
+    per_session = re.search(r"locks.*?sha256|sha256.*?session_id", src, re.S)
+    if locked and per_session:
+        return ABSENT, ("decide() holds a per-session file lock across state read, policy "
+                        "evaluation and append, so two parallel hooks cannot both decide against "
+                        "the same pre-call state")
+    return PRESENT, ("the recorder serialises appends but not state-read -> decision -> append, so "
+                     "a concurrent read and egress can both evaluate against a clean session")
+
+
+def c_bytes_not_bound():
+    """#26: is a content digest recorded at the execution boundary, with its scope stated?"""
+    src = _code("stop_guessing/cli/hook_post.py")
+    binds = "_content_binding(" in src
+    honest = re.search(r"NOT the exact bytes the host", _read("stop_guessing/cli/hook_post.py"))
+    if binds and honest:
+        return ABSENT, ("a content digest is taken at result time and the record states exactly "
+                        "what it binds and what window remains open")
+    if binds:
+        return PRESENT, "a digest is taken but the record does not state what it fails to bind"
+    return PRESENT, "only the path is digested, after execution; the bytes are never bound"
+
+
+def c_installer_upgrade_stale():
+    src = _read("install.sh")
+    fresh = "runtime.new." in src and "runtime.prev" in src
+    checked = "does not import" in src
+    if fresh and checked:
+        return ABSENT, ("the runtime is built in a fresh directory, health-checked, then swapped "
+                        "in — never merged over an existing one — with the previous kept for "
+                        "rollback")
+    return PRESENT, ("pip --target merges into an existing runtime, so a module a release removed "
+                     "survives and the new version stamp sits over mixed code")
+
+
+def c_replay_not_equivalent():
+    """#58: does rebuild() distinguish outcomes and avoid double-counting paired events?"""
+    src = _code("stop_guessing/taint/state.py")
+    m = re.search(r"def rebuild.*?(?=\ndef |\Z)", src, re.S)
+    body = m.group(0) if m else ""
+    if not body:
+        return DYNAMIC, "could not locate rebuild()"
+    outcome_aware = re.search(r"outcome|denied|blocked", body)
+    dedupes = re.search(r"seen|tool_use_id|idempot", body)
+    if outcome_aware and dedupes:
+        return ABSENT, ("replay skips denied effects and deduplicates paired request/result "
+                        "records, so a rebuilt state is not inflated by events that did not happen")
+    missing = []
+    if not outcome_aware:
+        missing.append("egress() is called for any artifact.egress record, including DENIED ones")
+    if not dedupes:
+        missing.append("a read seen in both Pre and Post records is counted twice")
+    return PRESENT, "; ".join(missing)
+
 FINDINGS: list[Finding] = [
     Finding("SG-HARD-001", "CRITICAL", "Proof validity ignores the claim's declared surface",
             ["stop_guessing/prove/runner.py", "docs/claims.yaml"], c_surface_unvalidated),
@@ -762,27 +889,27 @@ FINDINGS: list[Finding] = [
     Finding("SG-HARD-017", "CRITICAL", "Project handler executes on classified data before policy",
             ["stop_guessing/cli/gate.py", "stop_guessing/handlers.py"], c_handler_runs_before_policy),
     Finding("SG-HARD-018", "CRITICAL", "Signed-script execution bypassable by its paired test",
-            ["stop_guessing/delegate.py", "stop_guessing/cli/cmd_ops.py"]),
+            ["stop_guessing/delegate.py", "stop_guessing/cli/cmd_ops.py"], c_test_can_rewrite_signed_script),
     Finding("SG-HARD-019", "CRITICAL", "Delegation has test/hash/execute TOCTOU races",
-            ["stop_guessing/delegate.py"]),
+            ["stop_guessing/delegate.py"], c_delegation_toctou),
     Finding("SG-HARD-020", "CRITICAL", "bar sends full handler output to model-visible context",
             ["stop_guessing/cli/gate.py"], c_bar_leaks_handler_output),
     Finding("SG-HARD-021", "CRITICAL", "Delegated execution is not sandboxed",
             ["stop_guessing/delegate.py"], c_no_sandbox),
     Finding("SG-HARD-022", "CRITICAL", "State read, decision and append are not atomic",
-            ["stop_guessing/cli/gate.py"]),
+            ["stop_guessing/cli/gate.py"], c_decision_not_atomic),
     Finding("SG-HARD-023", "CRITICAL", "Ledger integrity failure falls back to mutable cache",
             ["stop_guessing/cli/gate.py"], c_cache_fallback_on_integrity_failure),
     Finding("SG-HARD-024", "HIGH", "Gap-recording and decision-recording failures can be silent",
             ["stop_guessing/cli/hook_gate.py"], c_gap_recording_env_only),
     Finding("SG-HARD-025", "CRITICAL", "Ledger replay is not equivalent to live custody state",
-            ["stop_guessing/taint/state.py"]),
+            ["stop_guessing/taint/state.py"], c_replay_not_equivalent),
     Finding("SG-HARD-026", "CRITICAL", "The bytes read into model context are not bound",
-            ["stop_guessing/cli/gate.py", "stop_guessing/cli/hook_post.py"]),
+            ["stop_guessing/cli/gate.py", "stop_guessing/cli/hook_post.py"], c_bytes_not_bound),
     Finding("SG-HARD-027", "HIGH", "Only one 'worst' candidate is evaluated per call",
-            ["stop_guessing/cli/gate.py"]),
+            ["stop_guessing/cli/gate.py"], c_multi_artifact),
     Finding("SG-HARD-028", "HIGH", "Shell path and egress heuristics are bypassable",
-            ["stop_guessing/artifacts/classify.py"]),
+            ["stop_guessing/artifacts/classify.py"], c_egress_heuristics),
     Finding("SG-HARD-029", "HIGH", "Session-state cache filenames can collide",
             ["stop_guessing/taint/persist.py"], c_session_cache_collision),
     Finding("SG-HARD-030", "HIGH", "Sealing does not archive, rotate or freeze a segment",
@@ -798,9 +925,9 @@ FINDINGS: list[Finding] = [
     Finding("SG-HARD-035", "HIGH", "Wheel/sdist packaging omits required runtime assets",
             ["pyproject.toml"], c_wheel_missing_data),
     Finding("SG-HARD-036", "HIGH", "Installer upgrades can leave stale mixed-version code",
-            ["install.sh"]),
+            ["install.sh"], c_installer_upgrade_stale),
     Finding("SG-HARD-037", "HIGH", "Installer settings/service changes are non-atomic",
-            ["install.sh"]),
+            ["install.sh"], c_installer_atomic),
     Finding("SG-HARD-038", "HIGH", "Missing vendored hook is silently skipped",
             ["stop_guessing/cli/hook_gate.py"], c_vendored_hook_missing_silently),
     Finding("SG-HARD-039", "HIGH", "CLAIM-18's 'CI performs no fetch' assertion is false",
@@ -810,7 +937,7 @@ FINDINGS: list[Finding] = [
     Finding("SG-HARD-041", "CRITICAL", "CLAIM-21 is circular and spans two evidence epochs",
             ["stop_guessing/prove/procedures.py", "docs/ai-caiq/stop-guessing.yaml"], c_caiq_epoch_circular),
     Finding("SG-HARD-042", "HIGH", "Attestation does not validate CAIQ metadata/mapping",
-            ["stop_guessing/prove/runner.py"]),
+            ["stop_guessing/prove/runner.py"], c_attest_validates_caiq_mapping),
     Finding("SG-HARD-043", "HIGH", "External CAIQ verification path is machine-specific",
             ["stop_guessing/caiq/fill.py"], c_verifier_path_machine_specific),
     Finding("SG-HARD-044", "HIGH", "Known adequacy objections do not affect the verdict",

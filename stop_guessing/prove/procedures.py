@@ -1094,9 +1094,23 @@ def prove_bar_requires_signed_scripts() -> ProofResult:
             return r.fail(f"bar refused a signed, tested script: {d2.outcome}")
         r.observe(f"signed + tested script under bar -> ALLOW via {d2.determining_policy}")
 
+        # #54 supplied a real OS boundary, so asserting the old "env-allowlist-only" string would
+        # now fail for the right reason having become the wrong assertion. What must hold either
+        # way is that the record AGREES with what this host can actually enforce — overstating and
+        # understating are both defects, and only the agreement is invariant.
         out = run(deleg, ["/x/roster.csv"])
-        if out["sandbox"]["kind"] != "env-allowlist-only":
-            return r.fail("the record overstates the isolation the delegated run actually had")
+        from stop_guessing.sandbox import available as _sb_available
+
+        enforced_here = _sb_available() != "none"
+        if out["sandbox"]["enforced"] is not enforced_here:
+            return r.fail(
+                f"the record says enforced={out['sandbox']['enforced']} while this host offers "
+                f"{_sb_available()!r} — the record disagrees with the boundary actually applied")
+        expected_kind = "os-capability-boundary" if enforced_here else "env-allowlist-only"
+        if out["sandbox"]["kind"] != expected_kind:
+            return r.fail(f"sandbox kind is {out['sandbox']['kind']!r}, expected {expected_kind!r}")
+        r.observe(f"delegated run isolation recorded honestly: {out['sandbox']['mechanism']} "
+                  f"({'enforced' if enforced_here else 'advisory only'})")
         full = emit_for_model(out["output"], "full")
         handle = emit_for_model(out["output"], "handle", artifact_id="art_roster")
         summary = emit_for_model(out["output"], "summary")

@@ -143,6 +143,9 @@ def rebuild(records: list[dict], session_id: str) -> SessionCustodyState:
     rewrites the conversation cannot rewrite what was touched.
     """
     state = SessionCustodyState(session_id)
+    # (runtime_action_id, op) pairs already replayed. One tool call produces a decision record and
+    # a result record describing the SAME effect; counting both double-counts the artifact.
+    seen_effects: set[tuple] = set()
     for r in records:
         if "statement" in r and isinstance(r["statement"], dict):
             pred = r["statement"].get("predicate", r["statement"])
@@ -164,11 +167,39 @@ def rebuild(records: list[dict], session_id: str) -> SessionCustodyState:
                      or r.get("resources", {}).get("generated") or [])
         derived = (_dig(pred, "resources", "derived_from") or [])
 
+        # #58 (SG-HARD-025). Three ways replay diverged from live state, all of which inflate it:
+        #
+        #   - `egress()` fired for ANY artifact.egress record, including ones that were DENIED.
+        #     Replaying a blocked egress as though it happened resets since_last_egress and makes
+        #     the rebuilt state disagree with the live one — and the ledger is authoritative, so
+        #     the wrong state wins.
+        #   - a read appears in both the PreToolUse decision and the PostToolUse result, so the
+        #     same artifact was counted twice.
+        #   - only `generated[0]` was used for a derivation, silently dropping every other output.
+        outcome = (_dig(pred, "decision", "outcome") or pred.get("outcome")
+                   or r.get("outcome"))
+        # Only a DENY is certainly not effected. An `ask` means the operator was asked, and under
+        # `steer` every first touch of a classified artifact is an ask — treating those as
+        # non-events stopped taint accumulating entirely, which CLAIM-07's cross-process proof
+        # caught immediately. An ask the operator refused will over-count taint, and that is the
+        # correct direction to be wrong in: more taint denies more egress.
+        effected = outcome != "deny"
+
+        idem = (_dig(pred, "actor", "runtime_action_id") or pred.get("runtime_action_id")
+                or _dig(pred, "action", "tool", "call_id"))
+        if idem is not None:
+            if (idem, op) in seen_effects:
+                continue                              # the paired Pre/Post record for one call
+            seen_effects.add((idem, op))
+
+        if not effected:
+            continue
+
         if op == "artifact.derive" and generated:
             inputs = [_ref(u) for u in used]
-            out = _ref(generated[0])
             via = derived[0].get("via", "unknown") if derived else "unknown"
-            state.derive(out, inputs, via)
+            for g in generated:                        # every output, not just the first
+                state.derive(_ref(g), inputs, via)
         else:
             for u in used:
                 state.touch(_ref(u))

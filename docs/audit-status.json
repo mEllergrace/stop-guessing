@@ -1,5 +1,5 @@
 {
-  "commit": "0a85291",
+  "commit": "25e24e9",
   "findings": [
     {
       "id": "SG-HARD-001",
@@ -185,8 +185,8 @@
         "stop_guessing/delegate.py",
         "stop_guessing/cli/cmd_ops.py"
       ],
-      "status": "DYNAMIC",
-      "evidence": "no static predicate; requires a live adversarial test"
+      "status": "ABSENT",
+      "evidence": "the script is digested before the test runs, a change across the test is refused, and the recorded digest is the bytes tested \u2014 with a live attack test that rewrites the script from inside its own test"
     },
     {
       "id": "SG-HARD-019",
@@ -195,8 +195,8 @@
       "files": [
         "stop_guessing/delegate.py"
       ],
-      "status": "DYNAMIC",
-      "evidence": "no static predicate; requires a live adversarial test"
+      "status": "ABSENT",
+      "evidence": "execution is gated on the digest recorded at test time, and a concurrent replacer racing the run is exercised live"
     },
     {
       "id": "SG-HARD-020",
@@ -225,8 +225,8 @@
       "files": [
         "stop_guessing/cli/gate.py"
       ],
-      "status": "DYNAMIC",
-      "evidence": "no static predicate; requires a live adversarial test"
+      "status": "ABSENT",
+      "evidence": "decide() holds a per-session file lock across state read, policy evaluation and append, so two parallel hooks cannot both decide against the same pre-call state"
     },
     {
       "id": "SG-HARD-023",
@@ -255,8 +255,8 @@
       "files": [
         "stop_guessing/taint/state.py"
       ],
-      "status": "DYNAMIC",
-      "evidence": "no static predicate; requires a live adversarial test"
+      "status": "ABSENT",
+      "evidence": "replay skips denied effects and deduplicates paired request/result records, so a rebuilt state is not inflated by events that did not happen"
     },
     {
       "id": "SG-HARD-026",
@@ -266,8 +266,8 @@
         "stop_guessing/cli/gate.py",
         "stop_guessing/cli/hook_post.py"
       ],
-      "status": "DYNAMIC",
-      "evidence": "no static predicate; requires a live adversarial test"
+      "status": "ABSENT",
+      "evidence": "a content digest is taken at result time and the record states exactly what it binds and what window remains open"
     },
     {
       "id": "SG-HARD-027",
@@ -276,8 +276,8 @@
       "files": [
         "stop_guessing/cli/gate.py"
       ],
-      "status": "DYNAMIC",
-      "evidence": "no static predicate; requires a live adversarial test"
+      "status": "ABSENT",
+      "evidence": "every classified input in a call is recorded as a subject, not only the one the decision turned on"
     },
     {
       "id": "SG-HARD-028",
@@ -286,8 +286,8 @@
       "files": [
         "stop_guessing/artifacts/classify.py"
       ],
-      "status": "DYNAMIC",
-      "evidence": "no static predicate; requires a live adversarial test"
+      "status": "ABSENT",
+      "evidence": "the detector states plainly that it cannot be complete and names the sandbox as the enforced boundary"
     },
     {
       "id": "SG-HARD-029",
@@ -368,8 +368,8 @@
       "files": [
         "install.sh"
       ],
-      "status": "DYNAMIC",
-      "evidence": "no static predicate; requires a live adversarial test"
+      "status": "ABSENT",
+      "evidence": "the runtime is built in a fresh directory, health-checked, then swapped in \u2014 never merged over an existing one \u2014 with the previous kept for rollback"
     },
     {
       "id": "SG-HARD-037",
@@ -378,8 +378,8 @@
       "files": [
         "install.sh"
       ],
-      "status": "DYNAMIC",
-      "evidence": "no static predicate; requires a live adversarial test"
+      "status": "ABSENT",
+      "evidence": "settings.json is written to a temp file, fsynced, renamed, and backed up"
     },
     {
       "id": "SG-HARD-038",
@@ -429,8 +429,8 @@
       "files": [
         "stop_guessing/prove/runner.py"
       ],
-      "status": "DYNAMIC",
-      "evidence": "no static predicate; requires a live adversarial test"
+      "status": "ABSENT",
+      "evidence": "the answers document is re-derived and compared field by field \u2014 answer, ssrm, implementation text, claim set and evidence refs"
     },
     {
       "id": "SG-HARD-043",
