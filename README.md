@@ -1,16 +1,16 @@
 # STOP-GUESSING
 
 <!-- BEGIN GENERATED STATUS -->
-**Version 0.4.0 — `stop-guessing attest --self` reports GOAL NOT MET.**
+**Version 0.4.0 — `stop-guessing attest --self` reports GOAL MET.**
 
 | | |
 |---|---|
-| Claims proven | **18/21**, by 154 records in its own keyed ledger |
+| Claims proven | **21/21**, by 134 records in its own keyed ledger |
 | Proof kinds | 3 adversarial, 8 live-run, 7 negative, 3 property — negative and adversarial are not optional |
 | AICM controls evidenced | 14 |
 | Chain | intact, keyed-verified |
 | Carried AI-CAIQ | 11 published controls answered (9 Yes, 2 No), derived from those proofs |
-| Judge panel | 47 deferred disapprovals, recorded not blocking — including `independence` on every claim |
+| Judge panel | 46 deferred disapprovals, recorded not blocking — including `independence` on every claim |
 
 A **proof** is a record in this toolchain's own ledger, produced by a procedure that exercises the
 real surface — not a passing test. `proofs:` in [`docs/claims.yaml`](docs/claims.yaml) is written
@@ -69,12 +69,17 @@ CSA has published the requirement and drafted the agentic controls. [*Data Secur
 
 ## Postures
 
-Three, all shipping. Default is `steer`.
+Three, all shipping. Default is `observe`.
+
+The default moved from `steer` to `observe` deliberately. This tool exists to record chain of
+custody as evidence, and the host already has a permission model that its operator has already
+configured; a second gate asking again is a recorder overriding the decision its user has made.
+`steer` and `bar` remain unchanged and are one config key away — they are opt-in, not removed.
 
 | Posture | Behaviour |
 |---|---|
-| `observe` | Records everything, blocks nothing |
-| `steer` | **Default.** Asks on first touch of a classified artifact, offering a recorded script delegation. Denies on accumulated taint crossing threshold, or any egress while tainted |
+| `observe` | **Default.** Records everything, blocks nothing. The one exception is a write to the ledger itself, which is refused under every posture — that protects the evidence rather than policing the operator, and `{"protect_ledger": false}` turns even that off |
+| `steer` | Asks on first touch of a classified artifact, offering a recorded script delegation. Denies on accumulated taint crossing threshold, or any egress while tainted |
 | `bar` | The model is barred from opening classified artifacts. Only signed scripts touch them; the model receives handles and summaries |
 
 Full depth is the default and is never silently reduced. Where fidelity is genuinely reduced it is recorded — `known_gaps: []` is a positive assertion that nothing was skipped, and a *missing* key is rejected at write.
@@ -136,38 +141,55 @@ Still open, and named rather than omitted:
 | Proofs run on one machine | No container or second-machine reproduction |
 | No mutation testing of the proof procedures | A procedure that always returned `passed=True` would be invisible |
 
-## Relationship to no-noodles
+## Workflow audit
 
-STOP-GUESSING vendors [`moonsoup/no-noodles`](https://github.com/moonsoup/no-noodles) byte-identically and is designed to supersede it, preserving every hook, config key, escape marker, state file and CLI. `# noodle-ok`, `# risk-ok` and `# build-ok:` keep working with identical semantics; `/no-noodle` and `/noodle-options` stay invocable. See §10 of the plan for the full compatibility matrix and `stop-guessing compat verify` for the acceptance gate.
+Audited 2026-08-04. Every row below was checked against the running system, not the design — a
+workflow that exists in the plan and not in `hooks.json` is recorded here as absent, because the
+central finding of the external review was that *a proof harness can demonstrate a primitive while
+the installed plugin never invokes it*.
 
-## Using it
+"Closed" means the loop runs, verifies its own result, and fails loudly when the result is wrong.
+"Open" means a human has to remember something, and will eventually not.
 
-```bash
-stop-guessing attest --self          # claims -> proofs -> AICM controls, in one command
-stop-guessing ledger verify          # is the chain intact, and verified under its key?
-stop-guessing verify --sufficiency   # does this ledger answer a governance question?
-stop-guessing claims check           # the release gate
-stop-guessing prove                  # re-run every proof procedure
-stop-guessing caiq derive && stop-guessing caiq fill   # regenerate the workbook, last
-```
+| # | Workflow | Entry point | State |
+|---|---|---|---|
+| 1 | **Runtime custody** — classify, taint, decide, record | `PreToolUse` → `PostToolUse` | **Closed, partial coverage.** Both hooks registered and recording. 2 of the 9 planned events exist; see the gap below |
+| 2 | **Proving** — run a procedure, witness it, judge it, record the ledger id | `stop-guessing prove` | **Closed.** 21 claims, execution-witnessed, and the only writer of `proofs:` |
+| 3 | **Attestation** — claims → proofs → AICM controls → verdict | `stop-guessing attest --self` | **Closed.** One command, non-zero on any break |
+| 4 | **Re-certification** — the full re-run after a change | [`docs/REATTESTATION.md`](docs/REATTESTATION.md) | **Closed, manually ordered.** The order is load-bearing and enforced by prose, not by code |
+| 5 | **Change guard** — is a repo change safe? | `scripts/attest_guard.py` | **Closed.** Snapshots before and after, reports only regressions, and names the `prove` commands that re-bind |
+| 6 | **Repo hygiene** — hardcoded paths, vendored trees, stale docs | `scripts/hygiene_sweep.py` | **Detector only, by design.** Upstream repo-hygiene never writes; acting on a finding is deliberate and should run under #5 |
+| 7 | **Version stamping** — one version, everywhere it is declared | `scripts/stamp_version.py --check` | **Closed.** Covers the nested `plugins[]` case that a hand-stamp missed |
+| 8 | **AI-CAIQ** — derive from proofs, fill, verify with a third-party verifier | `stop-guessing caiq derive`/`fill` | **Closed.** Verified by rich-text's unmodified `verify_ai_caiq_workbook.py` |
+| 9 | **Delegation** — scaffold a script/test pair, run it under a capability | `stop-guessing delegate new`, `run` | **Open.** The CLI works; the installed gate does not route to it |
+| 10 | **Reconciliation** — did the agent's claims match the recorder's dispatches? | `stop_guessing/ledger/reconcile.py` | **Built and unwired.** See below |
+| 11 | **Reasoning** — take a contradiction and derive the next measurement | — | **Does not exist.** See below |
 
-Every change means re-earning the attestation. That sequence is not optional and has no
-shortcut for small changes — see **[docs/REATTESTATION.md](docs/REATTESTATION.md)**, which also
-lists the three ways to confirm the gate can still fail.
+Three findings worth stating plainly.
 
-## Known gaps
+**Seven of nine planned hook events are not registered.** `hooks.json` registers `PreToolUse` and
+`PostToolUse`; the plan specifies nine, and only two entry points exist in code (`hook_gate.py`,
+`hook_post.py`). `SessionStart` (recorder self-check, chain verify, CAIQ version inspection),
+`UserPromptSubmit` (the root of every delegation chain), `PreCompact`, `SubagentStop`, `Stop` and
+`SessionEnd` (segment sealing) are designed and absent. The custody record is therefore complete
+per tool call and incomplete per session.
 
-Named rather than omitted, because `known_gaps: []` has to mean something:
+**`reconcile()` is built, tested, and called by nothing.** It is the function that compares what
+the recorder dispatched against what the agent claimed — the direct answer to *an audit trail owned
+by the audited party is not an audit trail*, and the mechanism that would catch a fabricated or
+replayed execution. It is not wired into any hook, so nothing currently detects that class of
+failure. (`gate.py` calls `persist.reconcile_with_ledger`, which rebuilds taint state from the
+ledger — a different function with a similar name.)
 
-| Gap | Consequence |
-|---|---|
-| Chain key read from an environment variable | Weakest provider tier — anything the agent runs can read it. Keychain support exists and is unused |
-| No recorder daemon | `isolation_tier` reports 0 or 1; tier 2 is checked for but never provided |
-| Signing is HMAC, not Ed25519 | No public verifiability; a verifier must hold the signing key |
-| No RFC 3161 timestamp, no segment certification run | `ledger certify` exists; no certifier profile has signed anything |
-| Never installed on a real profile | Live supersession is proved in sandboxes only |
-| Proofs run on one machine | No container or second-machine reproduction |
-| No mutation testing of the proof procedures | A procedure that always returned `passed=True` would be invisible |
+**Nothing closes a reasoning loop.** Three single-pass detectors exist — `witness` (did the
+procedure really execute), `judge` (seven lenses, disapproval deferred), `reconcile` (claimed vs
+recorded) — and each reports once and stops. None takes its own finding and derives the next
+measurement. That gap has a worked example: the CLAIM-21 recertification failure was diagnosed
+from the source as cumulative evidence, and the diagnosis was wrong. Measuring instead showed the
+workbook render is not byte-deterministic — three renders of identical answers produced two
+digests — so the pin was bound to a non-deterministic artifact. Reading the code produced a
+confident wrong answer; running the tool produced the right one. Workflow #5 is the first piece of
+that loop to exist in code, and it only covers repo changes.
 
 ## Files
 

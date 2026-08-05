@@ -274,8 +274,8 @@ claims:
   - A&A-01
   - STA-09
   proofs:
-  - sg:358:2b5df4446a17938a
-  last_proved: '2026-08-04T23:49:44.607Z'
+  - sg:360:d2992df5128d3665
+  last_proved: '2026-08-05T00:23:37.503Z'
   must_touch:
   - stop_guessing.caiq.workbook
 - id: CLAIM-15
@@ -289,8 +289,8 @@ claims:
   - DSP-20
   - LOG-10
   proofs:
-  - sg:359:16a0df34dc4bf2f6
-  last_proved: '2026-08-04T23:49:49.814Z'
+  - sg:361:5c26c533f82a73ca
+  last_proved: '2026-08-05T00:23:43.004Z'
   must_touch:
   - stop_guessing.caiq.fill
 - id: CLAIM-16
@@ -448,28 +448,8 @@ claims:
   - DSP-20
   - STA-09
   proofs:
-  - sg:39:fbe37ba1a9e2b863
-  - sg:61:d8495b2ca3ac47d7
-  - sg:82:f7cc594a8b2b486b
-  - sg:103:e8b6c17e04be0f76
-  - sg:125:6861749dc0b73d3f
-  - sg:146:87d4975ef6102f15
-  - sg:167:af6bb479c89079c9
-  - sg:188:95a9e64d9906694a
-  - sg:209:971e683e2e94b943
-  - sg:230:8e3a080457b52971
-  - sg:231:df82a72a916e2e39
-  - sg:252:b528a312a5f21438
-  - sg:253:0cb356e7b6fa507b
-  - sg:274:6a558da4464d9df1
-  - sg:275:5299338ac0a9a43c
-  - sg:296:aedd16d7928438c8
-  - sg:317:bdd759456a8aadde
-  - sg:318:d12551e640049a82
-  - sg:320:c727c52f6dd3db20
-  - sg:342:e2d4439eae2b1f10
-  - sg:343:aaa80676409c04e6
-  last_proved: '2026-08-04T15:55:06.377Z'
+  - sg:362:88ff2be9f1171d58
+  last_proved: '2026-08-05T00:24:01.856Z'
   must_touch:
   - stop_guessing.caiq.answers
   - stop_guessing.caiq.fill
