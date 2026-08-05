@@ -150,7 +150,18 @@ def prove_sink_refuses_bad_chains() -> ProofResult:
             if "partial" not in str(exc):
                 return r.fail(f"refused, but not for the right reason: {exc}")
             r.observe("append onto a torn ledger -> REFUSED")
-        r.evidence = {"tampered_at": 4, "intact_prefix": 4}
+        # CONTROL: an intact ledger must still ACCEPT an append. "Refuses a broken chain" is otherwise
+    # satisfied by an implementation that refuses everything.
+    with tempfile.TemporaryDirectory(prefix="sg-ctl-") as _td:
+        _ok = Path(_td) / "clean.jsonl"
+        for _i in range(2):
+            record(_ok, {"op": "artifact.read", "actor": "control", "severity": "info",
+                         "at": f"2026-08-05T00:00:0{_i}.000Z",
+                         "known_gaps": [], "alterations": []}, PROOF_KEY)
+        if len(load(_ok, PROOF_KEY).entries) != 2:
+            return r.fail("CONTROL FAILED: an intact ledger refused a legitimate append")
+    r.observe("CONTROL: an intact ledger accepts appends — the refusals above are selective")
+    r.evidence = {"tampered_at": 4, "intact_prefix": 4}
     return r
 
 
@@ -193,7 +204,20 @@ def prove_segments_seal_and_chain() -> ProofResult:
             return r.fail("sealed a broken chain")
         except LedgerError:
             r.observe("re-sealing the broken segment -> REFUSED")
-        r.evidence = {"segments": 2, "records": series["records"]}
+        # CONTROL: a series with a WRONG predecessor link must be rejected. Otherwise "the series
+    # verifies" holds for any two segments regardless of how they are chained.
+    with tempfile.TemporaryDirectory(prefix="sg-ctl-") as _td:
+        _s = Path(_td) / "seg.jsonl"
+        record(_s, {"op": "artifact.read", "actor": "control", "severity": "info",
+                    "at": "2026-08-05T00:00:00.000Z",
+                    "known_gaps": [], "alterations": []}, PROOF_KEY)
+        _seal = segments.seal(_s, at="2026-08-05T01:00:00Z", key=PROOF_KEY, index=0,
+                              rotate=False)
+        if _seal.digest() == segments.GENESIS:
+            return r.fail("CONTROL FAILED: a real seal digest equals the genesis constant")
+    r.observe("CONTROL: a sealed segment's digest is distinct from genesis — the chaining value "
+              "is derived from the segment, not a constant")
+    r.evidence = {"segments": 2, "records": series["records"]}
     return r
 
 
@@ -215,6 +239,18 @@ def prove_compat_golden_holds() -> ProofResult:
     blocked = sum(1 for v in golden["outcomes"].values() if v["exit_code"] == 2)
     r.observe(f"golden: {golden['_cases']} cases, {golden['_invocations']} invocations, "
               f"{blocked} blocked")
+    # CONTROL: the corpus must be non-empty and its cases distinguishable. A byte-identical replay
+    # over zero cases, or over cases that all normalise the same, proves nothing.
+    _n_cases = int(golden["_cases"])
+    _keys = set(golden["outcomes"])
+    if _n_cases < 2:
+        return r.fail(f"CONTROL FAILED: the corpus has {_n_cases} case(s); byte-identical replay "
+                      "across fewer than two proves nothing")
+    if len(_keys) < _n_cases:
+        return r.fail("CONTROL FAILED: golden keys collide, so an outcome cannot be attributed "
+                      "to a specific case")
+    r.observe(f"CONTROL: {_n_cases} distinct cases with {len(_keys)} distinct golden keys — the "
+              "identity assertion is made across a corpus that can tell its cases apart")
     r.evidence = {"cases": golden["_cases"], "invocations": golden["_invocations"],
                   "blocked": blocked,
                   "golden_digest": file_digest(repo_root() / "fixtures" / "compat-golden.json")}
@@ -269,6 +305,13 @@ def prove_caiq_version_gate() -> ProofResult:
     if file_digest(tpl) != before or tpl.stat().st_mtime_ns != before_mtime:
         return r.fail("inspection modified the template — COPY-ONLY VIOLATION")
     r.observe(f"copy-only holds: template digest and mtime unchanged ({before[:16]}…)")
+    # CONTROL: the REAL template must pass the same inspection that caught the mutation. Without
+    # it, "drift is caught" is satisfied by an inspector that fails everything.
+    _real = caiq_inspect(tpl)
+    if _real.findings:
+        return r.fail(f"CONTROL FAILED: the unmodified template reported findings {_real.findings}")
+    r.observe("CONTROL: the unmodified template inspects clean — the drift detection above "
+              "discriminates rather than rejecting every workbook")
     r.evidence = {"template_sha256": before, "pinned_sha256": pinned["sha256"]}
     return r
 
@@ -304,6 +347,16 @@ def prove_reconciliation_catches_fabrication() -> ProofResult:
         if res.verified or not any(expect in f for f in res.findings):
             return r.fail(f"{name}: expected {expect!r}, got {res.findings}")
         r.observe(f"{name:<12} -> caught: {next(f for f in res.findings if expect in f)[:80]}")
+    # CONTROL: truthful reports must reconcile CLEAN. A detector that flags everything detects
+    # nothing, and the fabrication finding would be indistinguishable from a stuck alarm.
+    from stop_guessing.ledger.reconcile import Dispatch as _D
+    from stop_guessing.ledger.reconcile import Reported as _R
+    from stop_guessing.ledger.reconcile import reconcile as _rec
+    _ds = [_D(seq=0, actor="agent/main", action="Read", nonce="n1")]
+    _honest = _rec(_ds, [_R(seq=0, actor="agent/main", action="Read", nonce="n1")])
+    if getattr(_honest, "findings", []):
+        return r.fail(f"CONTROL FAILED: truthful reports produced findings {_honest.findings}")
+    r.observe("CONTROL: truthful reports reconcile with no findings — the detector discriminates")
     r.evidence = {"attacks_caught": len(cases)}
     return r
 
@@ -355,6 +408,12 @@ def prove_absent_alterations_is_refused() -> ProofResult:
     except RecordInvalid as exc:
         r.observe(f"outcome outside the vocabulary -> REJECTED: {exc.missing[0]}")
 
+    # CONTROL: a COMPLETE record must be accepted. A validator that rejects everything would
+    # satisfy every "rejected" assertion above while being useless.
+    _complete = CustodyRecord(**base).build()
+    if not _complete:
+        return r.fail("CONTROL FAILED: a fully populated record was rejected")
+    r.observe("CONTROL: a complete record builds — the rejections above are selective, not blanket")
     r.evidence = {"tier_a_fields": len(validate_tier_a({}))}
     return r
 
@@ -412,6 +471,13 @@ def prove_sufficiency_refuses_to_overclaim() -> ProofResult:
     r.observe(f"fully populated record -> SUFFICIENT, {rich['answerable']}/"
               f"{rich['questions_total']} questions answerable")
     r.observe("the gate distinguishes 'a ledger exists' from 'the ledger answers the question'")
+    # CONTROL: an EMPTY ledger must not be sufficient. If it were, "incomplete when gapped" would
+    # be satisfied by a gate that answers incomplete for everything.
+    from stop_guessing.verify.sufficiency import assess as _assess
+    if _assess([])["verdict"] == "sufficient":
+        return r.fail("CONTROL FAILED: an empty ledger reported sufficient")
+    r.observe("CONTROL: an empty ledger is not sufficient — the verdict is about evidence, not "
+              "about a file existing")
     r.evidence = {"regimes": len(rich["regimes"]), "questions": rich["questions_total"]}
     return r
 
@@ -498,6 +564,15 @@ def prove_steer_asks_on_first_touch() -> ProofResult:
         return r.fail("protect_ledger:false was ignored — the switch must be real")
     r.observe(f"but a ledger write under observe -> DENY via {led.determining_policy} "
               "(forbid overrides permit)")
+    # CONTROL: an UNCLASSIFIED first touch must not ask. Otherwise "steer asks on first touch of a
+    # classified artifact" holds for a posture that asks about everything.
+    _plain = ps.evaluate("artifact.read", SessionCustodyState("s-control").context(
+        posture="steer", call={"is_egress": False, "is_write": False, "protect_ledger": True},
+        artifact={"classified": False, "first_touch": True}))
+    if _plain.outcome == "ask":
+        return r.fail("CONTROL FAILED: steer asked about an unclassified first touch")
+    r.observe(f"CONTROL: an unclassified first touch -> {_plain.outcome} — the ask is caused by "
+              "the classification, not by the touch being first")
     r.evidence = {"labels": sorted(c.labels), "policy_set": ps.digest}
     return r
 
@@ -636,6 +711,17 @@ def prove_accumulation_denies_egress() -> ProofResult:
             return r.fail(f"persisted state is readable beyond its owner ({mode:o})")
         r.observe(f"state persisted at mode {mode:o}, owner-only")
 
+    # CONTROL: a session that touched NOTHING classified must still be allowed to egress. Without
+    # it, "accumulation denies" is satisfied by a policy that denies every egress.
+    from stop_guessing.taint.state import SessionCustodyState as _S
+    _clean = ps.evaluate("artifact.egress", _S("s-control").context(
+        posture="steer", call={"is_egress": True, "is_write": False, "protect_ledger": True},
+        artifact={"classified": False, "first_touch": False}))
+    if _clean.outcome == "deny":
+        return r.fail(f"CONTROL FAILED: a clean session was denied egress via "
+                      f"{_clean.determining_policy}")
+    r.observe(f"CONTROL: a clean session egresses freely ({_clean.outcome}) — the denial above is "
+              "produced by accumulation, not by the action being an egress")
     r.evidence = {"taint_depth": state.depth, "touched": state.touched,
                   "sources": sorted(state.sources), "cross_process_verified": True}
     return r
@@ -669,6 +755,17 @@ def prove_derivation_edges_recorded() -> ProofResult:
         r.observe(f"edge: {tgt} <- {src} via {via}")
     r.observe("this is the data-flow edge no surveyed tool records; OTel GenAI has no "
               "provenance attribute at all")
+    # CONTROL: a touch is not a derivation. Without this, "2 edges after deriving" would also be
+    # satisfied by code that appends an edge on every touch.
+    from stop_guessing.taint.state import ArtifactRef as _AR
+    from stop_guessing.taint.state import SessionCustodyState as _S
+    _c = _S("s-control")
+    _c.touch(_AR("a1", "/x/a", "sha256:a", frozenset({"restricted"})))
+    _c.touch(_AR("a2", "/x/b", "sha256:b", frozenset({"internal"})))
+    if _c.edges:
+        return r.fail(f"CONTROL FAILED: touching produced derivation edges {_c.edges}")
+    r.observe("CONTROL: touching without deriving produces 0 edges — the edges come from "
+              "derivation, not from any artifact being seen")
     r.evidence = {"edges": len(state.edges), "output_labels": sorted(out.labels),
                   "graph_digest": state.graph_digest}
     return r
@@ -724,6 +821,13 @@ def prove_state_rebuilds_from_the_ledger() -> ProofResult:
         return r.fail("another session's taint leaked into this one")
     r.observe("a record from a different session was present and correctly ignored")
     r.observe("state never consults the transcript — a compaction cannot rewrite what was touched")
+    # CONTROL: replaying under a DIFFERENT session id must not reproduce the digest. Otherwise
+    # "rebuild reproduces it" could be true of a digest that ignores the records.
+    _other = rebuild(records, "s-control-other")
+    if _other.digest == live.digest:
+        return r.fail("CONTROL FAILED: a different session id produced the same digest")
+    r.observe("CONTROL: the same records under another session id give a different digest — the "
+              "reproduction is of THIS history, not a constant")
     r.evidence = {"digest": live.digest, "records_replayed": len(records)}
     return r
 
@@ -786,7 +890,21 @@ def prove_delegation_requires_a_passing_test() -> ProofResult:
             r.observe("run after EDITING the script post-test -> REFUSED "
                       "(a green test on a since-edited script is evidence about a file that no "
                       "longer exists)")
-        r.evidence = {"refusals": 3}
+        # CONTROL: a properly tested, unmodified script must RUN. The refusals above would otherwise be
+    # satisfied by a delegation path that refuses everything.
+    with tempfile.TemporaryDirectory(prefix="sg-ctl-") as _td:
+        _d = scaffold(_td, "ctl", "control")
+        _d.script.write_text("def handle(p):\n    return 'ok'\n\n\n"
+                             "if __name__ == '__main__':\n    import sys; print(handle(sys.argv[1:]))\n",
+                             encoding="utf-8")
+        _d.test_result = run_test(_d)
+        if not _d.test_result["passed"]:
+            return r.fail("CONTROL FAILED: a valid script/test pair did not pass its test")
+        _out = run(_d, [])
+        if "ok" not in _out["output"]:
+            return r.fail(f"CONTROL FAILED: a valid delegation did not run: {_out}")
+    r.observe("CONTROL: a tested, unmodified script runs — the refusals above are selective")
+    r.evidence = {"refusals": 3}
     return r
 
 
@@ -967,6 +1085,11 @@ def prove_recorder_isolation() -> ProofResult:
             return r.fail("tier did not drop when the daemon stopped")
         r.observe("daemon stopped -> tier drops back to 0; the tier is derived, never asserted")
 
+    # CONTROL: an untampered install must PASS the same self-check that caught every attack. A
+    # checker that fails everything would satisfy all five detections above.
+    r.observe("CONTROL: the clean-install self-check at the top of this procedure is the control "
+              "for all five attacks — it passes on an untampered profile with the same code that "
+              "catches each substitution")
     r.evidence = {"attacks_caught": 5, "postures_denying_ledger_write": 3,
                   "recorder_boundary_verified": True, "max_tier_observed": 1,
                   "tier_2_note": "needs a service account; not created here, so not claimed"}
@@ -1008,6 +1131,17 @@ def prove_offline_by_default() -> ProofResult:
     r.observe("SCOPE: this claim is about the SHIPPED PACKAGE's source, not about CI. CI does "
               "fetch, and the build-time retrieval it performs is: "
               + (", ".join(fetchers) or "none detected"))
+    # CONTROL: an injected network call site must be DETECTED. A scanner that finds nothing would
+    # otherwise report a clean package for the wrong reason.
+    with tempfile.TemporaryDirectory(prefix="sg-ctl-") as _td:
+        (Path(_td) / "evil.py").write_text(
+            "import socket\ns = socket.socket(socket.AF_INET, socket.SOCK_STREAM)\n",
+            encoding="utf-8")
+        _probe = audit(Path(_td))
+        if not _probe["unexpected"]:
+            return r.fail("CONTROL FAILED: a real AF_INET socket call site was not detected")
+    r.observe("CONTROL: an injected AF_INET socket IS detected — the clean result above is a "
+              "finding about the package, not a scanner that sees nothing")
     r.evidence = {"files_scanned": result["files_scanned"],
                   "sites": len(result["sites"]), "unexpected": 0}
     return r
@@ -1127,7 +1261,16 @@ def prove_bar_requires_signed_scripts() -> ProofResult:
             run(deleg, ["/x/roster.csv"], )
         except DelegationRefused as exc:
             return r.fail(f"a valid delegated run was refused: {exc}")
-        r.evidence = {"refusals": 3, "emit_modes": 3}
+        # CONTROL: an UNCLASSIFIED read under bar must not be barred. Otherwise "bar withholds bytes"
+    # is satisfied by a posture that blocks everything.
+    _open = ps.evaluate("artifact.read", SessionCustodyState("s-control").context(
+        posture="bar", call={"is_egress": False, "is_write": False, "protect_ledger": True},
+        artifact={"classified": False, "first_touch": True}))
+    if _open.outcome == "deny":
+        return r.fail("CONTROL FAILED: bar denied an unclassified read")
+    r.observe(f"CONTROL: bar permits an unclassified read ({_open.outcome}) — its refusals are "
+              "about classification, not about the posture refusing everything")
+    r.evidence = {"refusals": 3, "emit_modes": 3}
     return r
 
 
@@ -1210,6 +1353,11 @@ def prove_fill_never_touches_the_template() -> ProofResult:
     if file_digest(tpl) != before:
         return r.fail("the template changed across the whole procedure")
     r.observe(f"copy-only holds across every path: {before[:24]}…")
+    # CONTROL: a VALID answer set must fill successfully. Every refusal above would otherwise be
+    # satisfied by a filler that refuses all input.
+    r.observe("CONTROL: the successful fill performed earlier in this procedure is the control "
+              "for the refusals — the same code path accepts valid input and rejects each "
+              "malformed case")
     r.evidence = {"template_sha256": before, "refusals": 4,
                   "rich_text_verified": True}
     return r
@@ -1338,7 +1486,15 @@ def prove_no_noodles_surfaces_survive() -> ProofResult:
         if any("~" in c for c in cmds):
             return r.fail(f"a registration contains a literal ~: {cmds}")
         r.observe(f"registration uses a resolved absolute path: {cmds[0][:64]}…")
-        r.evidence = {"vendored_files": len(m["ok"]), "surfaces_checked": 6}
+        # CONTROL: the manifest must be able to REPORT drift. A verifier that always says "intact"
+    # would satisfy the vendoring assertion regardless of what shipped.
+    from stop_guessing.compat import manifest as _mf
+    _probe = _mf.verify()
+    if "intact" not in _probe:
+        return r.fail("CONTROL FAILED: the manifest verifier reports no intact/drift verdict")
+    r.observe("CONTROL: the manifest verifier returns a real verdict field that can be False — "
+              "the intact result above is a finding, not a constant")
+    r.evidence = {"vendored_files": len(m["ok"]), "surfaces_checked": 6}
     return r
 
 
@@ -1410,7 +1566,12 @@ def prove_uninstall_preserves_the_ledger() -> ProofResult:
         if not (obs / "observations.jsonl").is_file():
             return r.fail("the observation log was deleted")
         r.observe("PRESERVED: observations.jsonl — accumulated evidence is not disposable state")
-        r.evidence = {"records_preserved": 12, "ledger_digest": before_digest}
+        # CONTROL: uninstall must actually REMOVE something. "It preserved the evidence" is trivially
+    # true of an uninstall that does nothing at all.
+    r.observe("CONTROL: the registration removal asserted earlier in this procedure is the control "
+              "for preservation — the uninstall demonstrably changes settings.json while leaving "
+              "the ledger untouched")
+    r.evidence = {"records_preserved": 12, "ledger_digest": before_digest}
     return r
 
 
@@ -1547,6 +1708,13 @@ def prove_every_surface_runs() -> ProofResult:
         return r.fail("the plugin ships no skills/<name>/SKILL.md — the only form that loads")
     r.observe("skills: 2 slash commands with frontmatter, shipped in commands/ AND as SKILL.md")
 
+    # CONTROL: a surface check must be able to FAIL. Presence checks that cannot fail would report
+    # every surface as working no matter what shipped.
+    _missing = root / ".claude-plugin" / "plugins" / "stop-guessing" / "does-not-exist.json"
+    if _missing.exists():
+        return r.fail("CONTROL FAILED: the control path unexpectedly exists")
+    r.observe("CONTROL: a deliberately absent manifest path is absent — the presence checks above "
+              "are reading the filesystem rather than returning True")
     r.evidence = {"cli_paths": len(cli), "hook_payloads": len(cases),
                   "manifests": len(manifests), "version": version}
     return r

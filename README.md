@@ -15,11 +15,11 @@ headline is exactly who they matter to.**
 | AICM controls evidenced | 14 |
 | Chain | intact, keyed-verified |
 | Carried AI-CAIQ | 11 published controls answered (9 Yes, 2 No), derived from those proofs |
-| Judge panel | 46 deferred disapprovals, recorded not blocking — including `independence` on every claim |
+| Judge panel | 27 deferred disapprovals, recorded not blocking — including `independence` on every claim |
 
 **What this gate does not establish.** An independent hardening audit on 2026-08-04
 raised 54 findings. Each was re-verified against source rather than accepted; the current state,
-generated from [`docs/audit-status.json`](docs/audit-status.json) at commit `25e24e9`, is
+generated from [`docs/audit-status.json`](docs/audit-status.json) at commit `53d6ea7`, is
 **0 confirmed outstanding, 54 fixed, 0 unverified** (no static
 predicate — those need a live adversarial test and are not counted as passing).
 

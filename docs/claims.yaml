@@ -28,8 +28,8 @@ claims:
   - DSP-05
   - LOG-AG-01
   proofs:
-  - sg:643:e3bf55b116877a50
-  last_proved: '2026-08-05T15:33:27.657Z'
+  - sg:758:c94a8157129589e9
+  last_proved: '2026-08-05T15:58:29.785Z'
   must_touch:
   - stop_guessing.taint.state
 - id: CLAIM-02
@@ -43,8 +43,8 @@ claims:
   - LOG-10
   - LOG-03
   proofs:
-  - sg:644:3fca24ca5e10365e
-  last_proved: '2026-08-05T15:33:30.086Z'
+  - sg:759:7f56c88e7b1f4e9d
+  last_proved: '2026-08-05T15:58:32.180Z'
   must_touch:
   - stop_guessing.ledger.chain
 - id: CLAIM-03
@@ -57,8 +57,8 @@ claims:
   aicm:
   - LOG-10
   proofs:
-  - sg:645:8a7430b57a445c03
-  last_proved: '2026-08-05T15:33:30.173Z'
+  - sg:760:e72891ce82ce4708
+  last_proved: '2026-08-05T15:58:32.269Z'
   must_touch:
   - stop_guessing.ledger.sink
 - id: CLAIM-04
@@ -72,8 +72,8 @@ claims:
   - LOG-10
   - LOG-12
   proofs:
-  - sg:646:6d68fc7f1692ff02
-  last_proved: '2026-08-05T15:33:30.352Z'
+  - sg:761:d4842047f7706afc
+  last_proved: '2026-08-05T15:58:32.467Z'
   must_touch:
   - stop_guessing.ledger.segments
 - id: CLAIM-05
@@ -86,8 +86,8 @@ claims:
   aicm:
   - LOG-03
   proofs:
-  - sg:647:d422d47a98a34232
-  last_proved: '2026-08-05T15:33:30.417Z'
+  - sg:762:aeadbd7d2c1232e1
+  last_proved: '2026-08-05T15:58:32.536Z'
   must_touch:
   - stop_guessing.ledger.entry
 - id: CLAIM-06
@@ -101,8 +101,8 @@ claims:
   - A&A-01
   - LOG-03
   proofs:
-  - sg:648:79f65700d3c4a9fc
-  last_proved: '2026-08-05T15:33:30.485Z'
+  - sg:763:caa4ed175bfaaf2d
+  last_proved: '2026-08-05T15:58:32.623Z'
   must_touch:
   - stop_guessing.verify.sufficiency
 - id: CLAIM-07
@@ -118,8 +118,8 @@ claims:
   - DSP-20
   - LOG-AG-02
   proofs:
-  - sg:649:79710cd629593242
-  last_proved: '2026-08-05T15:33:36.230Z'
+  - sg:764:ec1e8191680d4ee8
+  last_proved: '2026-08-05T15:58:38.010Z'
   must_touch:
   - stop_guessing.policy.engine
   - stop_guessing.taint.state
@@ -133,8 +133,8 @@ claims:
   aicm:
   - DSP-20
   proofs:
-  - sg:650:642a850b9a4cdf32
-  last_proved: '2026-08-05T15:33:36.378Z'
+  - sg:765:0af46a9021074df3
+  last_proved: '2026-08-05T15:58:38.190Z'
   must_touch:
   - stop_guessing.policy.engine
 - id: CLAIM-09
@@ -153,8 +153,8 @@ claims:
   - CCC-01
   - DSP-20
   proofs:
-  - sg:651:1262ef5bb2387bfe
-  last_proved: '2026-08-05T15:33:36.904Z'
+  - sg:766:02bab40a66508590
+  last_proved: '2026-08-05T15:58:39.117Z'
   must_touch:
   - stop_guessing.delegate
 - id: CLAIM-10
@@ -168,8 +168,8 @@ claims:
   - DSP-20
   - MDS-13
   proofs:
-  - sg:652:8716292f832baf2f
-  last_proved: '2026-08-05T15:33:37.236Z'
+  - sg:767:3ab17dd8a15a9b85
+  last_proved: '2026-08-05T15:58:39.538Z'
   must_touch:
   - stop_guessing.delegate
   - stop_guessing.policy.engine
@@ -184,8 +184,8 @@ claims:
   aicm:
   - LOG-AG-01
   proofs:
-  - sg:653:17e489cf47e643d2
-  last_proved: '2026-08-05T15:33:37.304Z'
+  - sg:768:2a5921db7fd9d06a
+  last_proved: '2026-08-05T15:58:39.635Z'
   must_touch:
   - stop_guessing.taint.state
 - id: CLAIM-12
@@ -204,8 +204,8 @@ claims:
   - LOG-10
   - IAM-AG-03
   proofs:
-  - sg:654:32b6ba2fc56ce716
-  last_proved: '2026-08-05T15:33:37.971Z'
+  - sg:769:70e3dd2d9b6d100a
+  last_proved: '2026-08-05T15:58:40.376Z'
   must_touch:
   - stop_guessing.recorder.guard
 - id: CLAIM-13
@@ -219,8 +219,8 @@ claims:
   - LOG-03
   - SEF-01
   proofs:
-  - sg:655:9dc1a2015e0663df
-  last_proved: '2026-08-05T15:33:38.070Z'
+  - sg:770:29c8ad6c083e83ca
+  last_proved: '2026-08-05T15:58:40.483Z'
   must_touch:
   - stop_guessing.ledger.reconcile
 - id: CLAIM-14
@@ -235,8 +235,8 @@ claims:
   - A&A-01
   - STA-09
   proofs:
-  - sg:656:178bff302940ad33
-  last_proved: '2026-08-05T15:33:39.941Z'
+  - sg:771:bad301b8df4d97b4
+  last_proved: '2026-08-05T15:58:42.539Z'
   must_touch:
   - stop_guessing.caiq.workbook
 - id: CLAIM-15
@@ -250,8 +250,8 @@ claims:
   - DSP-20
   - LOG-10
   proofs:
-  - sg:657:9ddadaf9413cdfa6
-  last_proved: '2026-08-05T15:33:45.177Z'
+  - sg:772:3606c568ca280b3f
+  last_proved: '2026-08-05T15:58:48.054Z'
   must_touch:
   - stop_guessing.caiq.fill
 - id: CLAIM-16
@@ -264,8 +264,8 @@ claims:
   aicm:
   - CCC-01
   proofs:
-  - sg:658:0033bd2a12742b57
-  last_proved: '2026-08-05T15:35:15.701Z'
+  - sg:773:6a7723d631cd73bf
+  last_proved: '2026-08-05T16:00:16.696Z'
   witness_mode: subprocess
 - id: CLAIM-17
   statement: Every no-noodles surface keeps working after supersession — the three escape markers, the
@@ -280,8 +280,8 @@ claims:
   aicm:
   - CCC-01
   proofs:
-  - sg:659:752d57e295e7b0e5
-  last_proved: '2026-08-05T15:35:29.302Z'
+  - sg:774:c0b60c1fa08f1be8
+  last_proved: '2026-08-05T16:00:29.975Z'
   witness_mode: subprocess
 - id: CLAIM-18
   statement: 'No statically detectable network call site exists in the shipped Python package except the
@@ -299,8 +299,8 @@ claims:
   - DSP-05
   - I&S-01
   proofs:
-  - sg:660:34446b9cc3ca3590
-  last_proved: '2026-08-05T15:35:29.695Z'
+  - sg:775:413d7a97db267d3e
+  last_proved: '2026-08-05T16:00:30.332Z'
   must_touch:
   - stop_guessing.recorder.network
 - id: CLAIM-19
@@ -313,8 +313,8 @@ claims:
   aicm:
   - LOG-10
   proofs:
-  - sg:661:01cbc3bb6c4ad8ca
-  last_proved: '2026-08-05T15:35:37.282Z'
+  - sg:776:c87c776c23bdff35
+  last_proved: '2026-08-05T16:00:36.742Z'
   witness_mode: subprocess
 - id: CLAIM-20
   statement: 'Every distributed surface — plugin, skill, slash-command and CLI — is accounted for by a
@@ -335,8 +335,8 @@ claims:
   - A&A-01
   - STA-09
   proofs:
-  - sg:662:1e576c03b5ac9c4b
-  last_proved: '2026-08-05T15:35:41.597Z'
+  - sg:777:95d4ccd4a0509476
+  last_proved: '2026-08-05T16:00:41.159Z'
   witness_mode: subprocess
 - id: CLAIM-21
   statement: This toolchain's own AI-CAIQ was filled from proofs produced by this toolchain, as the last
@@ -351,8 +351,8 @@ claims:
   - DSP-20
   - STA-09
   proofs:
-  - sg:663:a53ad97305d82eab
-  last_proved: '2026-08-05T15:35:46.765Z'
+  - sg:778:5e73fc8bba80d38f
+  last_proved: '2026-08-05T16:00:46.368Z'
   must_touch:
   - stop_guessing.caiq.answers
   - stop_guessing.caiq.fill

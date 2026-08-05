@@ -500,8 +500,17 @@ def attest_self(
         "chain_verified": bool(result["chain_keyed"] and result["chain_intact"]),
         "surface_validated": not unvalidated,
         "unvalidated_surfaces": unvalidated,
-        "control_backed": not judge.get("deferred_disapprovals"),
+        # `control_backed` means what it says: every procedure carries a case that must behave the
+        # other way. It was defined as "no lens objected AT ALL", which folded in the
+        # `independence` lens — and that lens objects on every claim by construction, because the
+        # procedures are authored by the party they attest. Self-attestation can never clear it,
+        # so under that definition the axis was unreachable and therefore said nothing.
+        #
+        # Independence has its own axis, `independently_reproduced`, and is still reported there.
+        # Collapsing it into this one made two different unknowns look like one failure.
+        "control_backed": not judge.get("by_lens", {}).get("control-present"),
         "deferred_disapprovals": judge.get("deferred_disapprovals", 0),
+        "deferred_by_lens": judge.get("by_lens", {}),
         "independently_reproduced": False,
         "note": (
             "Four axes, deliberately not collapsed. `executed` says the procedures ran and were "
