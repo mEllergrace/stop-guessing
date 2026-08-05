@@ -143,6 +143,18 @@ def cmd_attest(args) -> int:
     print(f"workbook bound     : {caiq.get('workbook_digest_bound')}")
     for f in caiq.get("findings") or []:
         print(f"  CAIQ FINDING     : {f}")
+    # #77 (SG-HARD-044): four axes, printed separately. One boolean collapsed "the procedures ran"
+    # with "the evidence is adequate" and with "someone else reproduced it", so a flattering
+    # headline could sit on top of 21 recorded independence objections.
+    a = result.get("assurance") or {}
+    if a:
+        print("\nassurance axes     : deliberately not collapsed into one verdict")
+        for k in ("executed", "chain_verified", "surface_validated", "control_backed",
+                  "independently_reproduced"):
+            print(f"    {k:<26} {a.get(k)}")
+        if a.get("unvalidated_surfaces"):
+            print(f"    {'surfaces unchecked':<26} {len(a['unvalidated_surfaces'])}")
+
     j = result.get("judge") or {}
     if j:
         print(f"\njudge panel        : {j['claims_judged']} claims, {j['verdicts']} verdicts, "

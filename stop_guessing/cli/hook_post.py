@@ -24,13 +24,12 @@ import sys
 
 from stop_guessing.artifacts.classify import classify_path, paths_in
 from stop_guessing.artifacts.identity import identify
-from stop_guessing.cli.gate import _now, chain_key, ledger_path, state_for
+from stop_guessing.cli.gate import _now, chain_key, state_for
 from stop_guessing.taint.labels import is_classified, join
 
 
 def record_result(payload: dict) -> dict | None:
     """Append the `tool.result` record, plus a derivation edge when one is real."""
-    from stop_guessing.ledger.sink import record
     from stop_guessing.taint import persist
     from stop_guessing.taint.state import ArtifactRef
 
@@ -76,28 +75,37 @@ def record_result(payload: dict) -> dict | None:
 
     op = "artifact.derive" if (is_write and edges) else ("artifact.write" if is_write
                                                         else "tool.result")
-    try:
-        entry = record(ledger_path(), {
-            "op": op,
-            "actor": "stop-guessing/hook_post",
-            "at": _now(),
-            "severity": "info" if success else "warn",
-            "session_id": session_id,
-            "runtime_action_id": payload.get("tool_use_id"),
-            "tool": {"name": tool},
-            "executed": True,
-            "success": success,
-            "result_bytes": len(json.dumps(result)) if result else 0,
-            "resources": {"used": used, "generated": generated, "derived_from": edges},
-            "basis": {"taint": sorted(state.labels), "taint_depth": state.depth,
-                      "custody_digest": state.digest, "cache_agreed": cache_agreed},
-            "known_gaps": [] if cache_agreed else
-                          ["state cache disagreed with the ledger; ledger won"],
-            "alterations": [],
-        }, key)
-        return entry
-    except Exception:  # noqa: BLE001
-        return None
+    # #41 (SG-HARD-008). This wrote DIRECTLY through ledger.sink.record(), bypassing the recorder
+    # entirely. Under a real separate-uid design the hook has neither the key nor write permission,
+    # so the append fails — and the exception was caught here and turned into None, while main()
+    # saw no exception and returned success. Every PostToolUse execution, result and derivation
+    # record could therefore vanish silently at exactly the isolation tier the project calls
+    # strongest. Route through the recorder, and make a loss a recorded gap rather than a return
+    # value nobody inspects.
+    event = {"op": op,
+        "actor": "stop-guessing/hook_post",
+        "at": _now(),
+        "severity": "info" if success else "warn",
+        "session_id": session_id,
+        "runtime_action_id": payload.get("tool_use_id"),
+        "tool": {"name": tool},
+        "executed": True,
+        "success": success,
+        "result_bytes": len(json.dumps(result)) if result else 0,
+        "resources": {"used": used, "generated": generated, "derived_from": edges},
+        "basis": {"taint": sorted(state.labels), "taint_depth": state.depth,
+                  "custody_digest": state.digest, "cache_agreed": cache_agreed},
+        "known_gaps": [] if cache_agreed else
+                      ["state cache disagreed with the ledger; ledger won"],
+        "alterations": [],
+    }
+
+    from stop_guessing.recorder import client
+
+    appended = client.append(_cfg_dir(), event, fallback_key=key)
+    if appended.ref is None:
+        _record_loss(event, appended)
+    return appended.ref
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -117,3 +125,38 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
+
+def _cfg_dir():
+    import os
+    from pathlib import Path
+
+    return Path(os.environ.get("CLAUDE_CONFIG_DIR") or os.path.expanduser("~/.claude"))
+
+
+def _record_loss(event: dict, appended) -> None:
+    """A record that could not be appended is a critical finding, never a silent None.
+
+    #41: losing a result record must be as visible as any other custody break. If even the
+    emergency path cannot write, say so on stderr — an operator seeing nothing at all is the
+    outcome this exists to prevent.
+    """
+    import sys
+
+    detail = (f"PostToolUse record LOST: op={event.get('op')} "
+              f"tool={(event.get('tool') or {}).get('name')} "
+              f"via={appended.via} tier={appended.isolation_tier} error={appended.error}")
+    try:
+        from stop_guessing.attest.keys import discover
+        from stop_guessing.ledger.sink import record as _record
+        from stop_guessing.recorder.daemon import ledger_path as _lp
+
+        cfg = _cfg_dir()
+        got = discover(config_dir=cfg)
+        _record(_lp(cfg), {
+            "op": "recorder.selfcheck", "actor": "stop-guessing/hook_post",
+            "severity": "critical", "at": _now(), "detail": detail,
+            "known_gaps": [detail], "alterations": [],
+        }, got[0] if got else None)
+    except Exception:  # noqa: BLE001
+        print(f"STOP-GUESSING: {detail}", file=sys.stderr)

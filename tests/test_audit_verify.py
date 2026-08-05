@@ -77,6 +77,9 @@ FIXED = {
     "SG-HARD-016": "identity is the logical path; the inode is observed, not identifying",
     "SG-HARD-030": "seal archives the segment and opens a new one chained to its seal",
     "SG-HARD-046": "the exporter emits an OTLP envelope with integer enums and real ids",
+    "SG-HARD-008": "PostToolUse routes through recorder.client and records a loss as critical",
+    "SG-HARD-044": "the verdict is reported on five axes, not collapsed into one boolean",
+    "SG-HARD-045": "CLAIM-20 checks a declared expectation per surface, not rc in {0,1}",
 }
 
 

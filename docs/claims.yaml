@@ -335,8 +335,8 @@ claims:
   - A&A-01
   - STA-09
   proofs:
-  - sg:459:b1b09ab469c88359
-  last_proved: '2026-08-05T13:51:21.966Z'
+  - sg:466:4c1efe3308aeaaf1
+  last_proved: '2026-08-05T14:35:28.454Z'
   witness_mode: subprocess
 - id: CLAIM-21
   statement: This toolchain's own AI-CAIQ was filled from proofs produced by this toolchain, as the last

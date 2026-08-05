@@ -1,5 +1,5 @@
 {
-  "commit": "5efe7d0",
+  "commit": "3c5af65",
   "findings": [
     {
       "id": "SG-HARD-001",
@@ -81,8 +81,8 @@
       "files": [
         "stop_guessing/cli/hook_post.py"
       ],
-      "status": "PRESENT",
-      "evidence": "hook_post calls ledger.sink.record() directly, never recorder.client.append()"
+      "status": "ABSENT",
+      "evidence": "PostToolUse routes through the recorder client"
     },
     {
       "id": "SG-HARD-009",
@@ -450,8 +450,8 @@
         "stop_guessing/prove/judge.py",
         "stop_guessing/prove/runner.py"
       ],
-      "status": "PRESENT",
-      "evidence": "goal_met excludes the judge panel's deferred disapprovals by construction"
+      "status": "ABSENT",
+      "evidence": "the verdict is reported on 5 separate axes (chain_verified, control_backed, executed, independently_reproduced, surface_validated), with independently_reproduced never settable by self-attestation"
     },
     {
       "id": "SG-HARD-045",
@@ -460,8 +460,8 @@
       "files": [
         "stop_guessing/prove/procedures.py"
       ],
-      "status": "PRESENT",
-      "evidence": "CLAIM-20 accepts exit code 1 as a successful surface exercise"
+      "status": "ABSENT",
+      "evidence": "CLAIM-20 requires expected semantics rather than rc in {0,1}"
     },
     {
       "id": "SG-HARD-046",

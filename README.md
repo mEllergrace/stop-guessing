@@ -19,19 +19,19 @@ headline is exactly who they matter to.**
 
 **What this gate does not establish.** An independent hardening audit on 2026-08-04
 raised 54 findings. Each was re-verified against source rather than accepted; the current state,
-generated from [`docs/audit-status.json`](docs/audit-status.json) at commit `5efe7d0`, is
-**11 confirmed outstanding, 33 fixed, 10 unverified** (no static
+generated from [`docs/audit-status.json`](docs/audit-status.json) at commit `3c5af65`, is
+**8 confirmed outstanding, 36 fixed, 10 unverified** (no static
 predicate — those need a live adversarial test and are not counted as passing).
 
 Outstanding CRITICAL findings:
 
 - Proof staleness binds only the procedure, not the implementation (SG-HARD-003)
 - --isolated cannot start a separate-UID recorder (SG-HARD-006)
-- PostToolUse bypasses cocd and can lose records silently (SG-HARD-008)
 - Project-writable config can downgrade enforcement (SG-HARD-013)
 - Rules/policies/handlers are untrusted mutable inputs (SG-HARD-014)
 - Delegated execution is not sandboxed (SG-HARD-021)
-- …and 1 more — see the `hardening-audit` label.
+- The plugin package is not self-contained (SG-HARD-034)
+
 
 Re-derive any of it with `scripts/audit_verify.py --id <id>`; the predicate reports only whether
 the defect is still present.

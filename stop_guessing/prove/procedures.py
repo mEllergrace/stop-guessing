@@ -25,7 +25,7 @@ from stop_guessing.ledger import segments
 from stop_guessing.ledger.chain import ChainKey, append, canonical_material, verify
 from stop_guessing.ledger.sink import LedgerError, load, record
 from stop_guessing.prove.registry import ProofResult, proof
-from stop_guessing.version import policy_dir, repo_root
+from stop_guessing.version import __version__, policy_dir, repo_root
 
 PROOF_KEY = ChainKey("proof-procedure-key", b"procedure-local-key-32-bytes!!!!")
 OTHER_KEY = ChainKey("wrong-key", b"a-different-key-32-bytes-long!!!")
@@ -1406,17 +1406,38 @@ def prove_every_surface_runs() -> ProofResult:
     root = repo_root()
 
     # 1. CLI — every subcommand, through the installed console script path
-    cli = [["version"], ["manifest"], ["compat", "corpus"], ["ledger", "--help"],
-           ["claims", "check", "--ledger", str(runner_ledger())],
-           ["attest", "--self", "--ledger", str(runner_ledger()), "--json"]]
-    for args in cli:
+    # #78 (SG-HARD-045). `rc in (0, 1)` accepted a FINDING as a successful exercise: a subcommand
+    # that had started reporting a problem, or had begun failing for an unrelated reason that
+    # happened to exit 1, still counted as a working surface. An exit code is not evidence unless
+    # the expectation is stated, so each surface declares what it must PRODUCE and the output is
+    # checked too. `codes` stays narrow; where a gate legitimately reports "not yet", it says so.
+    cli = [
+        {"args": ["version"], "codes": {0}, "contains": [__version__]},
+        {"args": ["manifest"], "codes": {0, 1}, "contains": ["vendored"]},
+        {"args": ["compat", "corpus"], "codes": {0}, "contains": ["case"]},
+        {"args": ["ledger", "--help"], "codes": {0}, "contains": ["verify", "seal"]},
+        {"args": ["claims", "check", "--ledger", str(runner_ledger())],
+         "codes": {0, 1, 2}, "contains": ["claims proven"]},
+        {"args": ["attest", "--self", "--ledger", str(runner_ledger()), "--json"],
+         "codes": {0, 1}, "contains": ["assurance", "chain_intact"]},
+    ]
+    for spec in cli:
+        args = spec["args"]
         res = subprocess.run(  # noqa: S603
             [sys.executable, "-m", "stop_guessing.cli.main", *args],
             capture_output=True, cwd=str(root), timeout=180)
-        if res.returncode not in (0, 1):  # 1 = a gate correctly reporting not-yet
-            return r.fail(f"CLI `{' '.join(args)}` exited {res.returncode}: "
-                          f"{res.stderr.decode()[:200]}")
-    r.observe(f"CLI: {len(cli)} subcommand paths exercised, all exit 0 or 1")
+        out = (res.stdout + res.stderr).decode("utf-8", "replace")
+        if res.returncode not in spec["codes"]:
+            return r.fail(f"CLI `{' '.join(args)}` exited {res.returncode}, expected one of "
+                          f"{sorted(spec['codes'])}: {out[-200:]}")
+        for needle in spec["contains"]:
+            if needle not in out:
+                return r.fail(
+                    f"CLI `{' '.join(args)}` exited {res.returncode} but its output does not "
+                    f"contain {needle!r}. An exit code alone does not establish that the surface "
+                    f"did anything: {out[-200:]}")
+    r.observe(f"CLI: {len(cli)} subcommand path(s) exercised against a declared expectation — "
+              "exit code AND output, not a permissive rc")
 
     for alias in ("stop-guessing", "coc-prov", "coc"):
         script = root / ".venv" / "bin" / alias

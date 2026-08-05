@@ -544,12 +544,26 @@ def c_verifier_path_machine_specific():
 
 
 def c_judge_not_in_verdict():
+    """Is the result multi-axis, or one flattering boolean?
+
+    The remediation is NOT to give a mechanical judge a veto — that would train people to weaken
+    the lens — but to stop collapsing "the procedures ran", "the evidence is adequate" and
+    "someone else reproduced it" into a single word. So the predicate asks whether the axes are
+    reported separately, not whether the judge gained a vote.
+    """
     src = _code("stop_guessing/prove/runner.py")
-    m = re.search(r'result\["goal_met"\]\s*=.*?\n\s*\)', src, re.S)
-    body = m.group(0) if m else ""
-    if "judge" not in body:
-        return PRESENT, "goal_met excludes the judge panel's deferred disapprovals by construction"
-    return ABSENT, "the judge participates in the verdict"
+    m = re.search(r'result\["assurance"\]\s*=\s*\{(.*?)\n    \}', src, re.S)
+    body = m.group(1) if m else ""
+    axes = {"executed", "chain_verified", "surface_validated", "control_backed",
+            "independently_reproduced"}
+    present_axes = {a for a in axes if f'"{a}"' in body}
+    if present_axes >= axes:
+        return ABSENT, ("the verdict is reported on "
+                        f"{len(axes)} separate axes ({', '.join(sorted(axes))}), with "
+                        "independently_reproduced never settable by self-attestation")
+    if body:
+        return PRESENT, f"assurance axes exist but are incomplete: missing {sorted(axes - present_axes)}"
+    return PRESENT, "goal_met is a single boolean; adequacy objections cannot affect any reported axis"
 
 
 def c_claim20_permissive():

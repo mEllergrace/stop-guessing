@@ -436,6 +436,31 @@ def attest_self(
     result["goal_met"] = bool(
         result["ok"] and result["chain_keyed"] and result["caiq"]["filled_from_proofs"]
     )
+
+    # #77 (SG-HARD-044). One boolean collapsed four different questions, so a headline could read
+    # "met" while 21 independence objections and a pile of missing-control findings sat recorded
+    # and unread. The judge must NOT gain a veto — a mechanical lens is qualified to make a human
+    # look, not to void a proof, and giving it a veto would only teach people to weaken the lens.
+    # So the axes are reported separately instead of one being folded into another.
+    judge = result.get("judge") or {}
+    unvalidated = sorted({s for r in result["rows"] for s in (r.get("unvalidated_surfaces") or [])})
+    result["assurance"] = {
+        "executed": bool(result["ok"]),
+        "chain_verified": bool(result["chain_keyed"] and result["chain_intact"]),
+        "surface_validated": not unvalidated,
+        "unvalidated_surfaces": unvalidated,
+        "control_backed": not judge.get("deferred_disapprovals"),
+        "deferred_disapprovals": judge.get("deferred_disapprovals", 0),
+        "independently_reproduced": False,
+        "note": (
+            "Four axes, deliberately not collapsed. `executed` says the procedures ran and were "
+            "witnessed. `control_backed` is FALSE while any judge lens has a deferred objection — "
+            "recorded, never blocking. `independently_reproduced` is hardcoded False: nothing in "
+            "this repository can set it, because self-attestation cannot establish it. Only a "
+            "third party reproducing the release bundle can, and until then saying so is the "
+            "honest answer."
+        ),
+    }
     return result
 
 
