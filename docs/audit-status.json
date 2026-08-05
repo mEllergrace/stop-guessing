@@ -1,5 +1,5 @@
 {
-  "commit": "a574739",
+  "commit": "367ba47",
   "findings": [
     {
       "id": "SG-HARD-001",
@@ -10,7 +10,8 @@
         "docs/claims.yaml"
       ],
       "status": "ABSENT",
-      "evidence": "runner.check() references surface"
+      "evidence": "runner.check() references surface",
+      "confidence": "structural"
     },
     {
       "id": "SG-HARD-002",
@@ -20,7 +21,8 @@
         "stop_guessing/prove/runner.py"
       ],
       "status": "ABSENT",
-      "evidence": "a missing procedure now invalidates the claim"
+      "evidence": "a missing procedure now invalidates the claim",
+      "confidence": "behavioural"
     },
     {
       "id": "SG-HARD-003",
@@ -30,7 +32,8 @@
         "stop_guessing/prove/registry.py"
       ],
       "status": "ABSENT",
-      "evidence": "each proof records the subject it exercised (policy_set_digest, python, rules_digest, version) and check() kills a ref whose subject has since drifted"
+      "evidence": "each proof records the subject it exercised (policy_set_digest, python, rules_digest, version) and check() kills a ref whose subject has since drifted",
+      "confidence": "behavioural"
     },
     {
       "id": "SG-HARD-004",
@@ -41,7 +44,8 @@
         "stop_guessing/ledger/sink.py"
       ],
       "status": "ABSENT",
-      "evidence": "runner.py now considers loaded.truncated"
+      "evidence": "runner.py now considers loaded.truncated",
+      "confidence": "behavioural"
     },
     {
       "id": "SG-HARD-005",
@@ -51,7 +55,8 @@
         ".github/workflows/ci.yml"
       ],
       "status": "ABSENT",
-      "evidence": "the claims gate propagates a failing exit code"
+      "evidence": "the claims gate propagates a failing exit code",
+      "confidence": "behavioural"
     },
     {
       "id": "SG-HARD-006",
@@ -61,7 +66,8 @@
         "install.sh"
       ],
       "status": "PRESENT",
-      "evidence": "the plist is written to $HOME/Library/LaunchAgents, which launchd runs as the logged-in user, so the recorder shares the agent's uid; the installer no longer reports tier 2 for it"
+      "evidence": "the plist is written to $HOME/Library/LaunchAgents, which launchd runs as the logged-in user, so the recorder shares the agent's uid; the installer no longer reports tier 2 for it",
+      "confidence": "structural"
     },
     {
       "id": "SG-HARD-007",
@@ -72,7 +78,8 @@
         "stop_guessing/attest/keys.py"
       ],
       "status": "ABSENT",
-      "evidence": "'+isolated' requires isolation_tier >= 2, i.e. a different uid; same-uid tier 1 now reports plain 'chain-keyed'"
+      "evidence": "'+isolated' requires isolation_tier >= 2, i.e. a different uid; same-uid tier 1 now reports plain 'chain-keyed'",
+      "confidence": "behavioural"
     },
     {
       "id": "SG-HARD-008",
@@ -82,7 +89,8 @@
         "stop_guessing/cli/hook_post.py"
       ],
       "status": "ABSENT",
-      "evidence": "PostToolUse routes through the recorder client"
+      "evidence": "PostToolUse routes through the recorder client",
+      "confidence": "structural"
     },
     {
       "id": "SG-HARD-009",
@@ -92,7 +100,8 @@
         ".claude-plugin/plugins/stop-guessing/hooks/hooks.json"
       ],
       "status": "ABSENT",
-      "evidence": "PostToolUseFailure is registered"
+      "evidence": "PostToolUseFailure is registered",
+      "confidence": "structural"
     },
     {
       "id": "SG-HARD-010",
@@ -102,7 +111,8 @@
         "stop_guessing/recorder/daemon.py"
       ],
       "status": "ABSENT",
-      "evidence": "the daemon checks peer credentials"
+      "evidence": "the daemon checks peer credentials",
+      "confidence": "structural"
     },
     {
       "id": "SG-HARD-011",
@@ -113,7 +123,8 @@
         "stop_guessing/recorder/daemon.py"
       ],
       "status": "ABSENT",
-      "evidence": "op_append validates the event and refuses it before sequencing, so an incomplete record cannot reach the chain"
+      "evidence": "op_append validates the event and refuses it before sequencing, so an incomplete record cannot reach the chain",
+      "confidence": "structural"
     },
     {
       "id": "SG-HARD-012",
@@ -123,7 +134,8 @@
         "stop_guessing/cli/cmd_ops.py"
       ],
       "status": "ABSENT",
-      "evidence": "doctor passes pinned_command, settings into self_check() and queries live daemon state"
+      "evidence": "doctor passes pinned_command, settings into self_check() and queries live daemon state",
+      "confidence": "behavioural"
     },
     {
       "id": "SG-HARD-013",
@@ -133,7 +145,8 @@
         "stop_guessing/cli/hook_gate.py"
       ],
       "status": "ABSENT",
-      "evidence": "managed.json sets a floor outside project write authority; project config may tighten the posture and may not disable ledger protection"
+      "evidence": "managed.json sets a floor outside project write authority; project config may tighten the posture and may not disable ledger protection",
+      "confidence": "structural"
     },
     {
       "id": "SG-HARD-014",
@@ -144,7 +157,8 @@
         "stop_guessing/cli/gate.py"
       ],
       "status": "ABSENT",
-      "evidence": "the policy set is checked against a pinned expected digest"
+      "evidence": "the policy set is checked against a pinned expected digest",
+      "confidence": "structural"
     },
     {
       "id": "SG-HARD-015",
@@ -154,7 +168,8 @@
         "stop_guessing/cli/gate.py"
       ],
       "status": "ABSENT",
-      "evidence": "each candidate is classified under both the supplied spelling and its canonical target, and the labels are joined, so an alias can only add labels \u2014 never shed them"
+      "evidence": "each candidate is classified under both the supplied spelling and its canonical target, and the labels are joined, so an alias can only add labels \u2014 never shed them",
+      "confidence": "behavioural"
     },
     {
       "id": "SG-HARD-016",
@@ -164,7 +179,8 @@
         "stop_guessing/artifacts/identity.py"
       ],
       "status": "ABSENT",
-      "evidence": "filesystem identity is observed but excluded from the id by default, so an atomic replacement keeps the artifact's history"
+      "evidence": "filesystem identity is observed but excluded from the id by default, so an atomic replacement keeps the artifact's history",
+      "confidence": "behavioural"
     },
     {
       "id": "SG-HARD-017",
@@ -175,7 +191,8 @@
         "stop_guessing/handlers.py"
       ],
       "status": "ABSENT",
-      "evidence": "policy authorises before any handler executes"
+      "evidence": "policy authorises before any handler executes",
+      "confidence": "structural"
     },
     {
       "id": "SG-HARD-018",
@@ -186,7 +203,8 @@
         "stop_guessing/cli/cmd_ops.py"
       ],
       "status": "ABSENT",
-      "evidence": "the script is digested before the test runs, a change across the test is refused, and the recorded digest is the bytes tested \u2014 with a live attack test that rewrites the script from inside its own test"
+      "evidence": "the script is digested before the test runs, a change across the test is refused, and the recorded digest is the bytes tested \u2014 with a live attack test that rewrites the script from inside its own test",
+      "confidence": "behavioural"
     },
     {
       "id": "SG-HARD-019",
@@ -196,7 +214,8 @@
         "stop_guessing/delegate.py"
       ],
       "status": "ABSENT",
-      "evidence": "execution is gated on the digest recorded at test time, and a concurrent replacer racing the run is exercised live"
+      "evidence": "execution is gated on the digest recorded at test time, and a concurrent replacer racing the run is exercised live",
+      "confidence": "behavioural"
     },
     {
       "id": "SG-HARD-020",
@@ -206,7 +225,8 @@
         "stop_guessing/cli/gate.py"
       ],
       "status": "ABSENT",
-      "evidence": "the gate routes handler output through emit_for_model()"
+      "evidence": "the gate routes handler output through emit_for_model()",
+      "confidence": "structural"
     },
     {
       "id": "SG-HARD-021",
@@ -216,7 +236,8 @@
         "stop_guessing/delegate.py"
       ],
       "status": "ABSENT",
-      "evidence": "delegated execution runs under an OS mechanism (macOS sandbox-exec, Linux bwrap) that denies network, writes outside declared outputs and reads of the custody directory; selftest() proves it on the host"
+      "evidence": "delegated execution runs under an OS mechanism (macOS sandbox-exec, Linux bwrap) that denies network, writes outside declared outputs and reads of the custody directory; selftest() proves it on the host",
+      "confidence": "structural"
     },
     {
       "id": "SG-HARD-022",
@@ -226,7 +247,8 @@
         "stop_guessing/cli/gate.py"
       ],
       "status": "ABSENT",
-      "evidence": "decide() holds a per-session file lock across state read, policy evaluation and append, so two parallel hooks cannot both decide against the same pre-call state"
+      "evidence": "decide() holds a per-session file lock across state read, policy evaluation and append, so two parallel hooks cannot both decide against the same pre-call state",
+      "confidence": "structural"
     },
     {
       "id": "SG-HARD-023",
@@ -236,7 +258,8 @@
         "stop_guessing/cli/gate.py"
       ],
       "status": "ABSENT",
-      "evidence": "state_for() separates an ABSENT ledger from an UNVERIFIABLE one and refuses to fall back to the cache for the latter"
+      "evidence": "state_for() separates an ABSENT ledger from an UNVERIFIABLE one and refuses to fall back to the cache for the latter",
+      "confidence": "structural"
     },
     {
       "id": "SG-HARD-024",
@@ -246,7 +269,8 @@
         "stop_guessing/cli/hook_gate.py"
       ],
       "status": "ABSENT",
-      "evidence": "_record_gap uses normal key discovery"
+      "evidence": "_record_gap uses normal key discovery",
+      "confidence": "structural"
     },
     {
       "id": "SG-HARD-025",
@@ -256,7 +280,8 @@
         "stop_guessing/taint/state.py"
       ],
       "status": "ABSENT",
-      "evidence": "replay skips denied effects and deduplicates paired request/result records, so a rebuilt state is not inflated by events that did not happen"
+      "evidence": "replay skips denied effects and deduplicates paired request/result records, so a rebuilt state is not inflated by events that did not happen",
+      "confidence": "structural"
     },
     {
       "id": "SG-HARD-026",
@@ -267,7 +292,8 @@
         "stop_guessing/cli/hook_post.py"
       ],
       "status": "ABSENT",
-      "evidence": "a content digest is taken at result time and the record states exactly what it binds and what window remains open"
+      "evidence": "a content digest is taken at result time and the record states exactly what it binds and what window remains open",
+      "confidence": "structural"
     },
     {
       "id": "SG-HARD-027",
@@ -277,7 +303,8 @@
         "stop_guessing/cli/gate.py"
       ],
       "status": "ABSENT",
-      "evidence": "every classified input in a call is recorded as a subject, not only the one the decision turned on"
+      "evidence": "every classified input in a call is recorded as a subject, not only the one the decision turned on",
+      "confidence": "behavioural"
     },
     {
       "id": "SG-HARD-028",
@@ -287,7 +314,8 @@
         "stop_guessing/artifacts/classify.py"
       ],
       "status": "ABSENT",
-      "evidence": "the detector states plainly that it cannot be complete and names the sandbox as the enforced boundary"
+      "evidence": "the detector states plainly that it cannot be complete and names the sandbox as the enforced boundary",
+      "confidence": "structural"
     },
     {
       "id": "SG-HARD-029",
@@ -297,7 +325,8 @@
         "stop_guessing/taint/persist.py"
       ],
       "status": "ABSENT",
-      "evidence": "the cache filename is a digest of the full session id"
+      "evidence": "the cache filename is a digest of the full session id",
+      "confidence": "structural"
     },
     {
       "id": "SG-HARD-030",
@@ -307,7 +336,8 @@
         "stop_guessing/ledger/segments.py"
       ],
       "status": "ABSENT",
-      "evidence": "seal performs a real archive/rollover (rename/replace/move)"
+      "evidence": "seal performs a real archive/rollover (rename/replace/move)",
+      "confidence": "behavioural"
     },
     {
       "id": "SG-HARD-031",
@@ -317,7 +347,8 @@
         "stop_guessing/ledger/sink.py"
       ],
       "status": "ABSENT",
-      "evidence": "writes are looped/length-checked"
+      "evidence": "writes are looped/length-checked",
+      "confidence": "behavioural"
     },
     {
       "id": "SG-HARD-032",
@@ -328,7 +359,8 @@
         "stop_guessing/recorder/daemon.py"
       ],
       "status": "ABSENT",
-      "evidence": "appends verify only records added since a digest-pinned verified prefix, and connections have a read deadline"
+      "evidence": "appends verify only records added since a digest-pinned verified prefix, and connections have a read deadline",
+      "confidence": "behavioural"
     },
     {
       "id": "SG-HARD-033",
@@ -339,7 +371,8 @@
         "stop_guessing/cli/gate.py"
       ],
       "status": "ABSENT",
-      "evidence": "one resolver serves both"
+      "evidence": "one resolver serves both",
+      "confidence": "structural"
     },
     {
       "id": "SG-HARD-034",
@@ -349,7 +382,8 @@
         ".claude-plugin/plugins/stop-guessing/hooks/hooks.json"
       ],
       "status": "ABSENT",
-      "evidence": "hooks run ${CLAUDE_PLUGIN_ROOT}/bin/sg-hook, which resolves a pinned interpreter (operator pin, then bundled runtime, then checkout venv, then PATH with a warning) and verifies the package imports first"
+      "evidence": "hooks run ${CLAUDE_PLUGIN_ROOT}/bin/sg-hook, which resolves a pinned interpreter (operator pin, then bundled runtime, then checkout venv, then PATH with a warning) and verifies the package imports first",
+      "confidence": "structural"
     },
     {
       "id": "SG-HARD-035",
@@ -359,7 +393,8 @@
         "pyproject.toml"
       ],
       "status": "ABSENT",
-      "evidence": "package data is declared"
+      "evidence": "package data is declared",
+      "confidence": "behavioural"
     },
     {
       "id": "SG-HARD-036",
@@ -369,7 +404,8 @@
         "install.sh"
       ],
       "status": "ABSENT",
-      "evidence": "the runtime is built in a fresh directory, health-checked, then swapped in \u2014 never merged over an existing one \u2014 with the previous kept for rollback"
+      "evidence": "the runtime is built in a fresh directory, health-checked, then swapped in \u2014 never merged over an existing one \u2014 with the previous kept for rollback",
+      "confidence": "structural"
     },
     {
       "id": "SG-HARD-037",
@@ -379,7 +415,8 @@
         "install.sh"
       ],
       "status": "ABSENT",
-      "evidence": "settings.json is written to a temp file, fsynced, renamed, and backed up"
+      "evidence": "settings.json is written to a temp file, fsynced, renamed, and backed up",
+      "confidence": "structural"
     },
     {
       "id": "SG-HARD-038",
@@ -389,7 +426,8 @@
         "stop_guessing/cli/hook_gate.py"
       ],
       "status": "ABSENT",
-      "evidence": "a missing required rule fails closed"
+      "evidence": "a missing required rule fails closed",
+      "confidence": "structural"
     },
     {
       "id": "SG-HARD-039",
@@ -399,7 +437,8 @@
         "stop_guessing/prove/procedures.py"
       ],
       "status": "ABSENT",
-      "evidence": "the CI sub-claim is withdrawn in claims.yaml and the procedure now enumerates what CI actually fetches instead of denying it"
+      "evidence": "the CI sub-claim is withdrawn in claims.yaml and the procedure now enumerates what CI actually fetches instead of denying it",
+      "confidence": "behavioural"
     },
     {
       "id": "SG-HARD-040",
@@ -409,7 +448,8 @@
         "stop_guessing/cli/cmd_caiq.py"
       ],
       "status": "ABSENT",
-      "evidence": "cmd_fill re-derives from the ledger in memory, compares every control field by field, and refuses on any disagreement"
+      "evidence": "cmd_fill re-derives from the ledger in memory, compares every control field by field, and refuses on any disagreement",
+      "confidence": "behavioural"
     },
     {
       "id": "SG-HARD-041",
@@ -420,7 +460,8 @@
         "docs/ai-caiq/stop-guessing.yaml"
       ],
       "status": "ABSENT",
-      "evidence": "the workbook reports 20/20 application claims, states its scope, and excludes the 1 release-attestation claim from both the count and the evidence \u2014 the loop is cut on both halves"
+      "evidence": "the workbook reports 20/20 application claims, states its scope, and excludes the 1 release-attestation claim from both the count and the evidence \u2014 the loop is cut on both halves",
+      "confidence": "behavioural"
     },
     {
       "id": "SG-HARD-042",
@@ -430,7 +471,8 @@
         "stop_guessing/prove/runner.py"
       ],
       "status": "ABSENT",
-      "evidence": "the answers document is re-derived and compared field by field \u2014 answer, ssrm, implementation text, claim set and evidence refs"
+      "evidence": "the answers document is re-derived and compared field by field \u2014 answer, ssrm, implementation text, claim set and evidence refs",
+      "confidence": "structural"
     },
     {
       "id": "SG-HARD-043",
@@ -440,7 +482,8 @@
         "stop_guessing/caiq/fill.py"
       ],
       "status": "ABSENT",
-      "evidence": "the verifier is resolved portably"
+      "evidence": "the verifier is resolved portably",
+      "confidence": "structural"
     },
     {
       "id": "SG-HARD-044",
@@ -451,7 +494,8 @@
         "stop_guessing/prove/runner.py"
       ],
       "status": "ABSENT",
-      "evidence": "the verdict is reported on 5 separate axes (chain_verified, control_backed, executed, independently_reproduced, surface_validated), with independently_reproduced never settable by self-attestation"
+      "evidence": "the verdict is reported on 5 separate axes (chain_verified, control_backed, executed, independently_reproduced, surface_validated), with independently_reproduced never settable by self-attestation",
+      "confidence": "behavioural"
     },
     {
       "id": "SG-HARD-045",
@@ -461,7 +505,8 @@
         "stop_guessing/prove/procedures.py"
       ],
       "status": "ABSENT",
-      "evidence": "CLAIM-20 requires expected semantics rather than rc in {0,1}"
+      "evidence": "CLAIM-20 requires expected semantics rather than rc in {0,1}",
+      "confidence": "structural"
     },
     {
       "id": "SG-HARD-046",
@@ -471,7 +516,8 @@
         "stop_guessing/prov/export_otel.py"
       ],
       "status": "ABSENT",
-      "evidence": "the exporter emits the OTLP resourceSpans/scopeSpans envelope"
+      "evidence": "the exporter emits the OTLP resourceSpans/scopeSpans envelope",
+      "confidence": "behavioural"
     },
     {
       "id": "SG-HARD-047",
@@ -481,7 +527,8 @@
         "stop_guessing/cli/cmd_ops.py"
       ],
       "status": "ABSENT",
-      "evidence": "cmd_export checks truncated"
+      "evidence": "cmd_export checks truncated",
+      "confidence": "structural"
     },
     {
       "id": "SG-HARD-048",
@@ -491,7 +538,8 @@
         ".claude-plugin/plugins/stop-guessing/hooks/hooks.json"
       ],
       "status": "ABSENT",
-      "evidence": "9 events registered: PostToolUse, PostToolUseFailure, PreCompact, PreToolUse, SessionEnd, SessionStart, Stop, SubagentStop, UserPromptSubmit"
+      "evidence": "9 events registered: PostToolUse, PostToolUseFailure, PreCompact, PreToolUse, SessionEnd, SessionStart, Stop, SubagentStop, UserPromptSubmit",
+      "confidence": "structural"
     },
     {
       "id": "SG-HARD-049",
@@ -501,7 +549,8 @@
         "stop_guessing/ledger/reconcile.py"
       ],
       "status": "ABSENT",
-      "evidence": "reconcile() is called from a runtime path: hook_lifecycle.py"
+      "evidence": "reconcile() is called from a runtime path: hook_lifecycle.py",
+      "confidence": "structural"
     },
     {
       "id": "SG-HARD-050",
@@ -512,7 +561,8 @@
         "stop_guessing/cli/hook_gate.py"
       ],
       "status": "ABSENT",
-      "evidence": "the disable switch records a transition"
+      "evidence": "the disable switch records a transition",
+      "confidence": "structural"
     },
     {
       "id": "SG-HARD-051",
@@ -522,7 +572,8 @@
         "stop_guessing/verify/sufficiency.py"
       ],
       "status": "ABSENT",
-      "evidence": "each regime is assessed over the record kinds it applies to, declared in REGIME_APPLIES_TO, and an empty applicable set is not a pass"
+      "evidence": "each regime is assessed over the record kinds it applies to, declared in REGIME_APPLIES_TO, and an empty applicable set is not a pass",
+      "confidence": "behavioural"
     },
     {
       "id": "SG-HARD-052",
@@ -532,7 +583,8 @@
         "stop_guessing/ledger/entry.py"
       ],
       "status": "ABSENT",
-      "evidence": "'+isolated' requires isolation_tier >= 2, i.e. a different uid; same-uid tier 1 now reports plain 'chain-keyed'"
+      "evidence": "'+isolated' requires isolation_tier >= 2, i.e. a different uid; same-uid tier 1 now reports plain 'chain-keyed'",
+      "confidence": "structural"
     },
     {
       "id": "SG-HARD-053",
@@ -542,7 +594,8 @@
         "stop_guessing/cli/cmd_page.py"
       ],
       "status": "ABSENT",
-      "evidence": "the page renders current live evidence separately from historical runs"
+      "evidence": "the page renders current live evidence separately from historical runs",
+      "confidence": "behavioural"
     },
     {
       "id": "SG-HARD-054",
@@ -553,7 +606,8 @@
         "docs/index.html"
       ],
       "status": "ABSENT",
-      "evidence": "the workbook reports 20/20 application claims, states its scope, and excludes the 1 release-attestation claim from both the count and the evidence \u2014 the loop is cut on both halves"
+      "evidence": "the workbook reports 20/20 application claims, states its scope, and excludes the 1 release-attestation claim from both the count and the evidence \u2014 the loop is cut on both halves",
+      "confidence": "structural"
     }
   ]
 }

@@ -78,6 +78,62 @@ class RunOutcome:
     detail: str
 
 
+#: Claim fields that define WHAT is being asserted. A change to any of them changes the claim, so
+#: a proof issued against the old text must stop counting. R2-001.
+CLAIM_DEFINITION_FIELDS = ("id", "statement", "surface", "proof_kind", "aicm", "must_touch",
+                           "milestone", "witness_mode")
+
+
+def claim_definition_digest(claim: dict) -> str:
+    """Digest the claim's DEFINITION, canonically.
+
+    R2-001. A proof record carried the claim ID, procedure digest, evidence subject, witness and
+    judge result — and nothing that pinned the claim TEXT. So a statement could be retracted,
+    broadened, narrowed or reformed after its proof was issued and the old proof stayed live. The
+    system proved "procedure X passed for claim ID Y", not "the assertion now displayed was
+    established". That is precisely the gap between an internally consistent record and a
+    defensible one, and it was live for CLAIM-09, 12, 18 and 20, whose text changed after proof.
+
+    `proofs` and `last_proved` are excluded: they are the RESULT of proving and would make the
+    digest change every time a proof was recorded, which is the same recursion CLAIM-21 had.
+    """
+    import json as _json
+
+    material = {k: claim.get(k) for k in CLAIM_DEFINITION_FIELDS}
+    canon = _json.dumps(material, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    from stop_guessing.artifacts.digest import bytes_digest
+
+    return bytes_digest(canon.encode("utf-8"))[:32]
+
+
+def implementation_manifest(modules: list[str]) -> dict:
+    """Digest the production modules a proof actually traversed.
+
+    R2-002. The evidence subject bound the policy tree, the rules tree, the interpreter and the
+    package version — but not the bytes of the implementation the procedure exercised. `must_touch`
+    proves a module was ENTERED; it does not pin what was in it. A helper, a daemon, a lifecycle
+    hook, a sandbox or the replay logic could change while the procedure, policy, Python version
+    and VERSION all stayed put, and the stale proof kept counting. That is the round-1 staleness
+    defect in reduced form, and round 2 was right that it was still material.
+
+    Only `stop_guessing.*` modules are bound: third-party and stdlib bytes are the interpreter's
+    business and pinning them would invalidate every proof on an unrelated upgrade.
+    """
+    from stop_guessing.artifacts.digest import file_digest
+
+    out: dict[str, str] = {}
+    for name in sorted(modules or []):
+        if not name.startswith("stop_guessing"):
+            continue
+        rel = Path(*name.split(".")).with_suffix(".py")
+        for base in (repo_root(), Path(__file__).resolve().parent.parent.parent):
+            f = base / rel
+            if f.is_file():
+                out[name] = (file_digest(f) or "")[:16]
+                break
+    return out
+
+
 def evidence_subject() -> dict:
     """What a proof was actually exercised AGAINST — the thing it is current for.
 
@@ -124,6 +180,35 @@ def subject_drift(recorded: dict | None) -> list[str]:
     return out
 
 
+def _claim_definition_digest_for(claim_id: str) -> str | None:
+    """The definition digest for one claim id, or None when the claim cannot be read."""
+    try:
+        for c in load_claims()["claims"]:
+            if c["id"] == claim_id:
+                return claim_definition_digest(c)
+    except Exception:  # noqa: BLE001 - an unreadable claims file is a finding elsewhere
+        return None
+    return None
+
+
+def _implementation_drift(recorded: dict | None) -> list[str]:
+    """Which traversed implementation modules have changed since the proof was recorded.
+
+    R2-002. Proofs recorded before this existed carry no manifest; they are handled by the
+    procedure-digest and witness rules and are not retroactively invalidated here — a proof cannot
+    be blamed for lacking evidence the system did not yet collect. New proofs carry it.
+    """
+    if not recorded:
+        return []
+    now = implementation_manifest(list(recorded))
+    out = []
+    for mod, was in sorted(recorded.items()):
+        is_ = now.get(mod)
+        if is_ and was and is_ != was:
+            out.append(f"{mod} changed after this proof ({was[:12]} -> {is_[:12]})")
+    return out
+
+
 def run_one(
     claim_id: str,
     key: ChainKey | None,
@@ -165,6 +250,9 @@ def run_one(
             "procedure": proc.fn.__name__,
             "procedure_digest": proc.source_digest(),
             "evidence_subject": evidence_subject(),
+            # R2-001: what was asserted. R2-002: what it was asserted against.
+            "claim_definition_digest": _claim_definition_digest_for(claim_id),
+            "implementation_manifest": implementation_manifest(sorted(wit.modules)),
             "witness": wit.to_dict(),
             "judge": _judge_panel(claim_id, proc, wit, result).to_dict(),
             "summary": proc.summary,
@@ -245,7 +333,25 @@ def registered_hook_events(root: Path | None = None) -> set[str]:
     return set((doc.get("hooks") or doc).keys())
 
 
-def _surface_findings(claim: dict) -> tuple[list[str], list[str]]:
+def _exercised_for(claim: dict, by_ref: dict, refs: list[str]) -> set[str]:
+    """Surfaces the claim's live proof records actually reported exercising.
+
+    R2-003. A proof declares what it drove by writing `exercised_surfaces` into its evidence; the
+    gate reads it here. A procedure that names a hook and never invokes it therefore fails, which
+    is the whole point — the previous check asked hooks.json whether the event existed, a question
+    about the manifest rather than about the proof.
+    """
+    out: set[str] = set()
+    for ref in refs:
+        e = by_ref.get(ref)
+        if not e:
+            continue
+        for s in ((e.get("evidence") or {}).get("exercised_surfaces") or []):
+            out.add(str(s))
+    return out
+
+
+def _surface_findings(claim: dict, exercised=None) -> tuple[list[str], list[str]]:
     """Check a claim's declared `surface:` against reality. Returns (findings, unvalidated).
 
     #34 (SG-HARD-001). The gate validated the chain, the record, the procedure digest and an
@@ -263,6 +369,7 @@ def _surface_findings(claim: dict) -> tuple[list[str], list[str]]:
     findings: list[str] = []
     unvalidated: list[str] = []
     registered = registered_hook_events()
+    exercised = set(exercised or ())
     for surface in claim.get("surface") or []:
         s = str(surface)
         kind, _, rest = s.partition(":")
@@ -271,6 +378,15 @@ def _surface_findings(claim: dict) -> tuple[list[str], list[str]]:
                 findings.append(
                     f"declares {s} but no {rest} hook is registered in the plugin "
                     f"(registered: {', '.join(sorted(registered)) or 'none'})"
+                )
+            elif s not in exercised:
+                # R2-003. Registration is not exercise. A claim naming `hook:PreCompact` passed
+                # because the event appeared in hooks.json, while its procedure called rebuild()
+                # in memory and never went near the hook. "The hook exists" and "the proof drove
+                # it" are different facts, and only the second supports the claim.
+                findings.append(
+                    f"declares {s}, which IS registered, but the proof did not exercise it — "
+                    "registration is not execution"
                 )
         else:
             unvalidated.append(s)
@@ -318,6 +434,17 @@ def check(key: ChainKey | None, ledger: Path = DEFAULT_LEDGER) -> dict:
             else:
                 proc = procs.get(c["id"])
                 drift = subject_drift(e.get("evidence_subject"))
+                # R2-001: the claim text this proof was issued against.
+                recorded_def = e.get("claim_definition_digest")
+                if recorded_def and recorded_def != claim_definition_digest(c):
+                    dead.append(f"{ref}: the claim definition changed after this proof was "
+                                "issued (statement, surface, proof_kind, controls or must_touch)")
+                    continue
+                # R2-002: the implementation bytes it traversed.
+                impl_drift = _implementation_drift(e.get("implementation_manifest"))
+                if impl_drift:
+                    dead.append(f"{ref}: {impl_drift[0]}")
+                    continue
                 if proc and e.get("procedure_digest") not in (proc.source_digest(), "unavailable"):
                     dead.append(f"{ref} was produced by a since-modified procedure")
                 elif drift:
@@ -345,7 +472,7 @@ def check(key: ChainKey | None, ledger: Path = DEFAULT_LEDGER) -> dict:
         # source to compare the digest against), and reported PROVEN with has_procedure=False
         # sitting unread beside it. A claim nobody can re-run is not a proven claim.
         kind_ok = has_procedure and proc.kind == c.get("proof_kind")
-        surface_findings, unvalidated = _surface_findings(c)
+        surface_findings, unvalidated = _surface_findings(c, _exercised_for(c, by_ref, refs))
         rows.append({
             "id": c["id"],
             "milestone": c.get("milestone"),

@@ -106,11 +106,23 @@ def test_a_claim_naming_an_unregistered_hook_is_not_proven(ledger, monkeypatch):
     assert row["proven"] is False
 
 
-def test_a_claim_naming_a_registered_hook_produces_no_surface_finding(monkeypatch):
+def test_a_registered_hook_still_fails_unless_the_proof_exercised_it(monkeypatch):
+    """R2-003. Registration is not execution, and this test used to assert the opposite.
+
+    It passed a registered hook and expected no finding — which is exactly the gap round two
+    named: a claim declaring `hook:PreCompact` cleared because the event appeared in hooks.json,
+    while its procedure called rebuild() in memory and never went near the hook.
+    """
     monkeypatch.setattr(runner, "registered_hook_events", lambda root=None: {"PreToolUse"})
+
     findings, unvalidated = runner._surface_findings(
-        {"id": "CLAIM-01", "surface": ["hook:PreToolUse"]})
-    assert findings == []
+        {"id": "CLAIM-01", "surface": ["hook:PreToolUse"]}, exercised=set())
+    assert findings, "a registered but unexercised hook must be a finding"
+    assert "did not exercise" in findings[0]
+
+    findings, unvalidated = runner._surface_findings(
+        {"id": "CLAIM-01", "surface": ["hook:PreToolUse"]}, exercised={"hook:PreToolUse"})
+    assert findings == [], "a hook the proof actually drove must pass"
     assert unvalidated == []
 
 

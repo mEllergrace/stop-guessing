@@ -200,3 +200,40 @@ def test_the_table_covers_the_whole_audit():
     ids = {f.id for f in FINDINGS}
     expected = {f"SG-HARD-{i:03d}" for i in range(1, 55)}
     assert expected - ids == set(), f"missing findings: {sorted(expected - ids)}"
+
+
+# ── R2-005: an ABSENT must say what it is worth ─────────────────────────────
+
+
+def test_every_finding_declares_its_confidence():
+    from audit_verify import BEHAVIOURAL, STRUCTURAL
+
+    for r in run_all():
+        assert r["confidence"] in (BEHAVIOURAL, STRUCTURAL), r
+
+
+def test_confidence_defaults_to_structural():
+    """The honest default: a predicate is a proxy until shown to observe the property.
+
+    R2-005 was right that this verifier cleared findings on token-level proxies — SG-HARD-006 was
+    reported ABSENT because a string appeared in install.sh while tier 2 could not work at all. A
+    default of `behavioural` would repeat that mistake by flattering every new predicate.
+    """
+    from audit_verify import STRUCTURAL, Finding
+
+    assert Finding("SG-TEST-X", "HIGH", "t", ["x"]).confidence == STRUCTURAL
+
+
+def test_the_report_states_how_many_absents_are_structural():
+    """An unqualified '54 ABSENT' is the overclaim this file exists to prevent."""
+    import io
+    from contextlib import redirect_stdout
+
+    import audit_verify
+
+    buf = io.StringIO()
+    with redirect_stdout(buf):
+        audit_verify.main([])
+    out = buf.getvalue()
+    assert "rest on a BEHAVIOURAL predicate" in out
+    assert "regression checklist, not evidence" in out

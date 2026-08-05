@@ -26,6 +26,22 @@ project exists to reverse.
 
 A check answers "is the defect still present", never "is the code good". When a fix lands, the
 predicate flips to ABSENT and that is the reconfirmation.
+
+**What an ABSENT here is worth — R2-005, and it was right.** A round-2 audit observed that several
+predicates cleared a finding on a token-level proxy rather than on the property. The sharpest case
+was its own: SG-HARD-006 was reported ABSENT because the string "/Library/LaunchDaemons" appeared
+in `install.sh`, while the tier-2 install could not work in four independent ways. A predicate that
+greps for the shape of a fix will pass a fix that is only a shape.
+
+So every finding now carries a `confidence`:
+
+    behavioural   the predicate observes the PROPERTY — an attack fails, a value is resolved, a
+                  call site is inspected, a generated artifact is parsed
+    structural    the predicate observes the SHAPE — a symbol exists, a flag is present. Useful as
+                  a regression checklist; NOT evidence the original risk is gone
+
+`--status ABSENT` reports both, and the summary states how many ABSENTs rest on structure alone,
+because an unqualified "54 ABSENT" is exactly the overclaim this file exists to prevent.
 """
 
 from __future__ import annotations
@@ -73,6 +89,10 @@ def _code(rel: str) -> str:
     return re.sub(r"(?m)#.*$", "", src)
 
 
+#: How much an ABSENT from this predicate is worth. See the module docstring (R2-005).
+BEHAVIOURAL, STRUCTURAL = "behavioural", "structural"
+
+
 @dataclass
 class Finding:
     id: str
@@ -81,6 +101,9 @@ class Finding:
     files: list[str]
     check: object = None
     claims: list[str] = field(default_factory=list)
+    #: Default is the honest one: assume a predicate is structural until it is shown to observe
+    #: the property. Marking one behavioural is a deliberate act.
+    confidence: str = STRUCTURAL
 
     def run(self) -> tuple[str, str]:
         if self.check is None:
@@ -857,17 +880,17 @@ FINDINGS: list[Finding] = [
     Finding("SG-HARD-001", "CRITICAL", "Proof validity ignores the claim's declared surface",
             ["stop_guessing/prove/runner.py", "docs/claims.yaml"], c_surface_unvalidated),
     Finding("SG-HARD-002", "CRITICAL", "A claim stays PROVEN after its procedure is deleted",
-            ["stop_guessing/prove/runner.py"], c_missing_procedure_still_proven),
+            ["stop_guessing/prove/runner.py"], c_missing_procedure_still_proven, confidence=BEHAVIOURAL),
     Finding("SG-HARD-003", "CRITICAL", "Proof staleness binds only the procedure, not the implementation",
-            ["stop_guessing/prove/registry.py"], c_proof_binds_only_procedure_source),
+            ["stop_guessing/prove/registry.py"], c_proof_binds_only_procedure_source, confidence=BEHAVIOURAL),
     Finding("SG-HARD-004", "CRITICAL", "Truncated proof ledger still yields full attestation",
-            ["stop_guessing/prove/runner.py", "stop_guessing/ledger/sink.py"], c_truncated_ledger_attests),
+            ["stop_guessing/prove/runner.py", "stop_guessing/ledger/sink.py"], c_truncated_ledger_attests, confidence=BEHAVIOURAL),
     Finding("SG-HARD-005", "CRITICAL", "CI claims gate accepts every nonzero result",
-            [".github/workflows/ci.yml"], c_ci_gate_cannot_fail),
+            [".github/workflows/ci.yml"], c_ci_gate_cannot_fail, confidence=BEHAVIOURAL),
     Finding("SG-HARD-006", "CRITICAL", "--isolated cannot start a separate-UID recorder",
             ["install.sh"], c_isolated_cannot_reach_tier2),
     Finding("SG-HARD-007", "CRITICAL", "Tier 1 and the default keyfile do not separate key from agent",
-            ["stop_guessing/ledger/entry.py", "stop_guessing/attest/keys.py"], c_same_uid_key_not_isolated),
+            ["stop_guessing/ledger/entry.py", "stop_guessing/attest/keys.py"], c_same_uid_key_not_isolated, confidence=BEHAVIOURAL),
     Finding("SG-HARD-008", "CRITICAL", "PostToolUse bypasses cocd and can lose records silently",
             ["stop_guessing/cli/hook_post.py"], c_posttooluse_bypasses_daemon),
     Finding("SG-HARD-009", "CRITICAL", "Failed tool executions are not covered (PostToolUseFailure)",
@@ -877,21 +900,21 @@ FINDINGS: list[Finding] = [
     Finding("SG-HARD-011", "CRITICAL", "Custody schema is not enforced at the recorder boundary",
             ["stop_guessing/ledger/sink.py", "stop_guessing/recorder/daemon.py"], c_schema_not_enforced_at_sink),
     Finding("SG-HARD-012", "HIGH", "doctor does not inspect the installed architecture",
-            ["stop_guessing/cli/cmd_ops.py"], c_doctor_blind),
+            ["stop_guessing/cli/cmd_ops.py"], c_doctor_blind, confidence=BEHAVIOURAL),
     Finding("SG-HARD-013", "CRITICAL", "Project-writable config can downgrade enforcement",
             ["stop_guessing/cli/hook_gate.py"], c_project_config_can_downgrade),
     Finding("SG-HARD-014", "CRITICAL", "Rules/policies/handlers are untrusted mutable inputs",
             ["stop_guessing/policy/engine.py", "stop_guessing/cli/gate.py"], c_policy_assets_unanchored),
     Finding("SG-HARD-015", "CRITICAL", "Symlink aliasing bypasses PreToolUse classification",
-            ["stop_guessing/cli/gate.py"], c_symlink_classification_bypass),
+            ["stop_guessing/cli/gate.py"], c_symlink_classification_bypass, confidence=BEHAVIOURAL),
     Finding("SG-HARD-016", "HIGH", "Artifact identity changes on atomic replacement",
-            ["stop_guessing/artifacts/identity.py"], c_artifact_id_inode),
+            ["stop_guessing/artifacts/identity.py"], c_artifact_id_inode, confidence=BEHAVIOURAL),
     Finding("SG-HARD-017", "CRITICAL", "Project handler executes on classified data before policy",
             ["stop_guessing/cli/gate.py", "stop_guessing/handlers.py"], c_handler_runs_before_policy),
     Finding("SG-HARD-018", "CRITICAL", "Signed-script execution bypassable by its paired test",
-            ["stop_guessing/delegate.py", "stop_guessing/cli/cmd_ops.py"], c_test_can_rewrite_signed_script),
+            ["stop_guessing/delegate.py", "stop_guessing/cli/cmd_ops.py"], c_test_can_rewrite_signed_script, confidence=BEHAVIOURAL),
     Finding("SG-HARD-019", "CRITICAL", "Delegation has test/hash/execute TOCTOU races",
-            ["stop_guessing/delegate.py"], c_delegation_toctou),
+            ["stop_guessing/delegate.py"], c_delegation_toctou, confidence=BEHAVIOURAL),
     Finding("SG-HARD-020", "CRITICAL", "bar sends full handler output to model-visible context",
             ["stop_guessing/cli/gate.py"], c_bar_leaks_handler_output),
     Finding("SG-HARD-021", "CRITICAL", "Delegated execution is not sandboxed",
@@ -907,23 +930,23 @@ FINDINGS: list[Finding] = [
     Finding("SG-HARD-026", "CRITICAL", "The bytes read into model context are not bound",
             ["stop_guessing/cli/gate.py", "stop_guessing/cli/hook_post.py"], c_bytes_not_bound),
     Finding("SG-HARD-027", "HIGH", "Only one 'worst' candidate is evaluated per call",
-            ["stop_guessing/cli/gate.py"], c_multi_artifact),
+            ["stop_guessing/cli/gate.py"], c_multi_artifact, confidence=BEHAVIOURAL),
     Finding("SG-HARD-028", "HIGH", "Shell path and egress heuristics are bypassable",
             ["stop_guessing/artifacts/classify.py"], c_egress_heuristics),
     Finding("SG-HARD-029", "HIGH", "Session-state cache filenames can collide",
             ["stop_guessing/taint/persist.py"], c_session_cache_collision),
     Finding("SG-HARD-030", "HIGH", "Sealing does not archive, rotate or freeze a segment",
-            ["stop_guessing/ledger/segments.py"], c_seal_does_not_rotate),
+            ["stop_guessing/ledger/segments.py"], c_seal_does_not_rotate, confidence=BEHAVIOURAL),
     Finding("SG-HARD-031", "HIGH", "Ledger IO mishandles partial writes and malformed middles",
-            ["stop_guessing/ledger/sink.py"], c_partial_write),
+            ["stop_guessing/ledger/sink.py"], c_partial_write, confidence=BEHAVIOURAL),
     Finding("SG-HARD-032", "HIGH", "Append and daemon design allow exhaustion and downgrade",
-            ["stop_guessing/ledger/sink.py", "stop_guessing/recorder/daemon.py"], c_full_reverify_per_append),
+            ["stop_guessing/ledger/sink.py", "stop_guessing/recorder/daemon.py"], c_full_reverify_per_append, confidence=BEHAVIOURAL),
     Finding("SG-HARD-033", "HIGH", "CLI and hook use different default ledgers and key discovery",
             ["stop_guessing/cli/cmd_ledger.py", "stop_guessing/cli/gate.py"], c_cli_ledger_split_brain),
     Finding("SG-HARD-034", "CRITICAL", "The plugin package is not self-contained",
             [".claude-plugin/plugins/stop-guessing/hooks/hooks.json"], c_plugin_not_self_contained),
     Finding("SG-HARD-035", "HIGH", "Wheel/sdist packaging omits required runtime assets",
-            ["pyproject.toml"], c_wheel_missing_data),
+            ["pyproject.toml"], c_wheel_missing_data, confidence=BEHAVIOURAL),
     Finding("SG-HARD-036", "HIGH", "Installer upgrades can leave stale mixed-version code",
             ["install.sh"], c_installer_upgrade_stale),
     Finding("SG-HARD-037", "HIGH", "Installer settings/service changes are non-atomic",
@@ -931,21 +954,21 @@ FINDINGS: list[Finding] = [
     Finding("SG-HARD-038", "HIGH", "Missing vendored hook is silently skipped",
             ["stop_guessing/cli/hook_gate.py"], c_vendored_hook_missing_silently),
     Finding("SG-HARD-039", "HIGH", "CLAIM-18's 'CI performs no fetch' assertion is false",
-            ["stop_guessing/prove/procedures.py"], c_ci_no_fetch_claim),
+            ["stop_guessing/prove/procedures.py"], c_ci_no_fetch_claim, confidence=BEHAVIOURAL),
     Finding("SG-HARD-040", "CRITICAL", "CAIQ fill trusts editable YAML without re-deriving",
-            ["stop_guessing/cli/cmd_caiq.py"], c_fill_trusts_editable_yaml),
+            ["stop_guessing/cli/cmd_caiq.py"], c_fill_trusts_editable_yaml, confidence=BEHAVIOURAL),
     Finding("SG-HARD-041", "CRITICAL", "CLAIM-21 is circular and spans two evidence epochs",
-            ["stop_guessing/prove/procedures.py", "docs/ai-caiq/stop-guessing.yaml"], c_caiq_epoch_circular),
+            ["stop_guessing/prove/procedures.py", "docs/ai-caiq/stop-guessing.yaml"], c_caiq_epoch_circular, confidence=BEHAVIOURAL),
     Finding("SG-HARD-042", "HIGH", "Attestation does not validate CAIQ metadata/mapping",
             ["stop_guessing/prove/runner.py"], c_attest_validates_caiq_mapping),
     Finding("SG-HARD-043", "HIGH", "External CAIQ verification path is machine-specific",
             ["stop_guessing/caiq/fill.py"], c_verifier_path_machine_specific),
     Finding("SG-HARD-044", "HIGH", "Known adequacy objections do not affect the verdict",
-            ["stop_guessing/prove/judge.py", "stop_guessing/prove/runner.py"], c_judge_not_in_verdict),
+            ["stop_guessing/prove/judge.py", "stop_guessing/prove/runner.py"], c_judge_not_in_verdict, confidence=BEHAVIOURAL),
     Finding("SG-HARD-045", "HIGH", "CLAIM-20 checks presence and permissive exit codes",
             ["stop_guessing/prove/procedures.py"], c_claim20_permissive),
     Finding("SG-HARD-046", "HIGH", "OpenTelemetry export is not valid OTLP JSON",
-            ["stop_guessing/prov/export_otel.py"], c_otel_not_otlp),
+            ["stop_guessing/prov/export_otel.py"], c_otel_not_otlp, confidence=BEHAVIOURAL),
     Finding("SG-HARD-047", "HIGH", "Exports accept a truncated ledger prefix",
             ["stop_guessing/cli/cmd_ops.py"], c_export_accepts_truncated),
     Finding("SG-HARD-048", "HIGH", "Lifecycle and batch events are not registered",
@@ -955,11 +978,11 @@ FINDINGS: list[Finding] = [
     Finding("SG-HARD-050", "MEDIUM", "Record ids can collide; disable mode is unaudited",
             ["stop_guessing/cli/gate.py", "stop_guessing/cli/hook_gate.py"], c_disable_switch_silent),
     Finding("SG-HARD-051", "HIGH", "Mixed full/flat records make sufficiency unattainable",
-            ["stop_guessing/verify/sufficiency.py"], c_sufficiency_over_all_records),
+            ["stop_guessing/verify/sufficiency.py"], c_sufficiency_over_all_records, confidence=BEHAVIOURAL),
     Finding("SG-HARD-052", "HIGH", "Strength labels overstate isolation",
             ["stop_guessing/ledger/entry.py"], c_same_uid_key_not_isolated),
     Finding("SG-HARD-053", "HIGH", "Public proof counts include superseded historical refs",
-            ["stop_guessing/cli/cmd_page.py"], c_page_counts_superseded),
+            ["stop_guessing/cli/cmd_page.py"], c_page_counts_superseded, confidence=BEHAVIOURAL),
     Finding("SG-HARD-054", "HIGH", "Generated artifacts disagree and contain stale statements",
             ["docs/ai-caiq/stop-guessing.yaml", "docs/index.html"], c_caiq_epoch_circular),
 ]
@@ -972,7 +995,8 @@ def run_all(ids: list[str] | None = None) -> list[dict]:
             continue
         status, evidence = f.run()
         out.append({"id": f.id, "severity": f.severity, "title": f.title,
-                    "files": f.files, "status": status, "evidence": evidence})
+                    "files": f.files, "status": status, "evidence": evidence,
+                    "confidence": f.confidence})
     return out
 
 
@@ -1003,9 +1027,20 @@ def main(argv=None) -> int:
     print(f"audit re-verification at {head_commit()} — {len(rows)} finding(s)\n")
     for r in rows:
         counts[r["status"]] = counts.get(r["status"], 0) + 1
-        print(f"[{r['status']:<7}] {r['id']} {r['severity']:<8} {r['title']}")
+        mark = "" if r["confidence"] == BEHAVIOURAL else "  [structural]"
+        print(f"[{r['status']:<7}] {r['id']} {r['severity']:<8} {r['title']}{mark}")
         print(f"           {r['evidence']}")
     print(f"\nPRESENT {counts[PRESENT]}   ABSENT {counts[ABSENT]}   DYNAMIC {counts[DYNAMIC]}")
+
+    absent = [r for r in rows if r["status"] == ABSENT]
+    weak = [r for r in absent if r["confidence"] != BEHAVIOURAL]
+    if absent:
+        print(f"\nOf {len(absent)} ABSENT, {len(absent) - len(weak)} rest on a BEHAVIOURAL "
+              f"predicate and {len(weak)} on structure alone.")
+        if weak:
+            print("Structural ABSENTs are a regression checklist, not evidence the risk is gone "
+                  "(R2-005): " + ", ".join(r["id"] for r in weak[:12])
+                  + (" …" if len(weak) > 12 else ""))
     print("\nDYNAMIC is not a pass — it means no static predicate can settle it and a live "
           "adversarial test is required.")
     return 0

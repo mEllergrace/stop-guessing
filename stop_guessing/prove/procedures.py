@@ -722,7 +722,8 @@ def prove_accumulation_denies_egress() -> ProofResult:
                       f"{_clean.determining_policy}")
     r.observe(f"CONTROL: a clean session egresses freely ({_clean.outcome}) — the denial above is "
               "produced by accumulation, not by the action being an egress")
-    r.evidence = {"taint_depth": state.depth, "touched": state.touched,
+    r.evidence = {"exercised_surfaces": ["hook:PreToolUse"],
+                  "taint_depth": state.depth, "touched": state.touched,
                   "sources": sorted(state.sources), "cross_process_verified": True}
     return r
 
@@ -1715,7 +1716,8 @@ def prove_every_surface_runs() -> ProofResult:
         return r.fail("CONTROL FAILED: the control path unexpectedly exists")
     r.observe("CONTROL: a deliberately absent manifest path is absent — the presence checks above "
               "are reading the filesystem rather than returning True")
-    r.evidence = {"cli_paths": len(cli), "hook_payloads": len(cases),
+    r.evidence = {"exercised_surfaces": ["hook:PreToolUse"],
+                  "cli_paths": len(cli), "hook_payloads": len(cases),
                   "manifests": len(manifests), "version": version}
     return r
 
