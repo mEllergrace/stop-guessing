@@ -71,6 +71,9 @@ FIXED = {
     "SG-HARD-017": "policy authorises before any handler or its test executes",
     "SG-HARD-023": "an unverifiable ledger never falls back to the agent-writable cache",
     "SG-HARD-024": "_record_gap uses key discovery, so gaps record against a keyed ledger",
+    "SG-HARD-012": "doctor passes settings and pinned registration in, and queries daemon state",
+    "SG-HARD-033": "one resolver for the ledger path, and the key is chosen by the ledger's keyid",
+    "SG-HARD-040": "fill re-derives in memory and refuses on any field-level disagreement",
 }
 
 

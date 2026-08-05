@@ -1,5 +1,5 @@
 {
-  "commit": "0e1b898",
+  "commit": "dc77e2f",
   "findings": [
     {
       "id": "SG-HARD-001",
@@ -122,8 +122,8 @@
       "files": [
         "stop_guessing/cli/cmd_ops.py"
       ],
-      "status": "PRESENT",
-      "evidence": "self_check() receives only argv0, manifest, root, ledger_dir \u2014 no settings.json, pinned registration, daemon pid/uid or peer credentials, so the reported isolation tier cannot exceed 0"
+      "status": "ABSENT",
+      "evidence": "doctor passes pinned_command, settings into self_check() and queries live daemon state"
     },
     {
       "id": "SG-HARD-013",
@@ -338,8 +338,8 @@
         "stop_guessing/cli/cmd_ledger.py",
         "stop_guessing/cli/gate.py"
       ],
-      "status": "PRESENT",
-      "evidence": "cmd_ledger defaults to ~/.stop-guessing/ledger.jsonl while the hook writes $CLAUDE_CONFIG_DIR/stop-guessing/ledger/custody.jsonl"
+      "status": "ABSENT",
+      "evidence": "one resolver serves both"
     },
     {
       "id": "SG-HARD-034",
@@ -408,8 +408,8 @@
       "files": [
         "stop_guessing/cli/cmd_caiq.py"
       ],
-      "status": "PRESENT",
-      "evidence": "cmd_fill reads the editable YAML and writes it without re-deriving from the ledger"
+      "status": "ABSENT",
+      "evidence": "cmd_fill re-derives from the ledger in memory, compares every control field by field, and refuses on any disagreement"
     },
     {
       "id": "SG-HARD-041",

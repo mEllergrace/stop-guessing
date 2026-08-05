@@ -7,11 +7,19 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 
-from stop_guessing.attest.keys import KeyUnavailable, from_env, from_keyfile
+from stop_guessing.attest.keys import KeyUnavailable, from_keyfile
 from stop_guessing.ledger import segments
 from stop_guessing.ledger.alerts import alerts_from
 from stop_guessing.ledger.chain import ChainKey
 from stop_guessing.ledger.sink import LedgerError, load, record
+from stop_guessing.version import config_dir
+
+
+def _path(args) -> Path:
+    """The ledger to operate on. #66: one resolver, and it names what it resolved."""
+    from stop_guessing.version import installed_ledger
+
+    return Path(_path(args)) if getattr(args, "path", None) else installed_ledger()
 
 
 def _key(args: argparse.Namespace) -> ChainKey | None:
@@ -27,7 +35,13 @@ def _key(args: argparse.Namespace) -> ChainKey | None:
         if got:
             return got[0]
         raise KeyUnavailable(f"no key in {args.keyfile}")
-    got = from_env()
+    # #66: the installed profile keeps its key in a mode-600 keyfile that install.sh writes.
+    # Consulting only the environment meant the CLI reported chain-only on a ledger that is in
+    # fact keyed — the user is told the evidence is weaker than it is, which is its own kind of
+    # wrong answer. `discover()` is what every other surface uses.
+    from stop_guessing.attest.keys import discover
+
+    got = discover(config_dir=config_dir())
     return got[0] if got else None
 
 
@@ -43,7 +57,7 @@ def cmd_append(args: argparse.Namespace) -> int:
             k, _, v = kv.partition("=")
             event[k] = v
     try:
-        written = record(args.path, event, _key(args))
+        written = record(_path(args), event, _key(args))
     except LedgerError as exc:
         print(f"REFUSED: {exc}")
         return 2
@@ -53,11 +67,11 @@ def cmd_append(args: argparse.Namespace) -> int:
 
 def cmd_verify(args: argparse.Namespace) -> int:
     key = _key(args)
-    loaded = load(args.path, key)
+    loaded = load(_path(args), key)
     v = loaded.chain
 
     if loaded.truncated:
-        print(f"TRUNCATED: the final record in {args.path} is partial")
+        print(f"TRUNCATED: the final record in {_path(args)} is partial")
     if v.intact:
         if v.verified_keyed:
             print(f"PASS: {v.checked} records, chain intact and verified under its key")
@@ -81,7 +95,7 @@ def cmd_verify(args: argparse.Namespace) -> int:
 def cmd_seal(args: argparse.Namespace) -> int:
     try:
         s = segments.seal(
-            args.path, at=_now(), key=_key(args),
+            _path(args), at=_now(), key=_key(args),
             prev_seal_digest=args.prev_seal or segments.GENESIS, index=args.index,
         )
     except LedgerError as exc:
@@ -95,7 +109,7 @@ def cmd_seal(args: argparse.Namespace) -> int:
 
 
 def cmd_verify_sealed(args: argparse.Namespace) -> int:
-    result = segments.verify_sealed(args.path, _key(args))
+    result = segments.verify_sealed(_path(args), _key(args))
     if result["ok"]:
         print(f"PASS: sealed segment intact ({result['seal']['records']} records)")
         return 0
@@ -106,7 +120,7 @@ def cmd_verify_sealed(args: argparse.Namespace) -> int:
 
 
 def cmd_tail(args: argparse.Namespace) -> int:
-    loaded = load(args.path, _key(args))
+    loaded = load(_path(args), _key(args))
     for e in loaded.entries[-args.n :]:
         print(f"{e['seq']:>5}  {e.get('at', ''):<26} {str(e.get('op')):<22} "
               f"{str(e.get('actor'))[:28]:<28} {e['hash'][:12]}…")
@@ -117,7 +131,7 @@ def cmd_tail(args: argparse.Namespace) -> int:
 
 
 def cmd_alerts(args: argparse.Namespace) -> int:
-    loaded = load(args.path, _key(args))
+    loaded = load(_path(args), _key(args))
     found = alerts_from(loaded.entries, _key(args))
     if not found:
         print("no alerts")
@@ -129,7 +143,7 @@ def cmd_alerts(args: argparse.Namespace) -> int:
 
 
 def cmd_dump(args: argparse.Namespace) -> int:
-    loaded = load(args.path, _key(args))
+    loaded = load(_path(args), _key(args))
     print(json.dumps(
         {"records": len(loaded.entries), "chain": loaded.chain.to_dict(),
          "truncated": loaded.truncated}, indent=2))
@@ -141,7 +155,10 @@ def register(sub) -> None:
     s = p.add_subparsers(dest="ledger_cmd", required=True)
 
     def common(sp):
-        sp.add_argument("--path", default=str(Path.home() / ".stop-guessing" / "ledger.jsonl"))
+        # #66: default to the ledger the installed hooks actually write, not a second location
+        # nothing writes. --path still overrides for anyone pointing at an archive or a copy.
+        sp.add_argument("--path", default=None,
+                        help="ledger to read (default: the installed profile's custody ledger)")
         sp.add_argument("--keyfile", help="read the chain key from this file (mode 600)")
         sp.add_argument("--public", action="store_true",
                         help="verify without the key; reports chain-only, never tamper-proof")

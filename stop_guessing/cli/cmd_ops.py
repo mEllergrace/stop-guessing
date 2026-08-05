@@ -84,10 +84,32 @@ def cmd_doctor(args) -> int:
         except ValueError:
             print("install     : manifest is not valid JSON")
             rc = 1
+    # #46 (SG-HARD-012). doctor passed neither the settings file, the pinned registration command,
+    # nor any daemon state into self_check(), so the tier it PRINTED could never exceed 0 and
+    # registration pinning was skipped entirely — it reported on an architecture it had not
+    # looked at. It now hands over what it can actually observe.
+    settings = None
+    settings_path = cfg / "settings.json"
+    if settings_path.is_file():
+        try:
+            settings = json.loads(settings_path.read_text(encoding="utf-8"))
+        except ValueError:
+            print("settings    : settings.json is not valid JSON")
+            rc = 1
+    pinned = (install_manifest or {}).get("pinned_command")
+
+    from stop_guessing.recorder.client import daemon_info, isolation_tier
+
+    info = daemon_info(cfg)
+    tier, why = isolation_tier(cfg)
+    print(f"daemon      : {'running pid ' + str(info.get('pid')) + ' uid ' + str(info.get('uid')) if info else 'not running'}")
+    print(f"isolation   : tier {tier} — {why}")
+
     rep = self_check(
         argv0=sys.argv[0], manifest=install_manifest,
         root=cfg / "hooks" if install_manifest else None,
         ledger_dir=_default_ledger().parent,
+        settings=settings, pinned_command=pinned,
     )
     print(f"recorder    : tier {rep.isolation_tier}, "
           f"{'ok' if rep.ok else str(len(rep.findings)) + ' finding(s)'}")

@@ -254,10 +254,22 @@ def c_doctor_blind():
     src = _code("stop_guessing/cli/cmd_ops.py")
     m = re.search(r"def cmd_doctor.*?(?=\ndef )", src, re.S)
     body = m.group(0) if m else ""
-    call = re.search(r"self_check\((.*?)\)", body, re.S)
-    args = call.group(1) if call else ""
-    if re.search(r"settings|daemon|peer|uid", args, re.I):
-        return ABSENT, f"doctor passes installed state into self_check({args.strip()[:80]}…)"
+    # Balanced-paren aware: the argument list contains nested calls like `_default_ledger().parent`,
+    # and a non-greedy `(.*?)\)` stops at the first inner close-paren — reporting the defect
+    # present no matter what is passed. Scan forward counting depth instead.
+    start = body.find("self_check(")
+    args = ""
+    if start != -1:
+        i, depth = start + len("self_check("), 1
+        while i < len(body) and depth:
+            depth += (body[i] == "(") - (body[i] == ")")
+            i += 1
+        args = body[start + len("self_check("):i - 1]
+    if re.search(r"\bsettings\s*=|\bpinned_command\s*=", args):
+        passes = sorted({m for m in ("settings", "pinned_command") if f"{m}=" in args})
+        observes = "daemon_info" in body or "isolation_tier" in body
+        return ABSENT, (f"doctor passes {', '.join(passes)} into self_check()"
+                        + (" and queries live daemon state" if observes else ""))
     return PRESENT, ("self_check() receives only "
                      f"{', '.join(a.split('=')[0].strip() for a in args.split(',') if '=' in a)} "
                      "— no settings.json, pinned registration, daemon pid/uid or peer credentials, "
@@ -455,10 +467,19 @@ def c_ci_no_fetch_claim():
 
 def c_fill_trusts_editable_yaml():
     src = _code("stop_guessing/cli/cmd_caiq.py")
-    m = re.search(r"def cmd_fill.*?(?=\ndef )", src, re.S)
+    m = re.search(r"def cmd_fill.*?(?=\ndef |\Z)", src, re.S)
     body = m.group(0) if m else ""
-    if "derive(" in body:
-        return ABSENT, "cmd_fill re-derives before writing"
+    # The re-derivation may live in a helper the command calls; what matters is that fill compares
+    # against a fresh derivation and REFUSES on disagreement, not which function does it.
+    drift_fn = re.search(r"_answers_drift\(", body)
+    helper = re.search(r"def _answers_drift.*?(?=\ndef |\Z)", src, re.S)
+    compares = helper and "derive(" in helper.group(0)
+    refuses = re.search(r"REFUSED[^\n]*answers file is not", body)
+    if drift_fn and compares and refuses:
+        return ABSENT, ("cmd_fill re-derives from the ledger in memory, compares every control "
+                        "field by field, and refuses on any disagreement")
+    if drift_fn or "derive(" in body:
+        return PRESENT, "fill re-derives but does not refuse on disagreement"
     return PRESENT, "cmd_fill reads the editable YAML and writes it without re-deriving from the ledger"
 
 

@@ -56,7 +56,21 @@ def _key(args):
     # discover(), not from_env(): an installed profile keeps its key in a
     # mode-600 keyfile that install.sh writes, and looking only at the
     # environment meant that key was never found. --keyfile still wins.
-    got = discover(getattr(args, "keyfile", None))
+    # #66, second instance. A profile can hold SEVERAL ledgers written under DIFFERENT keys —
+    # the installed custody ledger under the mode-600 keyfile, the proofs ledger under the
+    # environment key. `discover()` returns the most-protected key it can find, which is the right
+    # default for a NEW ledger and the wrong one for an existing one: verification then fails and
+    # reports "the chain is broken" when the truth is "wrong key". That is the more damaging of
+    # the two errors, and keys.py already carries `prefer_keyid` for exactly this.
+    from stop_guessing.attest.keys import keyid_of_ledger
+
+    explicit = getattr(args, "keyfile", None)
+    try:
+        from stop_guessing.prove import runner as _runner
+        wanted = keyid_of_ledger(_runner.DEFAULT_LEDGER)
+    except Exception:  # noqa: BLE001
+        wanted = None
+    got = discover(explicit, prefer_keyid=wanted)
     return got[0] if got else None
 
 
@@ -108,6 +122,48 @@ def cmd_derive(args) -> int:
     return 0
 
 
+def _answers_drift(doc: dict, args) -> list[str]:
+    """Re-derive from the ledger and report every field that disagrees with the file.
+
+    #73: comparing whole documents byte-for-byte would flag harmless formatting, and comparing
+    only the refs is what let a flipped answer through. So the comparison is per control, per
+    field, and names what differs.
+    """
+    from stop_guessing.caiq.answers import derive, split_published
+
+    try:
+        answers, _ = derive(_key(args))
+    except Exception as exc:  # noqa: BLE001 - inability to re-derive is itself a refusal
+        return [f"could not re-derive from the ledger: {exc}"]
+
+    published, _ = split_published(answers)
+    fresh = {a.control: a for a in published}
+    on_disk = {a["control"]: a for a in (doc.get("answers") or [])}
+
+    drift = []
+    for ctrl in sorted(set(fresh) | set(on_disk)):
+        if ctrl not in fresh:
+            drift.append(f"{ctrl}: present in the file, not produced by the ledger")
+            continue
+        if ctrl not in on_disk:
+            drift.append(f"{ctrl}: derived from the ledger, missing from the file")
+            continue
+        want, got = fresh[ctrl], on_disk[ctrl]
+        if got.get("answer") != want.answer:
+            drift.append(f"{ctrl}: answer is {got.get('answer')!r}, ledger derives {want.answer!r}")
+        if (got.get("ssrm") or None) != (want.ssrm or None):
+            drift.append(f"{ctrl}: ssrm is {got.get('ssrm')!r}, ledger derives {want.ssrm!r}")
+        if (got.get("implementation") or "").strip() != want.implementation.strip():
+            drift.append(f"{ctrl}: implementation text differs from the derived text")
+        if sorted(got.get("claims") or []) != sorted(want.claims):
+            drift.append(f"{ctrl}: claim set is {sorted(got.get('claims') or [])}, "
+                         f"ledger derives {sorted(want.claims)}")
+        refs = sorted(e.get("ref") for e in (got.get("evidence") or []))
+        if refs != sorted(want.evidence):
+            drift.append(f"{ctrl}: evidence refs differ from those the ledger derives")
+    return drift
+
+
 def cmd_fill(args) -> int:
     args.template = resolve_template(args.template)
     import yaml
@@ -118,7 +174,22 @@ def cmd_fill(args) -> int:
         print(f"REFUSED: no derived answers at {ANSWERS}. Run `caiq derive` first — the workbook "
               "is a rendering of the ledger, not an input to it.")
         return 2
+    # #73 (SG-HARD-040). `fill` read the editable YAML and wrote whatever it said. `caiq evidence`
+    # only checked that the cited record ids were currently live, never that the control, answer,
+    # owner, claim set or implementation text were the DETERMINISTIC OUTPUT of those records — so
+    # a hand-edited "No" -> "Yes" that kept valid refs passed both and reached CSA's workbook.
+    # The YAML is output, not input: re-derive in memory and refuse on any disagreement.
     doc = yaml.safe_load(ANSWERS.read_text(encoding="utf-8"))
+    drift = _answers_drift(doc, args)
+    if drift:
+        print("REFUSED: the answers file is not what deriving from the ledger produces.")
+        for line in drift[:12]:
+            print(f"  {line}")
+        if len(drift) > 12:
+            print(f"  … and {len(drift) - 12} more")
+        print("\nThe workbook renders the ledger. Run `caiq derive` to regenerate, or investigate "
+              "why the file was edited.")
+        return 2
     # doc["answers"] holds ONLY published AICM v1.1.0 controls; the proposed agentic ones live
     # in doc["proposed_agentic_controls"] and are deliberately never written into CSA's workbook.
     answers = {a["control"]: {"answer": a["answer"], "ssrm": a.get("ssrm"),

@@ -96,3 +96,23 @@ def policy_dir() -> Path:
 def rules_dir() -> Path:
     """The default classification/redaction rules directory."""
     return data_dir() / "rules"
+
+
+def config_dir() -> Path:
+    """The active Claude profile directory."""
+    import os as _os
+
+    return Path(_os.environ.get("CLAUDE_CONFIG_DIR") or _os.path.expanduser("~/.claude"))
+
+
+def installed_ledger() -> Path:
+    """The ledger the installed hooks actually write.
+
+    #66 (SG-HARD-033). The hook wrote `$CLAUDE_CONFIG_DIR/stop-guessing/ledger/custody.jsonl`
+    while `stop-guessing ledger` defaulted to `~/.stop-guessing/ledger.jsonl` and resolved its key
+    from the environment only. A user following the shipped `/custody` documentation therefore
+    inspected a DIFFERENT, usually empty, ledger and got chain-only results — and concluded the
+    tool had recorded nothing. One resolver, used by every surface, so the CLI and the hook cannot
+    disagree about where the evidence is.
+    """
+    return config_dir() / "stop-guessing" / "ledger" / "custody.jsonl"
