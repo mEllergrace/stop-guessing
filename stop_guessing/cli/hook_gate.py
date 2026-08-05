@@ -159,6 +159,34 @@ def emit_ask(reason: str) -> None:
     }}))
 
 
+#: Strength order. A project may move RIGHT along this list, never left.
+POSTURE_ORDER = ("observe", "steer", "bar")
+
+
+def _managed_posture() -> str | None:
+    """The floor an operator sets outside project write authority (#47).
+
+    `managed.json` sits in the profile directory, not the project, so the recorded party cannot
+    edit it as part of its ordinary work. Absent means no floor, which is the current default and
+    keeps every existing installation behaving exactly as before.
+    """
+    import json as _json
+
+    cfg = Path(os.environ.get("CLAUDE_CONFIG_DIR") or os.path.expanduser("~/.claude"))
+    try:
+        v = _json.loads((cfg / "managed.json").read_text(encoding="utf-8")).get("posture")
+    except (OSError, ValueError):
+        return None
+    return v if v in POSTURE_ORDER else None
+
+
+def _not_weaker_than(requested: str, floor: str | None) -> str:
+    """Honour a request only where it does not loosen the managed floor."""
+    if not floor:
+        return requested
+    return requested if POSTURE_ORDER.index(requested) >= POSTURE_ORDER.index(floor) else floor
+
+
 def resolve_posture(cwd: str | None) -> str:
     """Resolve the posture through the four-layer chain. **The default is `observe`.**
 
@@ -174,6 +202,18 @@ def resolve_posture(cwd: str | None) -> str:
     """
     import json as _json
 
+    # #47 (SG-HARD-013). Project config took precedence over profile config with nothing above
+    # it, so an agent with ordinary project write authority could drop a .stop-guessing.json
+    # setting posture=observe and turn the enforcement it was subject to off — then, with the
+    # ledger protection switched off the same way, modify the evidence. The recorded party must
+    # not be able to weaken the policy it is recorded under.
+    #
+    # A MANAGED layer now sits above everything: `managed.json` in the profile, which lives
+    # outside project write authority. Project config may still TIGHTEN (observe -> steer -> bar)
+    # and is simply ignored where it would loosen. Nothing is removed — every existing layer keeps
+    # working, and a project that wants more enforcement still gets it.
+    managed = _managed_posture()
+
     candidates = []
     if cwd:
         candidates.append(Path(cwd) / ".stop-guessing.json")
@@ -185,15 +225,15 @@ def resolve_posture(cwd: str | None) -> str:
         except (OSError, ValueError):
             continue
         if v in ("observe", "steer", "bar"):
-            return v
+            return _not_weaker_than(v, managed)
     legacy = Path(cfg) / "stop-guessing.state"
     try:
         v = legacy.read_text(encoding="utf-8").strip()
         if v in ("observe", "steer", "bar"):
-            return v
+            return _not_weaker_than(v, managed)
     except OSError:
         pass
-    return "observe"
+    return managed or "observe"
 
 
 def _record_gap(payload: dict, exc: BaseException) -> None:

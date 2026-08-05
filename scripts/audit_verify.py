@@ -292,13 +292,25 @@ def c_doctor_blind():
 
 
 def c_project_config_can_downgrade():
-    src = _code("stop_guessing/cli/hook_gate.py")
-    proj_first = re.search(r"cwd\).*\.stop-guessing\.json", src, re.S)
-    managed = re.search(r"managed|operator_policy|cannot_weaken", src)
-    if proj_first and not managed:
-        return PRESENT, ("project .stop-guessing.json precedes profile config and can set "
-                         "posture=observe / protect_ledger=false with no managed-policy floor")
-    return ABSENT, "a managed policy layer constrains project config"
+    """Is there a floor the recorded party cannot edit, for BOTH posture and ledger protection?
+
+    Both halves matter: a posture downgrade alone lets enforcement be switched off, and
+    protect_ledger=false alone lets the evidence be modified. Either one is the finding.
+    """
+    gate = _code("stop_guessing/cli/gate.py")
+    hook = _code("stop_guessing/cli/hook_gate.py")
+    posture_floor = "_managed_posture" in hook and "_not_weaker_than" in hook
+    ledger_floor = re.search(r"managed\.json", gate) and re.search(
+        r"def _protect_ledger.*?project is False.*?return True", gate, re.S)
+    if posture_floor and ledger_floor:
+        return ABSENT, ("managed.json sets a floor outside project write authority; project "
+                        "config may tighten the posture and may not disable ledger protection")
+    missing = []
+    if not posture_floor:
+        missing.append("posture can be downgraded by project config")
+    if not ledger_floor:
+        missing.append("protect_ledger can be disabled by project config")
+    return PRESENT, "; ".join(missing)
 
 
 def c_policy_assets_unanchored():

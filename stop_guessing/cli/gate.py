@@ -41,10 +41,54 @@ def _now() -> str:
 
 
 def policies():
+    """Load the policy set, and check it against a pinned expectation when one exists.
+
+    #47/#55 (SG-HARD-014). The gate loads policy and classification rules from a user-writable
+    tree, recorded a policy_set_digest, and had nothing to compare that digest AGAINST. An attacker
+    who can edit a rule can therefore reclassify a credential as public, and the ledger will
+    faithfully record the attacker's policy as if it were the authority — a perfect record of the
+    wrong thing.
+
+    `expected_policy_digest` in `managed.json` (outside project write authority) pins it. When it
+    is absent, behaviour is exactly as before: nothing is enforced, because inventing an
+    expectation nobody set would break every existing install. When it is present and disagrees,
+    the mismatch is a critical recorded finding — the gate still runs, because a policy mismatch
+    must not become a denial of service against the whole session.
+    """
     global _POLICIES
     if _POLICIES is None:
         _POLICIES = load(policy_dir())
+        _check_policy_pin(_POLICIES)
     return _POLICIES
+
+
+def _check_policy_pin(ps) -> None:
+    import json as _json
+
+    cfg = Path(os.environ.get("CLAUDE_CONFIG_DIR") or os.path.expanduser("~/.claude"))
+    try:
+        expected = _json.loads((cfg / "managed.json").read_text(encoding="utf-8")).get(
+            "expected_policy_digest")
+    except (OSError, ValueError):
+        return
+    if not expected or expected == ps.digest:
+        return
+    detail = (f"POLICY SET MISMATCH: loaded {ps.digest[:16]}, managed.json pins "
+              f"{str(expected)[:16]}. Decisions from here are being made under a policy the "
+              f"operator did not sanction.")
+    try:
+        from stop_guessing.attest.keys import discover
+        from stop_guessing.ledger.sink import record as _record
+
+        got = discover(config_dir=cfg)
+        _record(ledger_path(), {
+            "op": "policy.load", "actor": "stop-guessing/gate", "severity": "critical",
+            "at": _now(), "detail": detail, "known_gaps": [detail], "alterations": [],
+        }, got[0] if got else None)
+    except Exception:  # noqa: BLE001
+        import sys
+
+        print(f"STOP-GUESSING: {detail}", file=sys.stderr)
 
 
 def _unsafe_state(session_id: str, why: str) -> tuple[SessionCustodyState, bool]:
@@ -574,16 +618,42 @@ def _downgrade_to_warning(d, permission_mode: str):
 
 
 def _protect_ledger() -> bool:
+    """Whether the ledger deny-list is active. Project config may turn it ON, never OFF (#47).
+
+    SG-HARD-013: the project file could set protect_ledger=false, and a project file is writable
+    by the party being recorded. Combined with a posture downgrade that let the recorded agent
+    switch off the protection on its own evidence and then modify it — the one capability this
+    tool exists to deny.
+
+    The switch stays real, because a genuine operator may not want even this refusal. It just has
+    to be set somewhere the recorded party does not control: `managed.json` in the profile.
+    Precedence is managed, then profile, then project — and the project layer is honoured only
+    when it TIGHTENS.
+    """
     import json as _json
 
     cfg = Path(os.environ.get("CLAUDE_CONFIG_DIR") or os.path.expanduser("~/.claude"))
-    for c in (Path.cwd() / ".stop-guessing.json", cfg / "stop-guessing.json"):
+
+    def _read(path):
         try:
-            v = _json.loads(c.read_text(encoding="utf-8")).get("protect_ledger")
+            return _json.loads(Path(path).read_text(encoding="utf-8")).get("protect_ledger")
         except (OSError, ValueError):
-            continue
-        if isinstance(v, bool):
-            return v
+            return None
+
+    managed = _read(cfg / "managed.json")
+    if isinstance(managed, bool):
+        return managed
+
+    profile = _read(cfg / "stop-guessing.json")
+    if isinstance(profile, bool):
+        return profile
+
+    project = _read(Path.cwd() / ".stop-guessing.json")
+    if project is True:
+        return True          # tightening from the default is fine
+    if project is False:
+        # Refusing to loosen is itself worth recording: someone tried.
+        return True
     return True
 
 

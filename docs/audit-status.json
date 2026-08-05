@@ -1,5 +1,5 @@
 {
-  "commit": "1898d25",
+  "commit": "24028d1",
   "findings": [
     {
       "id": "SG-HARD-001",
@@ -132,8 +132,8 @@
       "files": [
         "stop_guessing/cli/hook_gate.py"
       ],
-      "status": "PRESENT",
-      "evidence": "project .stop-guessing.json precedes profile config and can set posture=observe / protect_ledger=false with no managed-policy floor"
+      "status": "ABSENT",
+      "evidence": "managed.json sets a floor outside project write authority; project config may tighten the posture and may not disable ledger protection"
     },
     {
       "id": "SG-HARD-014",
@@ -143,8 +143,8 @@
         "stop_guessing/policy/engine.py",
         "stop_guessing/cli/gate.py"
       ],
-      "status": "PRESENT",
-      "evidence": "policy_set_digest is recorded but never compared to a trusted expectation"
+      "status": "ABSENT",
+      "evidence": "the policy set is checked against a pinned expected digest"
     },
     {
       "id": "SG-HARD-015",
