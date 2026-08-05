@@ -74,6 +74,9 @@ FIXED = {
     "SG-HARD-012": "doctor passes settings and pinned registration in, and queries daemon state",
     "SG-HARD-033": "one resolver for the ledger path, and the key is chosen by the ledger's keyid",
     "SG-HARD-040": "fill re-derives in memory and refuses on any field-level disagreement",
+    "SG-HARD-016": "identity is the logical path; the inode is observed, not identifying",
+    "SG-HARD-030": "seal archives the segment and opens a new one chained to its seal",
+    "SG-HARD-046": "the exporter emits an OTLP envelope with integer enums and real ids",
 }
 
 

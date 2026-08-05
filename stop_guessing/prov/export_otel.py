@@ -12,6 +12,8 @@ upstream contribution, and namespacing it now is what makes that possible later.
 
 from __future__ import annotations
 
+from stop_guessing.version import __version__
+
 CSA_NS = "csa.coc"
 
 
@@ -62,18 +64,44 @@ def export(records: list[dict]) -> list[dict]:
             f"{CSA_NS}.record.seq": rec.get("seq"),
             f"{CSA_NS}.record.hash": rec.get("hash"),
         }
+        # #79 (SG-HARD-046). Four conformance defects, all of which a Collector rejects:
+        #   - enums were emitted as NAMES; OTLP/JSON uses the protobuf JSON mapping, where enum
+        #     fields are INTEGERS (SPAN_KIND_INTERNAL = 1, STATUS_CODE_OK = 1, ERROR = 2);
+        #   - traceId/spanId must be exactly 32 and 16 hex characters, and could be None or short;
+        #   - startTimeUnixNano was None, and it is required;
+        #   - the whole thing was a bare list, with no TracesData/resourceSpans/scopeSpans
+        #     envelope, so nothing could ingest it at all.
+        start_ns = _nanos(action.get("started_at") or rec.get("at"))
+        end_ns = _nanos(action.get("ended_at") or rec.get("at")) or start_ns
         spans.append({
+            "traceId": _trace_id(life.get("transcript_digest") or life.get("session_id")
+                                 or rec.get("hash")),
+            "spanId": _span_id(rec.get("hash") or str(rec.get("seq"))),
             "name": attrs["gen_ai.tool.name"] or action.get("op") or "custody",
-            "kind": "SPAN_KIND_INTERNAL",
-            "traceId": (life.get("transcript_digest") or "")[:32] or None,
-            "spanId": (rec.get("hash") or "")[:16] or None,
-            "startTimeUnixNano": None,
+            "kind": SPAN_KIND_INTERNAL,
+            "startTimeUnixNano": str(start_ns),
+            "endTimeUnixNano": str(end_ns),
             "attributes": [{"key": k, "value": _val(v)}
                            for k, v in attrs.items() if v is not None],
-            "status": {"code": "STATUS_CODE_ERROR"
-                       if (decision.get("outcome") == "deny") else "STATUS_CODE_OK"},
+            "status": {"code": STATUS_CODE_ERROR
+                       if (decision.get("outcome") == "deny") else STATUS_CODE_OK},
         })
-    return spans
+
+    # The OTLP/JSON envelope. Without it the output is span-shaped JSON, not OTLP.
+    return {
+        "resourceSpans": [{
+            "resource": {"attributes": [
+                {"key": "service.name", "value": {"stringValue": "stop-guessing"}},
+                {"key": "service.version", "value": {"stringValue": __version__}},
+                {"key": "telemetry.sdk.name", "value": {"stringValue": "stop-guessing"}},
+                {"key": "telemetry.sdk.language", "value": {"stringValue": "python"}},
+            ]},
+            "scopeSpans": [{
+                "scope": {"name": "stop_guessing.prov.export_otel", "version": __version__},
+                "spans": spans,
+            }],
+        }],
+    }
 
 
 def _val(v):
@@ -84,3 +112,53 @@ def _val(v):
     if isinstance(v, list):
         return {"arrayValue": {"values": [_val(x) for x in v if x is not None]}}
     return {"stringValue": str(v)}
+
+
+#: OTLP/JSON encodes enums as integers (protobuf JSON mapping), not as their names.
+SPAN_KIND_INTERNAL = 1
+STATUS_CODE_UNSET, STATUS_CODE_OK, STATUS_CODE_ERROR = 0, 1, 2
+
+_TRACE_HEX, _SPAN_HEX = 32, 16
+
+
+def _hex_id(seed, width: int) -> str:
+    """A well-formed, deterministic HEX id of exactly `width` characters.
+
+    Hex, not base64. OTLP/JSON is an explicit exception to the standard protobuf JSON mapping for
+    `trace_id` and `span_id`: the spec requires case-insensitive hex strings for these two fields
+    even though protobuf JSON would otherwise base64-encode a bytes field. A generic protobuf JSON
+    parser therefore decodes them as base64 and reports 24 bytes for a 32-character trace id —
+    that is the parser applying the generic rule, not a defect in this output.
+
+    Trace and span ids have strict lengths, and an id that is short, empty or None is rejected by
+    any conforming consumer. Derived from the record so the same record always maps to the same
+    span — a provenance exporter that emitted random ids would defeat its own purpose.
+    """
+    from stop_guessing.artifacts.digest import bytes_digest
+
+    material = "" if seed is None else str(seed)
+    digest = bytes_digest(f"otel-id-v1:{material}".encode())
+    return digest[:width].ljust(width, "0")
+
+
+def _trace_id(seed) -> str:
+    return _hex_id(seed, _TRACE_HEX)
+
+
+def _span_id(seed) -> str:
+    return _hex_id(seed, _SPAN_HEX)
+
+
+def _nanos(ts: str | None) -> int:
+    """ISO-8601 to Unix nanoseconds. Required by OTLP, and previously emitted as None."""
+    from datetime import UTC, datetime
+
+    if not ts:
+        return 0
+    try:
+        dt = datetime.fromisoformat(str(ts).replace("Z", "+00:00"))
+    except ValueError:
+        return 0
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=UTC)
+    return int(dt.timestamp() * 1_000_000_000)

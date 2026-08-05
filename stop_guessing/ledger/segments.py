@@ -101,6 +101,7 @@ def seal(
     key: ChainKey | None = None,
     prev_seal_digest: str = GENESIS,
     index: int = 0,
+    rotate: bool = True,
 ) -> Seal:
     """Close a segment. Refuses to seal a ledger that does not verify.
 
@@ -139,7 +140,49 @@ def seal(
     Path(str(p) + SEAL_SUFFIX).write_text(
         json.dumps(s.to_dict(), indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
+    if rotate:
+        _rotate(p, s, at=at, key=key, index=index)
     return s
+
+
+def _rotate(p: Path, s: Seal, *, at: str, key: ChainKey | None, index: int) -> Path:
+    """Archive the sealed segment and start a fresh one chained to its seal.
+
+    #63 (SG-HARD-030). `seal()` wrote a MAC'd sidecar and left the active file APPENDABLE, and the
+    sink had no seal awareness at all — so `record()` cheerfully appended after a seal, and the
+    seal then described a prefix of a file that had kept growing. Sealing without closing is a
+    statement about a moment that has already passed.
+
+    The rename is the close: the sealed bytes move to an archive name, the sidecar moves with
+    them, and a new empty segment takes the live path carrying a genesis record that names the
+    seal it follows. `os.replace` is atomic, so there is no window in which the live path is
+    missing.
+    """
+    import os
+
+    archive = p.parent / f"{p.stem}.{s.segment}{p.suffix}"
+    os.replace(p, archive)
+    old_sidecar = Path(str(p) + SEAL_SUFFIX)
+    if old_sidecar.exists():
+        os.replace(old_sidecar, Path(str(archive) + SEAL_SUFFIX))
+
+    # The new segment opens with a record naming its predecessor's seal, so the series is
+    # traversable from either end and a missing segment is detectable rather than invisible.
+    from stop_guessing.ledger.sink import record
+
+    record(p, {
+        "op": "ledger.seal",
+        "actor": "stop-guessing/segments",
+        "at": at,
+        "severity": "info",
+        "detail": json.dumps({"follows_segment": s.segment,
+                              "follows_seal_digest": s.digest(),
+                              "archived_to": archive.name,
+                              "next_index": index + 1}, sort_keys=True),
+        "known_gaps": [],
+        "alterations": [],
+    }, key)
+    return archive
 
 
 def load_seal(path: str | Path) -> Seal | None:

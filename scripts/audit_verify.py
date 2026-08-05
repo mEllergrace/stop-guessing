@@ -319,10 +319,29 @@ def c_symlink_classification_bypass():
 
 
 def c_artifact_id_inode():
+    """Does artifact_id's MATERIAL include the filesystem identity?
+
+    The first predicate matched `st_ino`/`st_dev` anywhere in the module, so continuing to OBSERVE
+    and report the filesystem identity — which is legitimate and useful — read as the defect. What
+    matters is whether it is part of what makes an artifact that artifact, because that is what
+    makes an ordinary atomic save shed the artifact's history.
+    """
     src = _code("stop_guessing/artifacts/identity.py")
-    if re.search(r"st_ino|st_dev|inode", src):
-        return PRESENT, "artifact_id incorporates dev/inode; atomic replacement mints a new id"
-    return ABSENT, "identity no longer depends on inode"
+    m = re.search(r"def artifact_id.*?(?=\ndef |\nclass |\Z)", src, re.S)
+    body = m.group(0) if m else ""
+    if not body:
+        return DYNAMIC, "could not locate artifact_id()"
+    uses_fs = re.search(r"material\s*=\s*f?['\"].*?fs|_fs_identity\(", body)
+    if not uses_fs:
+        return ABSENT, "artifact_id derives from the canonical path only"
+    gate = re.search(r"_INCLUDE_FS_IN_ID", body)
+    if gate:
+        const = re.search(r"^_INCLUDE_FS_IN_ID\s*=\s*(True|False)", src, re.M)
+        if const and const.group(1) == "False":
+            return ABSENT, ("filesystem identity is observed but excluded from the id by default, "
+                            "so an atomic replacement keeps the artifact's history")
+        return PRESENT, "_INCLUDE_FS_IN_ID is enabled, so the id still depends on the inode"
+    return PRESENT, "artifact_id incorporates dev/inode; atomic replacement mints a new id"
 
 
 def c_handler_runs_before_policy():

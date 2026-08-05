@@ -1,5 +1,5 @@
 {
-  "commit": "dc77e2f",
+  "commit": "5efe7d0",
   "findings": [
     {
       "id": "SG-HARD-001",
@@ -163,8 +163,8 @@
       "files": [
         "stop_guessing/artifacts/identity.py"
       ],
-      "status": "PRESENT",
-      "evidence": "artifact_id incorporates dev/inode; atomic replacement mints a new id"
+      "status": "ABSENT",
+      "evidence": "filesystem identity is observed but excluded from the id by default, so an atomic replacement keeps the artifact's history"
     },
     {
       "id": "SG-HARD-017",
@@ -306,8 +306,8 @@
       "files": [
         "stop_guessing/ledger/segments.py"
       ],
-      "status": "PRESENT",
-      "evidence": "seal() writes a MAC sidecar only \u2014 no rename/replace/move anywhere in the module, so the active ledger stays appendable after sealing"
+      "status": "ABSENT",
+      "evidence": "seal performs a real archive/rollover (rename/replace/move)"
     },
     {
       "id": "SG-HARD-031",
@@ -470,8 +470,8 @@
       "files": [
         "stop_guessing/prov/export_otel.py"
       ],
-      "status": "PRESENT",
-      "evidence": "no resourceSpans/scopeSpans envelope; OTLP JSON requires it and encodes enums as integers"
+      "status": "ABSENT",
+      "evidence": "the exporter emits the OTLP resourceSpans/scopeSpans envelope"
     },
     {
       "id": "SG-HARD-047",

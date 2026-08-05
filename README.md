@@ -19,8 +19,8 @@ headline is exactly who they matter to.**
 
 **What this gate does not establish.** An independent hardening audit on 2026-08-04
 raised 54 findings. Each was re-verified against source rather than accepted; the current state,
-generated from [`docs/audit-status.json`](docs/audit-status.json) at commit `dc77e2f`, is
-**14 confirmed outstanding, 30 fixed, 10 unverified** (no static
+generated from [`docs/audit-status.json`](docs/audit-status.json) at commit `5efe7d0`, is
+**11 confirmed outstanding, 33 fixed, 10 unverified** (no static
 predicate — those need a live adversarial test and are not counted as passing).
 
 Outstanding CRITICAL findings:

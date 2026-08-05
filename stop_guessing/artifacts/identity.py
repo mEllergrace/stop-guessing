@@ -51,17 +51,32 @@ def _fs_identity(path: str) -> str | None:
     return f"{st.st_dev}:{st.st_ino}"
 
 
+#: Kept as an explicit switch rather than deleting the code path: an id scheme is the kind of
+#: thing an external consumer may already have stored, so the old material stays reachable.
+#: Default off, because inode-derived identity loses history on an ordinary atomic save (#49).
+_INCLUDE_FS_IN_ID = False
+
+
 def artifact_id(path: str | os.PathLike, *, use_fs_identity: bool = True) -> str:
     """A stable id for this artifact.
 
     Deterministic across processes: same canonical path in, same id out, always.
     """
+    # #49 (SG-HARD-016). The id used to fold dev:inode into its material, so an ATOMIC SAVE — write
+    # a temp file, rename it over the target, which is what every editor and `mv` does — replaced
+    # the inode at the same logical path and minted a NEW id. The artifact then had no history:
+    # its accumulated session taint was shed by an ordinary file save. Device and inode are also
+    # host-local, which contradicts the documented cross-machine stability.
+    #
+    # The logical path is now the identity. The filesystem identity is still OBSERVED and reported
+    # on Identity.fs_identity, where it belongs: it is an observation about a version of the
+    # artifact, not the thing that makes it that artifact. `use_fs_identity` is preserved so any
+    # caller depending on the old material can still ask for it explicitly.
     canon = canonical_path(path)
     material = canon
-    if use_fs_identity:
+    if use_fs_identity and _INCLUDE_FS_IN_ID:
         fs = _fs_identity(canon)
         if fs:
-            # Bound to the path too, so a recycled inode cannot silently inherit a history.
             material = f"{canon}\x00{fs}"
     return f"{ID_PREFIX}_{bytes_digest(f'sg-artifact-v1:{material}'.encode())[:ID_LEN]}"
 

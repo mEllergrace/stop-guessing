@@ -271,12 +271,12 @@ def test_seal_then_chain_the_next_segment(tmp_path):
     s0, s1 = tmp_path / "seg0.jsonl", tmp_path / "seg1.jsonl"
     for i in range(30):
         record(s0, _event(i), KEY)
-    seal0 = segments.seal(s0, at="2026-08-03T11:00:00Z", key=KEY, index=0)
+    seal0 = segments.seal(s0, at="2026-08-03T11:00:00Z", key=KEY, index=0, rotate=False)
     assert seal0.records == 30
     for i in range(10):
         record(s1, _event(i), KEY)
     seal1 = segments.seal(s1, at="2026-08-03T11:01:00Z", key=KEY,
-                          prev_seal_digest=seal0.digest(), index=1)
+                          prev_seal_digest=seal0.digest(), index=1, rotate=False)
     assert seal1.prev_seal_digest == seal0.digest()
     result = segments.verify_series([s0, s1], KEY)
     assert result["ok"], result["findings"]
@@ -287,7 +287,7 @@ def test_modifying_a_sealed_segment_is_caught(tmp_path):
     p = tmp_path / "seg.jsonl"
     for i in range(5):
         record(p, _event(i), KEY)
-    segments.seal(p, at="t", key=KEY, index=0)
+    segments.seal(p, at="t", key=KEY, index=0, rotate=False)
     with open(p, "a") as fh:
         fh.write('{"seq": 99}\n')
     result = segments.verify_sealed(p, KEY)
@@ -303,7 +303,7 @@ def test_malformed_record_appended_after_sealing_is_a_finding_not_a_crash(tmp_pa
     p = tmp_path / "seg.jsonl"
     for i in range(3):
         record(p, _event(i), KEY)
-    segments.seal(p, at="t", key=KEY, index=0)
+    segments.seal(p, at="t", key=KEY, index=0, rotate=False)
     with open(p, "a") as fh:
         fh.write('{"seq": 99}\n')          # no hash, no prev_hash, no hash_alg
     result = segments.verify_sealed(p, KEY)   # must not raise
@@ -317,29 +317,29 @@ def test_refuses_to_seal_a_broken_chain(tmp_path):
     log[2] = {**log[2], "detail": "TAMPERED"}
     _write(p, log)
     with pytest.raises(LedgerError, match="certify a record we know is wrong"):
-        segments.seal(p, at="t", key=KEY)
+        segments.seal(p, at="t", key=KEY, rotate=False)
 
 
 def test_refuses_to_seal_nothing(tmp_path):
     p = tmp_path / "empty.jsonl"
     p.write_text("")
     with pytest.raises(LedgerError, match="nothing to seal"):
-        segments.seal(p, at="t", key=KEY)
+        segments.seal(p, at="t", key=KEY, rotate=False)
 
 
 def test_replacing_a_segment_in_a_series_is_caught(tmp_path):
     s0, s1 = tmp_path / "seg0.jsonl", tmp_path / "seg1.jsonl"
     for i in range(5):
         record(s0, _event(i), KEY)
-    seal0 = segments.seal(s0, at="t", key=KEY, index=0)
+    seal0 = segments.seal(s0, at="t", key=KEY, index=0, rotate=False)
     for i in range(5):
         record(s1, _event(i), KEY)
-    segments.seal(s1, at="t", key=KEY, prev_seal_digest=seal0.digest(), index=1)
+    segments.seal(s1, at="t", key=KEY, prev_seal_digest=seal0.digest(), index=1, rotate=False)
     # Rebuild seg0 with different content and re-seal it: seg1 no longer chains to it.
     s0.unlink()
     for i in range(5):
         record(s0, _event(i + 100), KEY)
-    segments.seal(s0, at="t", key=KEY, index=0)
+    segments.seal(s0, at="t", key=KEY, index=0, rotate=False)
     result = segments.verify_series([s0, s1], KEY)
     assert not result["ok"]
     assert any("replaced or removed" in f for f in result["findings"])
@@ -465,3 +465,66 @@ def test_key_material_never_appears_in_a_record():
 
 def test_chainkey_repr_does_not_leak_material():
     assert KEY.material.decode() not in repr(KEY)
+
+
+# ── segment rotation — SG-HARD-030 (#63) ─────────────────────────────────────
+
+
+def _seg_ledger(tmp_path, n=3):
+    p = tmp_path / "custody.jsonl"
+    for i in range(n):
+        record(p, {"op": "artifact.read", "actor": "t", "severity": "info",
+                   "at": f"2026-08-05T10:00:0{i}.000Z",
+                   "known_gaps": [], "alterations": []}, KEY)
+    return p
+
+
+def test_sealing_archives_the_segment_and_opens_a_new_one(tmp_path):
+    """seal() used to write a sidecar and leave the file appendable — a statement about a
+    moment that had already passed."""
+    p = _seg_ledger(tmp_path)
+    s = segments.seal(p, at="2026-08-05T11:00:00.000Z", key=KEY, index=0)
+
+    archive = tmp_path / f"custody.{s.segment}.jsonl"
+    assert archive.is_file(), "the sealed bytes were not archived"
+    assert (tmp_path / f"custody.{s.segment}.jsonl{segments.SEAL_SUFFIX}").is_file(), \
+        "the sidecar did not move with its segment"
+    assert p.is_file(), "the live path must still exist"
+
+
+def test_the_archived_segment_still_verifies_after_rotation(tmp_path):
+    p = _seg_ledger(tmp_path)
+    s = segments.seal(p, at="2026-08-05T11:00:00.000Z", key=KEY, index=0)
+    archived = load(tmp_path / f"custody.{s.segment}.jsonl", KEY)
+    assert archived.chain.intact and len(archived.entries) == 3
+
+
+def test_appends_after_sealing_go_to_the_new_segment(tmp_path):
+    p = _seg_ledger(tmp_path)
+    segments.seal(p, at="2026-08-05T11:00:00.000Z", key=KEY, index=0)
+    record(p, {"op": "artifact.read", "actor": "t", "severity": "info",
+               "at": "2026-08-05T11:01:00.000Z", "known_gaps": [], "alterations": []}, KEY)
+    live = load(p, KEY)
+    assert live.chain.intact
+    assert len(live.entries) == 2, "genesis seal record plus the new append"
+
+
+def test_the_new_segment_names_the_seal_it_follows(tmp_path):
+    """Otherwise a missing segment in a series is invisible."""
+    import json as _json
+
+    p = _seg_ledger(tmp_path)
+    s = segments.seal(p, at="2026-08-05T11:00:00.000Z", key=KEY, index=0)
+    first = load(p, KEY).entries[0]
+    assert first["op"] == "ledger.seal"
+    detail = _json.loads(first["detail"])
+    assert detail["follows_segment"] == s.segment
+    assert detail["follows_seal_digest"] == s.digest()
+
+
+def test_rotation_can_be_declined_for_callers_that_only_want_the_seal(tmp_path):
+    """The option stays open: seal mathematics without closing the file is still reachable."""
+    p = _seg_ledger(tmp_path)
+    segments.seal(p, at="2026-08-05T11:00:00.000Z", key=KEY, index=0, rotate=False)
+    assert not list(tmp_path.glob("custody.seg-*.jsonl")), "nothing should have been archived"
+    assert len(load(p, KEY).entries) == 3

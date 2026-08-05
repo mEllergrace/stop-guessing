@@ -43,7 +43,10 @@ def _sealed(tmp_path, n=5, key=KEY):
     p = tmp_path / "seg.jsonl"
     for i in range(n):
         record(p, {"op": "artifact.read", "at": "t", "detail": str(i)}, key)
-    return p, segments.seal(p, at="t", key=key, index=0)
+    # rotate=False: these tests exercise seal SERIALISATION over a fixed file. #63 made sealing
+    # also archive the segment and move its sidecar with it, which is correct — and would leave
+    # load_seal() looking at a live path whose sidecar has legitimately moved away.
+    return p, segments.seal(p, at="t", key=key, index=0, rotate=False)
 
 
 def test_seal_carries_a_mac_and_a_keyid(tmp_path):
