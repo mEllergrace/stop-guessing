@@ -231,6 +231,32 @@ def cmd_policy(args) -> int:
     return 0
 
 
+def cmd_export(args) -> int:
+    """Render the ledger into an established evidence structure."""
+    import json as _json
+
+    from stop_guessing.ledger.sink import load
+    from stop_guessing.prov import export_case, export_otel, export_prov
+
+    path = Path(args.path) if args.path else _default_ledger()
+    loaded = load(path, _key(args))
+    if not loaded.chain.intact:
+        print(f"REFUSED: chain broken at {loaded.chain.broken_at} — {loaded.chain.reason}")
+        print("         Exporting a ledger that does not verify would launder it into a format "
+              "that looks authoritative.")
+        return 1
+    fmt = {"prov": export_prov.export, "case": export_case.export,
+           "otel": export_otel.export}[args.format]
+    out = fmt(loaded.entries)
+    text = _json.dumps(out, indent=2)
+    if args.out:
+        Path(args.out).write_text(text + "\n", encoding="utf-8")
+        print(f"wrote {args.out} ({len(loaded.entries)} records as {args.format})")
+    else:
+        print(text)
+    return 0
+
+
 def register(sub) -> None:
     def common(sp):
         sp.add_argument("--keyfile")
@@ -268,6 +294,12 @@ def register(sub) -> None:
     t = sub.add_parser("trust", help="session trust (no-noodles CLI, unchanged)")
     t.add_argument("verb", choices=["grant", "revoke", "status"])
     t.set_defaults(fn=cmd_trust)
+
+    ex = common(sub.add_parser("export", help="render the ledger as PROV, CASE/UCO or OTel"))
+    ex.add_argument("format", choices=["prov", "case", "otel"])
+    ex.add_argument("--path", help="ledger path")
+    ex.add_argument("--out", help="write here instead of stdout")
+    ex.set_defaults(fn=cmd_export)
 
     pol = sub.add_parser("policy", help="show or export the policy set")
     pol.add_argument("--export", choices=["cedar"])

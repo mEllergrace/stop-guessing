@@ -88,7 +88,7 @@ def _state_from(remote: dict, session_id: str) -> SessionCustodyState:
     return st
 
 
-def decide(payload: dict, posture: str = "steer") -> dict | None:
+def decide(payload: dict, posture: str = "observe") -> dict | None:
     """Returns a decision dict, or None when nothing custody-relevant is happening.
 
     Every decision is appended to the keyed ledger before it is returned (#13). Previously the
@@ -123,6 +123,7 @@ def decide(payload: dict, posture: str = "steer") -> dict | None:
         art_id = ident.artifact_id
         first_touch = art_id not in state.sources
         artifact = {"id": art_id, "labels": sorted(c.labels), "classified": True,
+                    "has_handler": False,
                     "first_touch": first_touch,
                     "canonical_path": ident.canonical_path,
                     "is_ledger": "stop-guessing" in ident.canonical_path
@@ -137,9 +138,43 @@ def decide(payload: dict, posture: str = "steer") -> dict | None:
         "is_write": is_write,
         "is_own_binary": "stop-guessing" in command and "ledger" not in command,
         "markers": [m for m in ("# noodle-ok", "# risk-ok", "# custody-ok") if m in command],
+        # Configurable, defaulting to on. Protecting the ledger is the one refusal that outlives
+        # `observe`, so it gets an explicit switch rather than being unconditional.
+        "protect_ledger": _protect_ledger(),
     }
+    # A classified read with a registered handler is SATISFIED, not blocked and not waved
+    # through: the handler runs, the model receives its output, and the file's contents never
+    # enter context. No handler means no substitution and the call proceeds as it would have —
+    # a missing handler must never become a refusal.
+    substitution = None
+    if worst is not None and tool in ("Read", "NotebookRead") and c is not None:
+        try:
+            from stop_guessing import handlers
+
+            substitution = handlers.substitute(
+                ident.canonical_path, frozenset(c.labels), payload.get("cwd"))
+        except Exception:  # noqa: BLE001 - a broken handler must not take the call down
+            substitution = None
+        if substitution is not None and substitution.usable:
+            call["delegated_script"] = {"signed": False, "test_passed": True,
+                                        "id": substitution.handler_id}
+            artifact["has_handler"] = True
+
     ctx = state.context(posture=posture, call=call, artifact=artifact)
     d = ps.evaluate(_op_for(tool, call), ctx)
+
+    # An `ask` under bypassPermissions overrides a decision the user has ALREADY made. The whole
+    # meaning of that mode is "do not interrupt me", so re-prompting is not a control, it is a
+    # tool ignoring its operator. The ask degrades to allow-with-warning; the custody record still
+    # says an ask was warranted and why it did not fire, so nothing is lost from the evidence.
+    #
+    # A DENY is not degraded. Bypassing permission PROMPTS is not the same as bypassing policy,
+    # and credential egress does not become acceptable because prompts are off.
+    permission_mode = payload.get("permission_mode") or ""
+    downgraded_from = None
+    if d.outcome == "ask" and permission_mode in ("bypassPermissions", "acceptEdits"):
+        downgraded_from = "ask"
+        d = _downgrade_to_warning(d, permission_mode)
 
     from stop_guessing.taint import persist
 
@@ -153,17 +188,31 @@ def decide(payload: dict, posture: str = "steer") -> dict | None:
         state.egress()
         persist.save(state)
 
-    reason = _render(d, artifact, state, path)
+    # The operator's rule, exactly: if a permission prompt is pending, delegate is one of the
+    # options; if none is pending, take the preferred path and say that is what happened.
+    prompt_pending = (d.outcome == "ask" and downgraded_from is None)
+    if substitution is not None and substitution.usable and not prompt_pending:
+        return _substituted(payload, tool, substitution, artifact, ident, state, call,
+                            posture, cache_agreed, d)
+
+    reason = _render(d, artifact, state, path, downgraded_from=downgraded_from,
+                     permission_mode=permission_mode)
+    if substitution is not None and substitution.usable and prompt_pending:
+        reason += _offer_delegate(substitution, substitution.script, ident.canonical_path)
     entry = _record_decision(payload, tool, d, artifact, ident, state, call,
-                             posture, cache_agreed)
+                             posture, cache_agreed, downgraded_from=downgraded_from,
+                             permission_mode=permission_mode)
     return {"outcome": d.outcome, "reason": reason,
             "determining_policy": d.determining_policy,
+            "warning": downgraded_from is not None,
+            "downgraded_from": downgraded_from,
             "record": entry,
             "basis": {"taint": sorted(state.labels), "taint_depth": state.depth,
                       "custody_digest": state.digest}}
 
 
-def _record_decision(payload, tool, d, artifact, ident, state, call, posture, cache_agreed):
+def _record_decision(payload, tool, d, artifact, ident, state, call, posture, cache_agreed,
+                     *, downgraded_from=None, permission_mode="", substitution=None):
     """Append the custody record for this decision, in the §7 predicate shape.
 
     The gate previously wrote a flat ad-hoc dict and never used `ledger.entry.CustodyRecord` — so
@@ -211,8 +260,8 @@ def _record_decision(payload, tool, d, artifact, ident, state, call, posture, ca
             at=_now(),
             recorded_at=_now(),
             record_id=f"sg:{session_id}:{payload.get('tool_use_id') or op}",
-            method_kind=("denied" if d.outcome == "deny" else
-                         "delegated-script" if call.get("delegated_script") else "direct-model"),
+            method_kind=("delegated-script" if substitution is not None else
+                         "denied" if d.outcome == "deny" else "direct-model"),
             input_digest=_input_digest(payload),
             policy_set_digest=policies().digest,
             determining_policy=d.determining_policy,
@@ -223,13 +272,18 @@ def _record_decision(payload, tool, d, artifact, ident, state, call, posture, ca
                     "human_id": f"local:{os.environ.get('USER', 'unknown')}",
                     "authority": "prompt", "prompt_id": prompt_id,
                     "delegation_depth": 0}},
-                "authority": {"capability": {
-                    "grant_id": f"cap:{posture}", "granted_by": d.determining_policy,
-                    "scope": [op]}},
-                "action": {"tool": {"name": tool, "source": payload.get("tool_source")},
+                "authority": {
+                    "permission_mode": permission_mode or None,
+                    "capability": {
+                        "grant_id": f"cap:{posture}", "granted_by": d.determining_policy,
+                        "scope": [op]}},
+                "action": {"method": substitution.to_record() if substitution else {},
+                           "tool": {"name": tool, "source": payload.get("tool_source")},
                            "gen_ai": {"operation_name": "execute_tool", "tool_name": tool,
                                       "tool_call_id": payload.get("tool_use_id")}},
-                "decision": {"reason": d.reason, "basis": {
+                "decision": {"reason": d.reason,
+                             "downgraded_from": downgraded_from,
+                             "basis": {
                     "taint_labels": sorted(state.labels), "taint_depth": state.depth,
                     "taint_sources": sorted(state.sources),
                     "session_custody_digest": state.digest,
@@ -303,6 +357,95 @@ def _input_digest(payload: dict) -> str:
         json.dumps(payload.get("tool_input") or {}, sort_keys=True, default=str).encode())
 
 
+NL = chr(10)
+
+
+def _substituted(payload, tool, sub, artifact, ident, state, call, posture, cache_agreed, d):
+    """The delegated answer, plus the record proving how it was obtained.
+
+    Reached only when no permission prompt is pending. When the host WILL prompt, delegation is
+    offered as one of the options instead — see `_offer_delegate`. The rule the operator gave:
+    if a permission is required, delegate is a choice; if none is required, take it and say so.
+    """
+    from dataclasses import replace as _replace
+
+    from stop_guessing.taint import persist
+    from stop_guessing.taint.state import ArtifactRef
+
+    # The handler's OUTPUT is what entered context, so the taint follows the read that produced
+    # it. The file itself was never in context, which is the whole point.
+    state.touch(ArtifactRef(ident.artifact_id, ident.canonical_path,
+                            ident.content_digest, frozenset(artifact.get("labels") or [])))
+    persist.save(state)
+
+    decision = _replace(d, outcome="deny",
+                        determining_policy="20-steer#delegated-script-permitted",
+                        reason="handled by a tested deterministic handler")
+    entry = _record_decision(payload, tool, decision, artifact, ident, state, call,
+                             posture, cache_agreed, substitution=sub)
+
+    labels = ",".join(artifact.get("labels") or [])
+    lines = [
+        f"CHAIN-OF-CUSTODY [delegated]: {ident.canonical_path} is classified {labels}.",
+        "",
+        f"No permission prompt was pending, so the preferred path was taken automatically: "
+        f"{Path(sub.script).name} handled it and the file was not read into context.",
+        "",
+        "RESULT:",
+        sub.output.rstrip(),
+        "",
+        f"That answers the request. Handler test passed, digest "
+        f"{(sub.script_digest or '')[:16]}, recorded {entry}.",
+        "",
+        "If you need something the handler does not return, extend it and re-run:",
+        f"  stop-guessing run {sub.script} --artifact {ident.canonical_path}",
+    ]
+    return {"outcome": "deny", "reason": NL.join(lines), "delegated": True,
+            "determining_policy": decision.determining_policy,
+            "record": entry,
+            "basis": {"taint": sorted(state.labels), "taint_depth": state.depth,
+                      "custody_digest": state.digest}}
+
+
+def _offer_delegate(sub, handler_script: str, artifact_path: str) -> str:
+    """The delegate option, phrased for an ask the human is actually going to answer."""
+    return NL.join([
+        "",
+        "A tested handler exists for this artifact and can answer without the contents entering "
+        "context:",
+        f"  {Path(handler_script).name}",
+        "",
+        "Approving this call reads the file directly. To use the handler instead, run:",
+        f"  stop-guessing run {handler_script} --artifact {artifact_path}",
+    ])
+
+
+def _downgrade_to_warning(d, permission_mode: str):
+    """Turn an ask into an allow, keeping the reason so it can be shown as a warning."""
+    from dataclasses import replace as _replace
+
+    return _replace(
+        d, outcome="allow",
+        reason=d.reason,
+        counterfactual=(f"would have asked, but permission_mode={permission_mode} is a standing "
+                        "decision not to be interrupted; recorded as a warning instead"),
+    )
+
+
+def _protect_ledger() -> bool:
+    import json as _json
+
+    cfg = Path(os.environ.get("CLAUDE_CONFIG_DIR") or os.path.expanduser("~/.claude"))
+    for c in (Path.cwd() / ".stop-guessing.json", cfg / "stop-guessing.json"):
+        try:
+            v = _json.loads(c.read_text(encoding="utf-8")).get("protect_ledger")
+        except (OSError, ValueError):
+            continue
+        if isinstance(v, bool):
+            return v
+    return True
+
+
 def _op_for(tool: str, call: dict) -> str:
     if call["is_egress"]:
         return "artifact.egress"
@@ -311,12 +454,19 @@ def _op_for(tool: str, call: dict) -> str:
     return "artifact.read"
 
 
-def _render(d, artifact: dict, state: SessionCustodyState, path: str) -> str:
+def _render(d, artifact: dict, state: SessionCustodyState, path: str,
+            *, downgraded_from=None, permission_mode="") -> str:
+    if downgraded_from:
+        head = (f"CHAIN-OF-CUSTODY [warning]: {d.reason}\n\n"
+                f"Allowed without asking because permission_mode={permission_mode}. "
+                "This is recorded as an ISO 27037 alteration and raises session taint, "
+                "which may deny an egress later in this session.")
+        return head + f"\n\n[{d.determining_policy} — ask downgraded to warning]"
     head = f"CHAIN-OF-CUSTODY [{d.outcome}]: {d.reason}".strip()
     lines = [head]
     if artifact.get("classified") and path:
         lines.append(f"\n{path} is classified {','.join(artifact['labels'])}.")
-    if d.guidance == "delegate":
+    if d.guidance == "delegate" and artifact.get("has_handler"):
         lines.append(
             "\nPreferred — delegate:\n"
             f"  stop-guessing delegate new --artifact {artifact.get('id', '')} "

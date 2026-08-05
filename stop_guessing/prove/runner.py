@@ -134,10 +134,10 @@ def run_one(
         doc = load_claims()
         for c in doc["claims"]:
             if c["id"] == claim_id:
-                refs = list(c.get("proofs") or [])
-                if ref not in refs:
-                    refs.append(ref)
-                c["proofs"] = refs
+                # One current proof per claim. The ledger keeps every run; claims.yaml cites
+                # the one that is current, so the artifact derived from it is stable when the
+                # evidence is stable.
+                c["proofs"] = [ref]
                 c["last_proved"] = entry["at"]
                 break
         save_claims(doc)
@@ -194,10 +194,20 @@ def check(key: ChainKey | None, ledger: Path = DEFAULT_LEDGER) -> dict:
     by_ref = {proof_ref(e): e for e in loaded.entries if e.get("op") == "proof.run"}
     chain_ok = loaded.chain.intact
 
+    # Evidence is CURRENT, not cumulative. Every prove run appended another ref, so a control
+    # ended up citing 60 records where 59 were superseded re-runs of the same procedure — and the
+    # workbook changed on every loop even when nothing about the tool had, which made the digest
+    # binding fragile by construction. The latest surviving proof per claim is the evidence; the
+    # earlier ones stay in the ledger as history and are reported as superseded, not as dead.
+    seq_of = {}
+    for e in loaded.entries:
+        if e.get("op") == "proof.run":
+            seq_of[proof_ref(e)] = e.get("seq", -1)
+
     rows = []
     for c in doc["claims"]:
         refs = list(c.get("proofs") or [])
-        live, dead = [], []
+        live, dead, superseded = [], [], []
         for ref in refs:
             e = by_ref.get(ref)
             if e is None:
@@ -219,6 +229,12 @@ def check(key: ChainKey | None, ledger: Path = DEFAULT_LEDGER) -> dict:
                         dead.append(f"{ref}: {wf[0]}")
                     else:
                         live.append(ref)
+
+        # Keep only the most recent surviving proof. Older ones are history, not extra assurance.
+        if len(live) > 1:
+            live.sort(key=lambda r: seq_of.get(r, -1))
+            superseded = live[:-1]
+            live = live[-1:]
         proc = procs.get(c["id"])
         kind_ok = proc is None or proc.kind == c.get("proof_kind")
         rows.append({
@@ -229,6 +245,7 @@ def check(key: ChainKey | None, ledger: Path = DEFAULT_LEDGER) -> dict:
             "kind_matches": kind_ok,
             "live": live,
             "dead": dead,
+            "superseded": superseded,
             "proven": bool(live) and chain_ok and kind_ok,
         })
 

@@ -84,11 +84,17 @@ def emit_ask(reason: str) -> None:
 
 
 def resolve_posture(cwd: str | None) -> str:
-    """Resolve the posture through the documented four-layer chain.
+    """Resolve the posture through the four-layer chain. **The default is `observe`.**
 
-    Fixes #18. `decide()` defaulted to `steer` and the hook never resolved anything, so `observe`
-    and `bar` were unreachable in the installed path while the docs described them as configurable.
-    Order matches no-noodles' `resolve_state` exactly: project, global, legacy, default.
+    This tool exists to record chain of custody and data provenance as evidence. It is not a
+    permission system and must not behave like one: the host already has a permission model, the
+    operator has already configured it, and a second gate asking again is a tool overriding a
+    decision its user has already made.
+
+    So `observe` is the default — record everything, block nothing. `steer` and `bar` remain
+    available and unchanged for anyone who wants enforcement, but they are opt-in.
+
+    Order matches no-noodles' `resolve_state`: project, global, legacy, default.
     """
     import json as _json
 
@@ -111,7 +117,7 @@ def resolve_posture(cwd: str | None) -> str:
             return v
     except OSError:
         pass
-    return "steer"
+    return "observe"
 
 
 def _record_gap(payload: dict, exc: BaseException) -> None:
@@ -172,6 +178,14 @@ def main(argv: list[str] | None = None) -> int:
         emit_deny(decision["reason"])
     elif decision["outcome"] == "ask":
         emit_ask(decision["reason"])
+    elif decision.get("warning"):
+        # Allowed, but the operator should see why it would otherwise have asked. `allow` with a
+        # reason is a warning; it does not interrupt.
+        print(json.dumps({"hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "permissionDecision": "allow",
+            "permissionDecisionReason": decision["reason"],
+        }}))
     return 0
 
 

@@ -28,23 +28,8 @@ claims:
   - DSP-05
   - LOG-AG-01
   proofs:
-  - sg:9:8e229db09d9d3bb6
-  - sg:15:bf273856e947ee23
-  - sg:41:7a7f781b465c9908
-  - sg:62:840752dcd3002f50
-  - sg:83:372de70d047ff5b9
-  - sg:105:f03f044029f90661
-  - sg:126:6823cebf0934135d
-  - sg:147:9bebca7095710e7b
-  - sg:168:673efa781a5886af
-  - sg:189:6da7e8855e27abf3
-  - sg:210:b32620de15f05a8a
-  - sg:232:51c5900fb397b7a9
-  - sg:254:0db7ce23ccc53be3
-  - sg:276:4bbae7bcafd12d98
-  - sg:297:7e43ee8cd5f34c63
-  - sg:322:a4cb203e20d3eb1f
-  last_proved: '2026-08-04T15:49:49.885Z'
+  - sg:345:2dcfc0fc6daab8ac
+  last_proved: '2026-08-04T23:49:35.820Z'
   must_touch:
   - stop_guessing.taint.state
 - id: CLAIM-02
@@ -58,25 +43,8 @@ claims:
   - LOG-10
   - LOG-03
   proofs:
-  - sg:0:0407b42c97ccb566
-  - sg:16:e56ac532d76e2b76
-  - sg:42:329f422d795cf67d
-  - sg:63:9c080b5b0f116776
-  - sg:84:580921fa07043992
-  - sg:104:4d2940da495253fb
-  - sg:106:67301075d4081408
-  - sg:127:90665017475bfab1
-  - sg:148:bf16ebd320021812
-  - sg:169:48b4d0685cddb97c
-  - sg:190:2c686e6a0a4325ea
-  - sg:211:b0c734a6d6203dd9
-  - sg:233:1efbe62fc88b526e
-  - sg:255:39ea635315afb679
-  - sg:277:fd3a8aa73909435b
-  - sg:298:01ad0ac7f4518cb0
-  - sg:319:6573641a8a90838a
-  - sg:323:98bec67565602291
-  last_proved: '2026-08-04T15:49:52.098Z'
+  - sg:346:235607a86a8e1be2
+  last_proved: '2026-08-04T23:49:38.359Z'
   must_touch:
   - stop_guessing.ledger.chain
 - id: CLAIM-03
@@ -89,23 +57,8 @@ claims:
   aicm:
   - LOG-10
   proofs:
-  - sg:1:2da04769bddc3d6b
-  - sg:17:abd9cb98a7931aac
-  - sg:43:f2f5bee2bc12f523
-  - sg:64:a3b27f1c9b025094
-  - sg:85:48f0430177edc288
-  - sg:107:9bfba4a8ddb2ec11
-  - sg:128:a3575e7244198146
-  - sg:149:3a457b22d02d5d00
-  - sg:170:0cac8deabbdeb2be
-  - sg:191:1d4bb4d51ca47470
-  - sg:212:8d2949464058f0d6
-  - sg:234:97e84699bae989a7
-  - sg:256:8548adf23e7b24c7
-  - sg:278:c4bf3eedc0efbd9d
-  - sg:299:aac6ce5f2fda13ce
-  - sg:324:7488d2d0ae03eb49
-  last_proved: '2026-08-04T15:49:52.192Z'
+  - sg:347:a08d64d5f7f01847
+  last_proved: '2026-08-04T23:49:38.455Z'
   must_touch:
   - stop_guessing.ledger.sink
 - id: CLAIM-04
@@ -119,23 +72,8 @@ claims:
   - LOG-10
   - LOG-12
   proofs:
-  - sg:2:3a6ad16a3f7b631b
-  - sg:18:0a53a808e1826a22
-  - sg:44:5524171aae0946b5
-  - sg:65:ce198ee91ed4866c
-  - sg:86:b5337a996a62e16a
-  - sg:108:5d16da9224a94243
-  - sg:129:a40cc07b84e640b9
-  - sg:150:c7d8c1f4e3ba922f
-  - sg:171:668aeb3d76ddd965
-  - sg:192:d59dee5e3cfdf13f
-  - sg:213:9702a206fa3a6787
-  - sg:235:f85e4d3d4524f521
-  - sg:257:a9a52f5a89458875
-  - sg:279:7142c6b87fd79ff2
-  - sg:300:1b44cef550a2dd88
-  - sg:325:3b1d2672c8cb0051
-  last_proved: '2026-08-04T15:49:52.393Z'
+  - sg:348:0facb1ac78b92a7e
+  last_proved: '2026-08-04T23:49:38.657Z'
   must_touch:
   - stop_guessing.ledger.segments
 - id: CLAIM-05
@@ -148,23 +86,8 @@ claims:
   aicm:
   - LOG-03
   proofs:
-  - sg:6:610ab1d78e9b6ffe
-  - sg:19:b8eed958f59d640e
-  - sg:45:885d91082f72292f
-  - sg:66:901b7c2facbb70d7
-  - sg:87:c94def619838883c
-  - sg:109:acb948b3df0aa8af
-  - sg:130:25e4577eb8595e25
-  - sg:151:09827d850c759c55
-  - sg:172:5926dd73b82f20ac
-  - sg:193:6533b7a7ff0dc797
-  - sg:214:b56d0a70c597d937
-  - sg:236:7f50e965f9dc790f
-  - sg:258:b0024a88e878db5d
-  - sg:280:dd326b8bbbd4e63c
-  - sg:301:6859f91aa9ed302a
-  - sg:326:bbe8ec2e854fb444
-  last_proved: '2026-08-04T15:49:52.472Z'
+  - sg:349:1d19a578934b6ed3
+  last_proved: '2026-08-04T23:49:38.737Z'
   must_touch:
   - stop_guessing.ledger.entry
 - id: CLAIM-06
@@ -178,23 +101,8 @@ claims:
   - A&A-01
   - LOG-03
   proofs:
-  - sg:8:9551f0c4ea887cb2
-  - sg:20:f6901d9c28fd2f28
-  - sg:46:1e975a983138ffd6
-  - sg:67:3b66f7dac01ccd60
-  - sg:88:cad0d4f39c0423ca
-  - sg:110:d3eefe3d8c5969ee
-  - sg:131:3c75b8d92bea016e
-  - sg:152:f5dd0f16ab185e0b
-  - sg:173:6ce0b01108cbc4b8
-  - sg:194:38e25eb804466a9c
-  - sg:215:4ecc0ca415f27b19
-  - sg:237:c0df5a88e98942f9
-  - sg:259:881f49b604e9cbd3
-  - sg:281:52e551b5fc9278ad
-  - sg:302:56b983a216b4cd18
-  - sg:327:7e26102923a5fa2a
-  last_proved: '2026-08-04T15:49:52.581Z'
+  - sg:350:c3c3d55022e0fce4
+  last_proved: '2026-08-04T23:49:38.861Z'
   must_touch:
   - stop_guessing.verify.sufficiency
 - id: CLAIM-07
@@ -273,23 +181,8 @@ claims:
   - CCC-01
   - DSP-20
   proofs:
-  - sg:12:3fd44ffa4a757a26
-  - sg:23:a008c5fa1d367385
-  - sg:49:4a65b4cd43d97bea
-  - sg:70:cb61aa7cb8e712da
-  - sg:91:36b979feb38418df
-  - sg:113:8271ad88f2fcd9c6
-  - sg:134:b89516016bf65808
-  - sg:155:b39ce17aaccb624b
-  - sg:176:dd3e103543a5f403
-  - sg:197:1ed5320c1a29c0e4
-  - sg:218:fe0f5eee9fdb542d
-  - sg:240:a5d2cdeff651719f
-  - sg:262:3469a49c5dfe33df
-  - sg:284:f0cc0e2554ff036e
-  - sg:305:13464f3fece64c57
-  - sg:330:9885585e2ce75432
-  last_proved: '2026-08-04T15:49:58.467Z'
+  - sg:353:d46b783a7f07f51c
+  last_proved: '2026-08-04T23:49:40.775Z'
   must_touch:
   - stop_guessing.delegate
 - id: CLAIM-10
@@ -303,22 +196,8 @@ claims:
   - DSP-20
   - MDS-13
   proofs:
-  - sg:32:62e9084ac5c23150
-  - sg:50:bb2e261c780ea83b
-  - sg:71:6493aa04c046d505
-  - sg:92:6902ec516d57670f
-  - sg:114:84532e35fc44e02c
-  - sg:135:ea77e9f3504abbcd
-  - sg:156:0410d01f11f7a67b
-  - sg:177:c0fc068544402740
-  - sg:198:2ebfa924ad6244b2
-  - sg:219:8f64ef8ae036aae4
-  - sg:241:6ac43f1af968ab3b
-  - sg:263:28fb5e8aa73620af
-  - sg:285:6ddb23f185aaff4f
-  - sg:306:99555fd6fcbe2e30
-  - sg:331:a5424bddd236dd80
-  last_proved: '2026-08-04T15:49:58.837Z'
+  - sg:354:218870a4d725b4d6
+  last_proved: '2026-08-04T23:49:41.267Z'
   must_touch:
   - stop_guessing.delegate
   - stop_guessing.policy.engine
@@ -333,23 +212,8 @@ claims:
   aicm:
   - LOG-AG-01
   proofs:
-  - sg:13:695d1c9e82cc3c52
-  - sg:24:416ccaf0c2ca251b
-  - sg:51:4700c1ac9b775d3f
-  - sg:72:21aa09cc67005a4e
-  - sg:93:54ce9ee1eb33a583
-  - sg:115:cc549d5db81c8ff4
-  - sg:136:ae6777b79a874b77
-  - sg:157:a78ba58daf102321
-  - sg:178:9c1838c2a12106d0
-  - sg:199:212dc98c4040544f
-  - sg:220:fef931a8337f03f0
-  - sg:242:35ce8c563f6b3f71
-  - sg:264:9b2e82d4dc012651
-  - sg:286:aa46cef015a20f2a
-  - sg:307:9f8e05f5fd53a048
-  - sg:332:fa02484bd377c72e
-  last_proved: '2026-08-04T15:49:58.925Z'
+  - sg:355:015da777a025d5e0
+  last_proved: '2026-08-04T23:49:41.349Z'
   must_touch:
   - stop_guessing.taint.state
 - id: CLAIM-12
@@ -394,24 +258,8 @@ claims:
   - LOG-03
   - SEF-01
   proofs:
-  - sg:3:52bf36fd30c28c8e
-  - sg:25:6dffdc5026b552d8
-  - sg:29:6031e40cffa97197
-  - sg:53:1c2c321ec1d637f7
-  - sg:74:9ea2a20a2cf96f5e
-  - sg:95:107e1bada3f0fcc1
-  - sg:117:5f7c32de14792236
-  - sg:138:0da49d2557aa5fbb
-  - sg:159:d2f56027459525a6
-  - sg:180:7bd687cabc9b8fae
-  - sg:201:42177fa99ba5562a
-  - sg:222:2c44c57502077f4b
-  - sg:244:8826477dd70d712c
-  - sg:266:92bc3e0f05ebea4e
-  - sg:288:96af66ac3d62eb4b
-  - sg:309:98823423f402cc78
-  - sg:334:d81ba83ba10a49f5
-  last_proved: '2026-08-04T15:49:59.786Z'
+  - sg:357:4d19d87c964f6ddd
+  last_proved: '2026-08-04T23:49:41.584Z'
   must_touch:
   - stop_guessing.ledger.reconcile
 - id: CLAIM-14
@@ -426,23 +274,8 @@ claims:
   - A&A-01
   - STA-09
   proofs:
-  - sg:4:276bdc000eb55277
-  - sg:26:fadb8b44cbf92e38
-  - sg:54:8bcbddcadf8f1734
-  - sg:75:229d4e17d8b99c62
-  - sg:96:562d8d258251e9fe
-  - sg:118:47340dfd38fcee2d
-  - sg:139:4d6cc018d40c3a62
-  - sg:160:8732eae8813b1682
-  - sg:181:1d0e1089dc62847e
-  - sg:202:e4c30c95efb6cf33
-  - sg:223:503487865ccbe701
-  - sg:245:88c5e56e84954b83
-  - sg:267:92b6a086249dffe3
-  - sg:289:30f1e565fa854137
-  - sg:310:451b8c6abb6d6996
-  - sg:335:262ff98740f3cdc3
-  last_proved: '2026-08-04T15:50:01.767Z'
+  - sg:358:2b5df4446a17938a
+  last_proved: '2026-08-04T23:49:44.607Z'
   must_touch:
   - stop_guessing.caiq.workbook
 - id: CLAIM-15
@@ -456,22 +289,8 @@ claims:
   - DSP-20
   - LOG-10
   proofs:
-  - sg:33:26603829d8a2d99d
-  - sg:55:075d6757ad9fea62
-  - sg:76:298fd8e47c3f66a8
-  - sg:97:681acaa39a9bc201
-  - sg:119:1fe284b51575c9ed
-  - sg:140:7f5318eb71a53338
-  - sg:161:031e2e8d26da6042
-  - sg:182:316038988f1c15b5
-  - sg:203:35588c7155777fa3
-  - sg:224:261113f46c0a132c
-  - sg:246:2f33e49e67f6479d
-  - sg:268:2bee81eec3bf6fb7
-  - sg:290:705836796517f406
-  - sg:311:95ec1f7a98fc8040
-  - sg:336:3b27b22bf6fb39ae
-  last_proved: '2026-08-04T15:50:07.258Z'
+  - sg:359:16a0df34dc4bf2f6
+  last_proved: '2026-08-04T23:49:49.814Z'
   must_touch:
   - stop_guessing.caiq.fill
 - id: CLAIM-16
