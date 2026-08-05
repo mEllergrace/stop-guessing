@@ -1,0 +1,1858 @@
+STOP-GUESSING — APPLICATION HARDENING AUDIT PASSOFF
+====================================================
+
+Repository: https://github.com/mEllergrace/stop-guessing
+Audited commit: ad166e82310228b21494f41a820816abb8719b39
+Repository version: 0.4.0
+Audit date: 2026-08-04
+Prepared for: engineering remediation and independent functional validation
+
+PAGE STATUS
+-----------
+The GitHub Pages redesign is deliberately ON HOLD. No page changes should be made until the
+application hardening findings in this passoff are resolved, the claims are re-proven against
+their real installed surfaces, and a clean independent run produces a defensible assurance state.
+
+EXECUTIVE VERDICT
+-----------------
+The repository contains useful assurance primitives and unusually candid internal commentary,
+but the application is not presently hardened enough to support its public 21/21 deployed-system
+assurance claim.
+
+The repeated failure pattern is:
+
+    a primitive exists and is tested,
+    but the installed/runtime surface either does not invoke it,
+    invokes it too late,
+    bypasses the trusted boundary,
+    or is not mechanically included in proof validity.
+
+The present proof gate can establish that a self-authored procedure ran and touched selected
+Python modules. It does not establish that every declared CLI, hook, plugin, command, skill, or
+daemon surface performed the stated behavior. Several current claims name hooks that are not
+registered at all.
+
+This report should be treated as a RELEASE BLOCKER. The honest current status is:
+
+    useful primitives demonstrated;
+    deployed assurance and integration not yet proven;
+    several security claims invalidated by direct runtime bypasses.
+
+AUDIT AND TEST STATUS
+---------------------
+Completed:
+  - Static source audit of the current repository through the connected GitHub API.
+  - Cross-check of claim declarations, proof procedures, installed hook manifests, CLI surfaces,
+    recorder architecture, installer, policy path, cache/ledger replay, delegation path, CI,
+    CAIQ derivation/fill, and standards exporters.
+  - Interface validation against current official Claude Code hook documentation.
+  - OTLP JSON format comparison against official OpenTelemetry documentation.
+  - Review of existing GitHub issues, including closed issue #29 and open issue #33.
+
+Not completed:
+  - A clean local clone and executable test run. Network resolution in the available execution
+    environment failed with: "Could not resolve host: github.com".
+  - GitHub Actions result inspection. The audited commit had no combined statuses or workflow runs
+    returned by the connected GitHub API.
+  - Repository writes. The GitHub integration returned HTTP 403 "Resource not accessible by
+    integration" for branch creation and Issue creation.
+  - Dependency vulnerability scanning, wheel installation, macOS LaunchAgent/LaunchDaemon execution,
+    and true separate-UID testing.
+
+Therefore:
+  - This is a complete static hardening passoff, not a claim that the current tests were executed.
+  - The static findings are already sufficient to invalidate several functional/security claims.
+  - Dynamic adversarial tests listed below are mandatory before release.
+
+SEVERITY DEFINITIONS
+--------------------
+CRITICAL  A direct bypass, false assurance result, evidence loss, or architecture failure that
+          invalidates a central security/assurance claim.
+HIGH      A substantial integrity, correctness, deployment, or validation defect that can produce
+          misleading results or materially weaken controls.
+MEDIUM    A significant robustness, portability, diagnostics, or standards-conformance defect.
+LOW       Hygiene or presentation problem with limited direct security impact.
+
+RECOMMENDED IMMEDIATE RELEASE POSTURE
+-------------------------------------
+1. Remove or suppress any "GOAL MET", 21/21, "recorder unreachable by the agent", "bar never exposes
+   bytes", and tier-2 claims from release-facing material.
+2. Disable --isolated rather than reporting tier 2 from the current installer.
+3. Freeze CAIQ regeneration and public page generation until a new evidence epoch design exists.
+4. Treat every current proof as requiring re-attestation after the proof-validity schema is fixed.
+5. Keep the page upgrade paused. Engineering backlog belongs in GitHub Issues; the eventual page
+   should consume the corrected assurance result only.
+
+
+DETAILED FINDINGS
+=================
+
+
+SG-HARD-001 — CRITICAL — Proof validity does not include the claim's declared runtime surface
+-----------------------------------------------------------------------------------------------
+Affected claims/surfaces:
+  CLAIM-01, 02, 03, 04, 11, 13, 14, 20, 21; potentially all claims with surface entries
+
+Evidence locations:
+  - docs/claims.yaml — surface declarations
+  - stop_guessing/prove/runner.py — run_one(), check(), _must_touch()
+  - stop_guessing/prove/witness.py — module/call witness only
+  - .claude-plugin/plugins/stop-guessing/hooks/hooks.json — only PreToolUse and PostToolUse registered
+  - stop_guessing/prove/procedures.py — CLAIM-11/13/14 direct library calls
+
+Finding:
+runner.check() validates chain state, record reference, passed flag, claim ID, procedure digest,
+proof kind, and an execution witness. It never validates docs/claims.yaml:surface.
+
+Concrete current mismatches:
+  - CLAIM-11 declares hook:PreCompact; no PreCompact hook is registered. The procedure directly
+    builds records and calls rebuild().
+  - CLAIM-13 declares hook:Stop; no Stop hook is registered. The procedure directly calls reconcile().
+  - CLAIM-14 declares hook:SessionStart; no SessionStart hook is registered. The procedure directly
+    calls workbook inspection.
+  - Several CLI claims exercise underlying Python functions rather than the packaged console command.
+  - Plugin/skill/command claims are satisfied by file/manifest presence rather than invocation.
+
+This is the exact class described by issue #29: a primitive can work while the installed system does
+not use it. Issue #29 was closed by adding a non-blocking judge panel; that does not mechanically
+close the surface-validation defect.
+
+Minimal reproduction / validation:
+Compare each claim's surface list to:
+  1. the installed hook manifest;
+  2. subprocesses actually launched by its proof;
+  3. the proof witness stored in the ledger.
+The current proof record has no canonical per-surface witness field to compare.
+
+Required remediation:
+Add a controlled surface vocabulary and a fail-closed validator:
+  cli:<canonical argv>
+  hook:<event + installed entrypoint digest>
+  plugin:<installed plugin id/version/root>
+  command:<actual command invocation>
+  skill:<actual skill load/invocation>
+  daemon:<socket peer/process/service identity>
+
+Capture subprocess argv, executable digest, cwd, environment profile, installed root, hook event,
+and exit/result. Require every declared surface to be observed by at least one current proof.
+Unsupported surface kinds must fail, not be ignored. Invalidate all legacy proof records that lack
+the new surface witness.
+
+Required regression/integration tests:
+Mutation test: replace a real hook proof with a direct library call and assert the claim becomes
+UNPROVEN. Remove a hook from hooks.json and assert every claim naming it fails. Execute the installed
+plugin in a clean profile with the repository absent from PYTHONPATH.
+
+
+SG-HARD-002 — CRITICAL — A claim can remain PROVEN after its proof procedure is deleted
+-----------------------------------------------------------------------------------------
+Affected claims/surfaces:
+  All claims
+
+Evidence locations:
+  - stop_guessing/prove/runner.py — check(): proc lookup, source check, kind_ok
+  - stop_guessing/cli/cmd_prove.py — cmd_claims_check() display ordering
+
+Finding:
+runner.check() sets kind_ok to true when proc is None. A historical passing ledger record may remain
+live because no current procedure exists to compare its digest against. The row can therefore be
+proven=True while has_procedure=False. The CLI selects the PROVEN label before considering
+has_procedure, so the missing procedure may be hidden in normal output.
+
+Minimal reproduction / validation:
+Prove one claim, remove its decorated procedure from the registry without changing claims.yaml,
+then run claims check. The historical record can still satisfy the row.
+
+Required remediation:
+A current procedure must be mandatory:
+  proven = chain_ok AND has_procedure AND kind_matches AND live_surface_proof.
+Missing procedure is an unconditional invalidation. Add the procedure registry digest to the
+release manifest.
+
+Required regression/integration tests:
+Delete/rename one procedure after a proof and assert UNPROVEN with a named missing-procedure finding.
+
+
+SG-HARD-003 — CRITICAL — Proof staleness binds only the decorated procedure, not the implementation under test
+----------------------------------------------------------------------------------------------------------------
+Affected claims/surfaces:
+  All claims
+
+Evidence locations:
+  - stop_guessing/prove/registry.py — Procedure.source_digest()
+  - stop_guessing/prove/runner.py — comparison to procedure_digest
+
+Finding:
+A proof record pins inspect.getsource() of the decorated proof function only. It does not bind:
+  - implementation modules called by the procedure;
+  - policy and classification YAML;
+  - handler indexes;
+  - plugin/hook manifests;
+  - installer;
+  - generated wrapper scripts;
+  - packaged wheel or installed runtime;
+  - dependencies and interpreter.
+
+Production behavior can change materially while the old proof remains current because the proof
+function source did not change.
+
+Minimal reproduction / validation:
+Change a policy YAML or an implementation helper used by a proof, leave the proof function untouched, and run claims check.
+
+Required remediation:
+Pin a reproducible evidence subject:
+  - git tree/commit;
+  - wheel digest;
+  - installed file manifest and executable digests;
+  - rules/policy/config schema digests;
+  - interpreter and dependency lock digest;
+  - hook/plugin manifests;
+  - external fixture/template digests.
+
+A proof is current only for the exact evidence subject it exercised.
+
+Required regression/integration tests:
+Mutation matrix: change each implementation, rule, policy, manifest, and wheel subject and require proof invalidation.
+
+
+SG-HARD-004 — CRITICAL — Truncated proof ledger can still yield full attestation
+----------------------------------------------------------------------------------
+Affected claims/surfaces:
+  All claims, especially CLAIM-20 and CLAIM-21
+
+Evidence locations:
+  - stop_guessing/ledger/sink.py — LoadedLog.truncated and load()
+  - stop_guessing/prove/runner.py — chain_ok uses only loaded.chain.intact
+
+Finding:
+load() preserves an intact prefix and separately reports truncated=True. runner.check() treats only
+chain.intact as the release condition. A torn or malformed final proof record can leave every cited
+earlier proof live and still produce 21/21 and GOAL MET, even though the sink itself refuses further
+writes.
+
+Minimal reproduction / validation:
+Append a partial JSON fragment to the proof ledger after all passing proof records, then run claims check and attest.
+
+Required remediation:
+Set chain_ok = loaded.chain.intact AND NOT loaded.truncated. Expose chain_truncated in every verdict and derived artifact.
+
+Required regression/integration tests:
+Torn tail, malformed middle record, invalid UTF-8, and appended garbage must all fail claims, attestation, CAIQ derivation, page generation, and export.
+
+
+SG-HARD-005 — CRITICAL — The CI Claims gate accepts every nonzero result
+--------------------------------------------------------------------------
+Affected claims/surfaces:
+  Repository-wide release assurance
+
+Evidence locations:
+  - .github/workflows/ci.yml — Claims gate step
+
+Finding:
+The workflow captures the exit code from claims check and unconditionally echoes it. It never exits
+nonzero for unproven claims, malformed evidence, key mismatch, or command failure. The named release
+gate is therefore informational only.
+
+The workflow also has no observable status returned for the audited commit through the connected API.
+
+Minimal reproduction / validation:
+Make claims check exit 1 or 2 in a pull request; the step reaches echo and succeeds.
+
+Required remediation:
+Define a machine-readable exit contract and enforce it:
+  0 = verified;
+  1 = finding -> fail;
+  2 = cannot verify -> fail protected release jobs, optionally skip only a clearly non-authoritative
+      contributor job;
+  any other code = command failure -> fail.
+
+Create a protected release workflow running where the key/evidence bundle is available, publish a
+signed attestation artifact, and require it for release/tag protection.
+
+Required regression/integration tests:
+CI mutation job deliberately causes each exit code and asserts the workflow conclusion.
+
+
+SG-HARD-006 — CRITICAL — The advertised tier-2 installer cannot start a separate-UID recorder
+-----------------------------------------------------------------------------------------------
+Affected claims/surfaces:
+  CLAIM-12, LOG-10/IAM-AG-03 mappings, installation assurance
+
+Evidence locations:
+  - install.sh — install_recorder(), SERVICE_USER, plist generation
+  - stop_guessing/recorder/daemon.py — socket and ledger locations
+  - stop_guessing/recorder/client.py — tier inference
+
+Finding:
+The installer computes target_uid but never uses it. It writes a LaunchAgent under the logged-in
+user's ~/Library/LaunchAgents, which runs as that user. It then chowns the key and ledger to
+_stopguessing while runtime and socket parents remain inside the user's profile tree, initially
+mode 700. The service account cannot traverse or execute the required files.
+
+Additional architecture failures:
+  - the agent user is not placed into a deliberate shared socket group;
+  - socket ownership/group is not established for cross-UID access;
+  - long-path socket fallback is under the daemon UID's private temp path;
+  - the same plist label/path is reused across profiles;
+  - the installer only prints launchctl bootstrap rather than executing and verifying it;
+  - ProgramArguments resolve /usr/bin/env and python3 from ambient state.
+
+Minimal reproduction / validation:
+Run install.sh --isolated on macOS and inspect launchctl process UID, key readability, runtime traversal, and socket connectivity.
+
+Required remediation:
+Immediately make --isolated refuse with exit 2. Re-enable only after implementing:
+  - a root-installed LaunchDaemon (and systemd unit on Linux);
+  - service-owned immutable runtime, key, ledger, and seal directory;
+  - explicitly shared socket directory/group;
+  - verified peer credentials;
+  - per-profile service identity;
+  - lifecycle start/stop/upgrade;
+  - end-to-end test proving daemon UID differs and the agent cannot read the key or ledger.
+
+Required regression/integration tests:
+OS-level separate-UID integration test; chmod/chown/path traversal matrix; multiple profiles; restart/upgrade/uninstall.
+
+
+SG-HARD-007 — CRITICAL — Tier 1 and the default keyfile do not separate the key from the recorded agent
+---------------------------------------------------------------------------------------------------------
+Affected claims/surfaces:
+  CLAIM-02 as a system claim, CLAIM-12, chain-keyed+isolated strength
+
+Evidence locations:
+  - install.sh — chain.key creation
+  - stop_guessing/attest/keys.py — keyfile provider
+  - stop_guessing/recorder/client.py — tier 1 definition
+  - stop_guessing/ledger/entry.py — strength()
+
+Finding:
+A mode-600 keyfile owned by the same user is readable by any code the agent can run under that user.
+The default observe posture does not prevent ordinary classified reads, and arbitrary subprocess code
+can read it directly. An agent holding the key can rewrite a fully valid HMAC chain; the chain proof
+itself demonstrates this control case.
+
+Calling same-UID daemon operation "key separation" or labeling tier >=1 as
+chain-keyed+isolated overstates the boundary.
+
+Minimal reproduction / validation:
+From an agent-run subprocess, read $CLAUDE_CONFIG_DIR/stop-guessing/chain.key and use it to recompute a replacement ledger.
+
+Required remediation:
+Rename strength levels to distinguish format from adversarial custody:
+  hmac-keyed-same-authority
+  key-custodied-separate-uid
+  hardware/remote-custodied
+
+Do not use "isolated" until the agent OS authority cannot obtain the key. Prefer a separate service
+identity, hardware-backed key, or remote recorder.
+
+Required regression/integration tests:
+Attempt key read through Read, Bash, Python, symlink, hardlink, inherited fd, backup, and service misconfiguration.
+
+
+SG-HARD-008 — CRITICAL — PostToolUse bypasses cocd and silently loses records under real key separation
+---------------------------------------------------------------------------------------------------------
+Affected claims/surfaces:
+  CLAIM-01, CLAIM-12, CLAIM-20; derivation and execution-corroboration claims
+
+Evidence locations:
+  - stop_guessing/cli/hook_post.py — record_result()
+  - stop_guessing/recorder/client.py — append()
+  - stop_guessing/recorder/daemon.py — single-writer path
+
+Finding:
+hook_post writes directly through ledger.sink.record() using chain_key(). It does not call
+recorder.client.append(). Under a true separate-UID design the hook should have neither the key nor
+ledger write permission, so the append fails.
+
+The exception is caught inside record_result() and converted to None. main() sees no exception and
+returns success without recording a gap. Every PostToolUse execution/result/derivation record can
+therefore disappear silently at the exact isolation tier the project says is strongest.
+
+Minimal reproduction / validation:
+Run cocd under another UID with hook user denied key/ledger access, execute a permitted write, and inspect the ledger.
+
+Required remediation:
+Route all PostToolUse records through the daemon; require a returned append reference; treat refusal/loss as a critical state with an emergency audit path.
+
+Required regression/integration tests:
+Same-UID and separate-UID PostToolUse success, daemon refusal, daemon outage, wrong key, broken chain, and permission failure.
+
+
+SG-HARD-009 — CRITICAL — Failed tool executions are not covered by the installed hook set
+-------------------------------------------------------------------------------------------
+Affected claims/surfaces:
+  Execution completeness, CLAIM-13, CLAIM-20
+
+Evidence locations:
+  - .claude-plugin/plugins/stop-guessing/hooks/hooks.json
+  - stop_guessing/cli/hook_post.py
+  - Official Claude Code hooks documentation — PostToolUse vs PostToolUseFailure
+
+Finding:
+Claude Code uses PostToolUse after successful tool completion and PostToolUseFailure for failures.
+Only PostToolUse is registered. The hook code's attempt to infer success=False from a normal result
+does not cover standard failed tool calls, because they arrive on a different event.
+
+Minimal reproduction / validation:
+Cause a Bash, Write, or MCP tool failure and verify no result/failure record appears.
+
+Required remediation:
+Register PostToolUseFailure, record the failure shape and interrupted/failed outputs, and pair it with the original request by tool_use_id.
+
+Required regression/integration tests:
+Success, tool error, timeout, permission denial, interruption, malformed result, and duplicate event.
+
+
+SG-HARD-010 — CRITICAL — The recorder authenticates ordering, not event truth
+-------------------------------------------------------------------------------
+Affected claims/surfaces:
+  CLAIM-12, CLAIM-13, event authenticity language
+
+Evidence locations:
+  - stop_guessing/recorder/daemon.py — _Handler.op_append()
+  - stop_guessing/recorder/client.py — unauthenticated request
+  - stop_guessing/ledger/reconcile.py — unused runtime reconciliation
+
+Finding:
+Any local process that can connect to the Unix socket may submit arbitrary event content. cocd strips
+caller-selected chain fields and assigns sequence/hash, which protects ordering, but it does not
+authenticate the actor, hook, tool_use_id, event type, or truth of the event.
+
+There is no peer-credential allowlist, request MAC/capability, dispatch nonce issuance in runtime,
+or lifecycle reconciliation. A keyed fabricated event is still fabricated.
+
+Minimal reproduction / validation:
+Connect directly to recorder.sock and append an event claiming any actor/action/session.
+
+Required remediation:
+Use OS peer credentials and an explicit admission policy. Separate event classes:
+  recorder-owned dispatch;
+  host-hook result;
+  agent-reported corroboration.
+
+Issue nonces/capabilities from recorder-owned state. Reconcile missing, replayed, mismatched, and
+fabricated events at batch/session close. State the remaining trust in the host hook honestly.
+
+Required regression/integration tests:
+Unauthorized UID/GID, allowed hook process, forged actor, replay, missing result, duplicate result, wrong nonce, and socket theft.
+
+
+SG-HARD-011 — CRITICAL — Custody record schema is not enforced at the recorder boundary
+-----------------------------------------------------------------------------------------
+Affected claims/surfaces:
+  CLAIM-05, CLAIM-06, schema and sufficiency claims
+
+Evidence locations:
+  - stop_guessing/ledger/entry.py — CustodyRecord and validate_tier_a()
+  - stop_guessing/ledger/sink.py — record() accepts arbitrary dict
+  - stop_guessing/recorder/daemon.py — op_append()
+  - tests/test_recorder.py — minimal event fixtures
+  - stop_guessing/cli/hook_post.py — flat event
+
+Finding:
+The Tier-A schema gate applies only when callers voluntarily use CustodyRecord.build(). The actual
+sink and daemon accept any dictionary, including minimal {op, at, actor}. PostToolUse writes a flat
+non-schema event. CLAIM-05 therefore proves a builder helper, not that the application recorder
+refuses structurally incomplete records.
+
+Minimal reproduction / validation:
+Submit a minimal event through client.append(); it is accepted and HMAC chained.
+
+Required remediation:
+Define versioned event schemas by recorder-owned event type and validate inside cocd before sequencing. Reject unknown fields where appropriate and require explicit known_gaps/alterations semantics.
+
+Required regression/integration tests:
+Missing Tier-A field, wrong vocabulary, wrong type, unknown schema version, oversized/deep JSON, and valid explicit empty assertions.
+
+
+SG-HARD-012 — HIGH — doctor does not inspect the installed architecture it reports on
+---------------------------------------------------------------------------------------
+Affected claims/surfaces:
+  Operational diagnostics and CLAIM-12 support
+
+Evidence locations:
+  - stop_guessing/cli/cmd_ops.py — cmd_doctor()
+  - stop_guessing/recorder/guard.py — self_check()
+  - install.sh — no install-manifest.json generation found
+
+Finding:
+cmd_doctor does not pass settings.json, the pinned registration command, daemon-running state, or
+separate-UID state into self_check(). Its isolation tier is therefore always 0 and registration
+pinning is skipped. If no install manifest exists, binary and hook digest checks are skipped too.
+
+Minimal reproduction / validation:
+Install and start cocd, then run doctor; compare its tier and checked items with the live process/settings.
+
+Required remediation:
+Generate a signed install manifest; inspect actual settings, wrapper digests, daemon pid/uid, socket owner/mode, key/ledger ownership, peer credentials, policy/rules digests, and runtime package manifest.
+
+Required regression/integration tests:
+Healthy install and one mutation for every checked component; doctor must name the exact break.
+
+
+SG-HARD-013 — CRITICAL — Project-writable configuration can downgrade enforcement and disable ledger protection
+-----------------------------------------------------------------------------------------------------------------
+Affected claims/surfaces:
+  CLAIM-07, CLAIM-08, CLAIM-10, CLAIM-12; policy assurance
+
+Evidence locations:
+  - stop_guessing/cli/hook_gate.py — resolve_posture()
+  - stop_guessing/cli/gate.py — _protect_ledger()
+  - tests/test_taint_and_policy.py — confirms switchable protection
+
+Finding:
+Project .stop-guessing.json takes precedence over profile configuration. An agent with ordinary
+project write authority can set posture=observe or protect_ledger=false. The resulting record does
+not establish the config source, its digest, who authorized the change, or whether the agent wrote it.
+
+With tier 2 nonfunctional, this permits the recorded party to turn off the hook-level evidence
+protection before modifying evidence.
+
+Minimal reproduction / validation:
+Write .stop-guessing.json in cwd with observe/protect_ledger false, then repeat a call previously denied under bar/steer.
+
+Required remediation:
+Treat security posture and recorder protection as managed/operator policy outside project write authority. Record ConfigChange events, source tier, digest, signer/authorizer, and effective time. Project config may tighten but must not weaken managed policy.
+
+Required regression/integration tests:
+Agent attempts downgrade, symlink config, TOCTOU config replacement, malformed config, and managed-policy precedence.
+
+
+SG-HARD-014 — CRITICAL — Rules, policies, and handler declarations are untrusted mutable inputs
+-------------------------------------------------------------------------------------------------
+Affected claims/surfaces:
+  Classification, policy, bar/steer, handler, and proof claims
+
+Evidence locations:
+  - stop_guessing/artifacts/classify.py — DEFAULT_RULES
+  - stop_guessing/policy/engine.py — load()
+  - stop_guessing/handlers.py — project-first search_roots()
+  - stop_guessing/cli/gate.py — policy/rule usage
+
+Finding:
+The live hook loads policy and classification files from a user-writable runtime/package tree and
+loads project handler indexes first. A policy-set digest is recorded, but there is no trusted expected
+digest. Classification records do not bind the ruleset digest. An attacker can rewrite a rule to
+classify a credential as public and the ledger will faithfully record the attacker's policy as if it
+were the authority.
+
+Minimal reproduction / validation:
+Modify classify.yaml or a policy file in the active runtime and repeat a protected call.
+
+Required remediation:
+Move authoritative policy/rules to service-owned immutable storage, pin them in the install/release manifest, verify before each decision or load inside the trusted daemon, and record source/digest/version/signature.
+
+Required regression/integration tests:
+Rule deletion/edit/reordering, policy weakening, stale runtime file, project override, and manifest mismatch.
+
+
+SG-HARD-015 — CRITICAL — Symlink aliasing bypasses PreToolUse classification
+------------------------------------------------------------------------------
+Affected claims/surfaces:
+  Credential/data classification and every read-policy claim
+
+Evidence locations:
+  - stop_guessing/cli/gate.py — classify_path(p) occurs before identify(p)
+  - stop_guessing/artifacts/identity.py — canonical_path()
+  - stop_guessing/artifacts/classify.py — path-string classification
+
+Finding:
+The PreToolUse gate classifies the user-supplied spelling, then canonicalizes it only for identity.
+A benign path such as /tmp/public.txt pointing to ~/.ssh/id_rsa is classified public and may enter
+model context. PostToolUse canonicalizes and classifies after execution, which is too late.
+Hard-link aliases remain a separate unresolved problem.
+
+Minimal reproduction / validation:
+Create a benignly named symlink to a classified file and invoke Read on the link.
+
+Required remediation:
+Resolve the actual target first using race-resistant open/stat semantics; classify canonical path, aliases, owner/mode, filesystem identity, and configured roots before permitting the read.
+
+Required regression/integration tests:
+Symlink chain, relative symlink, replaced symlink, hardlink, bind mount, case variants, .., file descriptor paths, and race between check/open.
+
+
+SG-HARD-016 — HIGH — Artifact identity changes on atomic replacement and is not cross-machine stable
+------------------------------------------------------------------------------------------------------
+Affected claims/surfaces:
+  CLAIM-07, CLAIM-11, artifact lineage
+
+Evidence locations:
+  - stop_guessing/artifacts/identity.py — artifact_id() includes canonical path plus dev:inode
+
+Finding:
+Atomic editor saves and mv temp target replace the inode at the same logical path, creating a new
+artifact ID and shedding prior session taint. Device/inode also prevents the documented
+cross-machine stability.
+
+Minimal reproduction / validation:
+Identify a file, atomically replace it at the same path, identify again, and compare IDs.
+
+Required remediation:
+Use a logical path/namespace identity as the primary stable ID; keep inode/device/content versions as observations or version nodes. Define rename and hardlink alias semantics explicitly.
+
+Required regression/integration tests:
+In-place edit, atomic save, rename, hardlink, inode reuse, cross-host fixture, and delete/recreate.
+
+
+SG-HARD-017 — CRITICAL — Project handler code executes on classified data before policy authorization
+-------------------------------------------------------------------------------------------------------
+Affected claims/surfaces:
+  CLAIM-08, CLAIM-09, CLAIM-10; delegated handling
+
+Evidence locations:
+  - stop_guessing/cli/gate.py — handlers.substitute() before ps.evaluate()
+  - stop_guessing/handlers.py — project-first index and run()
+  - stop_guessing/delegate.py — pytest/handler subprocess behavior
+
+Finding:
+A project-controlled handlers/index.yaml can select a project script. The gate runs its paired
+pytest and handler against the classified artifact before policy evaluation. Under bar, unsigned
+code may execute and read/exfiltrate the file before the later policy decision denies the original
+read. The test process has no network boundary; the handler has only fake proxy variables.
+
+Minimal reproduction / validation:
+Create a project handler whose test/handler writes a marker or opens a socket; invoke a bar-posture classified Read.
+
+Required remediation:
+Policy must authorize a handler identity/digest before any test or handler execution. Only service-owned, pre-tested, signed, content-addressed handlers should run on live data. Project handlers require explicit promotion/approval.
+
+Required regression/integration tests:
+Unsigned handler, malicious test, path traversal in index, symlinked script, digest replacement, network attempt, key read, and bar denial before execution.
+
+
+SG-HARD-018 — CRITICAL — Signed-script execution can be bypassed by its paired test
+-------------------------------------------------------------------------------------
+Affected claims/surfaces:
+  CLAIM-10 and signed delegation
+
+Evidence locations:
+  - stop_guessing/cli/cmd_ops.py — cmd_run() verifies signature before run_test()
+  - stop_guessing/delegate.py — run_test() pins post-test digest; run() executes it
+
+Finding:
+With --signed, the script signature is verified first. The unsigned paired pytest then runs and can
+rewrite the script. run_test() records the rewritten script's digest as the passing tested digest.
+run() executes the rewritten unsigned bytes without rechecking the signature.
+
+Minimal reproduction / validation:
+Create a signed benign script and a test that rewrites it to a different payload, then returns success.
+
+Required remediation:
+Tests must run against immutable snapshots and cannot mutate the executable subject. Verify signature and test result over one content digest, then execute exactly those already-open bytes or a service-owned content-addressed object.
+
+Required regression/integration tests:
+Test rewrites script, script rewrites test, symlink swap, rename swap, concurrent replacement, and signature sidecar replacement.
+
+
+SG-HARD-019 — CRITICAL — Delegation has test/hash/execute TOCTOU races
+------------------------------------------------------------------------
+Affected claims/surfaces:
+  CLAIM-09 and CLAIM-10
+
+Evidence locations:
+  - stop_guessing/delegate.py — run_test(), run(), verify_script()
+
+Finding:
+The path is tested, hashed afterward, later hashed again, and then executed by pathname. A concurrent
+replacer can make untested bytes inherit the passing digest or replace the file after the last digest
+check. Signature verification has the same check-then-open race.
+
+Minimal reproduction / validation:
+Coordinate a second process to replace the pathname between test/hash and hash/exec.
+
+Required remediation:
+Open/snapshot once, test immutable bytes, bind evidence to content digest, and execute from the same open fd or immutable CAS. Never use a mutable pathname as the security subject.
+
+Required regression/integration tests:
+Deterministic barrier-based swaps at every transition.
+
+
+SG-HARD-020 — CRITICAL — The deployed bar path sends full handler output to model-visible context
+---------------------------------------------------------------------------------------------------
+Affected claims/surfaces:
+  CLAIM-10
+
+Evidence locations:
+  - stop_guessing/prove/procedures.py — proof calls emit_for_model(handle/summary)
+  - stop_guessing/cli/gate.py — _substituted() includes sub.output in decision reason
+  - stop_guessing/delegate.py — default test only requires string output
+  - Official Claude hook docs — deny reason is shown to Claude
+
+Finding:
+The proof demonstrates an unused helper. The deployed path does not call emit_for_model(); it embeds
+sub.output in full in the hook decision reason. A handler that returns the file contents can therefore
+place protected bytes in model-visible context while the record says delegated handling occurred.
+
+Minimal reproduction / validation:
+Register a handler that returns the complete artifact and invoke it under bar.
+
+Required remediation:
+Define a strict output schema/size/classification policy, create an opaque artifact handle, and send only approved summary fields. Treat hook reason as model-visible for deny decisions. Record output digest and disclosure transformation.
+
+Required regression/integration tests:
+Full file, multiline PII, huge output, binary/base64, prompt injection, secret-looking values, and explicit approved aggregate.
+
+
+SG-HARD-021 — CRITICAL — Delegated execution is not sandboxed
+---------------------------------------------------------------
+Affected claims/surfaces:
+  CLAIM-09/10 security interpretation
+
+Evidence locations:
+  - stop_guessing/delegate.py — env-allowlist-only and explicit caveat
+
+Finding:
+Proxy variables and an environment allowlist do not prevent raw sockets, DNS, inherited filesystem
+authority, exec of other binaries, reading the key/ledger, ptrace, or local IPC. The pytest stage is
+even less restricted. The module comments acknowledge this, but application claims still lean on
+capability-constrained language.
+
+Minimal reproduction / validation:
+Delegated script opens a raw socket, reads chain.key, or execs /usr/bin/curl after unsetting proxies.
+
+Required remediation:
+Use an OS sandbox/container/separate UID with explicit filesystem, network, process, resource, and syscall capabilities. Do not call environment filtering a sandbox.
+
+Required regression/integration tests:
+Raw socket, DNS, Unix socket, key/ledger read, subprocess, fork bomb/resource limit, symlink escape, and writable runtime.
+
+
+SG-HARD-022 — CRITICAL — Session state read, policy decision, and append are not one atomic transaction
+---------------------------------------------------------------------------------------------------------
+Affected claims/surfaces:
+  CLAIM-07 accumulated taint and egress denial
+
+Evidence locations:
+  - stop_guessing/cli/gate.py — state_for(), evaluate(), persist/save, append
+  - stop_guessing/recorder/daemon.py — append serialization only
+
+Finding:
+Parallel hooks can read the same pre-call state. A classified read and an egress may both evaluate
+against clean state; the egress can be allowed before the read record becomes authoritative. cocd
+serializes writes but not state-read -> decision -> append.
+
+Minimal reproduction / validation:
+Use a barrier to launch a classified read and outbound command concurrently in one session.
+
+Required remediation:
+Move the per-session state transition and policy decision into the recorder under a session lock/transaction. Use PostToolBatch as an additional host event for parallel batches, but do not rely on ordering outside the trusted state owner.
+
+Required regression/integration tests:
+Read/read, read/egress, write/egress, multiple agents, daemon retry, and batch completion races.
+
+
+SG-HARD-023 — CRITICAL — Authoritative ledger failures fall back to mutable cache state
+-----------------------------------------------------------------------------------------
+Affected claims/surfaces:
+  CLAIM-07, CLAIM-11
+
+Evidence locations:
+  - stop_guessing/cli/gate.py — state_for() broad exception handling
+
+Finding:
+Wrong key, unreadable ledger, malformed JSON, broken chain, permission failure, or refused daemon state
+can become 'no records' and restore the agent-writable cache as authority. An integrity failure must
+not be interpreted as a first run.
+
+Minimal reproduction / validation:
+Break or chmod the ledger while leaving a clean/modified cache, then make a custody-relevant call.
+
+Required remediation:
+Distinguish absent ledger from unverifiable ledger. The latter is an unsafe state: deny under enforcement postures and emit an explicit critical warning under observe. Never trust cache after authoritative verification failure.
+
+Required regression/integration tests:
+Absent, wrong key, broken, truncated, invalid UTF-8, unreadable, daemon refusal, and cache disagreement.
+
+
+SG-HARD-024 — HIGH — Gap-recording and decision-recording failures can be silent
+----------------------------------------------------------------------------------
+Affected claims/surfaces:
+  Every-decision-recorded language
+
+Evidence locations:
+  - stop_guessing/cli/hook_gate.py — _record_gap() uses from_env() and swallows failure
+  - stop_guessing/cli/gate.py — _record_decision() result can be None
+  - stop_guessing/recorder/client.py — append failure result
+
+Finding:
+Normal installation uses key discovery/keyfile or daemon, but _record_gap() checks the environment
+only and writes directly. Against a keyed installed ledger this often refuses; the exception is
+swallowed. Decision append returning no ref does not prevent the call from proceeding.
+
+Minimal reproduction / validation:
+Run with installed keyfile and no environment key, force gate exception or recorder refusal, and inspect for a durable gap.
+
+Required remediation:
+Use the normal recorder client and key discovery. Require append acknowledgement. Add a mode-600 emergency side log plus stderr/system log if the primary recorder is unavailable. Enforcement postures fail closed on unrecorded custody decisions.
+
+Required regression/integration tests:
+Every recorder failure mode, including failure of the emergency log itself.
+
+
+SG-HARD-025 — CRITICAL — Ledger replay is not equivalent to live custody state
+--------------------------------------------------------------------------------
+Affected claims/surfaces:
+  CLAIM-11 and state-derived enforcement
+
+Evidence locations:
+  - stop_guessing/taint/state.py — rebuild()
+
+Finding:
+rebuild():
+  - calls egress() for any artifact.egress record, including denied egress;
+  - can double-count a read represented by both PreToolUse and PostToolUse;
+  - handles only generated[0] for a derivation with multiple outputs;
+  - does not pair request/result semantics;
+  - accepts mixed flat/full record shapes with different meanings.
+
+The proof uses synthetic records and the absent PreCompact surface, so it does not establish normal
+deployed replay equivalence.
+
+Minimal reproduction / validation:
+Generate real installed Pre/Post records for allowed read, denied egress, multiple outputs, and compare live/cache digest to rebuild.
+
+Required remediation:
+Define one event-sourced state transition schema with idempotency keys and explicit outcome semantics. Replay only committed successful effects and deduplicate paired observations.
+
+Required regression/integration tests:
+Denied/allowed egress, duplicate events, reordered results, multiple outputs, missing result, replay, compaction, and cache deletion.
+
+
+SG-HARD-026 — CRITICAL — The application does not bind the bytes read into model context
+------------------------------------------------------------------------------------------
+Affected claims/surfaces:
+  CLAIM-01 and byte-level chain-of-custody language
+
+Evidence locations:
+  - stop_guessing/cli/gate.py — PreToolUse identify(..., digest_content=False)
+  - stop_guessing/cli/hook_post.py — post-execution path digest
+  - stop_guessing/cli/gate.py/_input_digest — hashes request arguments, not artifact bytes
+
+Finding:
+PreToolUse deliberately does not hash file content. PostToolUse hashes the path after execution.
+A file changed between the actual read and the post hook is bound to different bytes. Tool output
+is generally represented by length, not a digest of the model-visible serialized output.
+
+Minimal reproduction / validation:
+Change/replace a file after PreToolUse or during the read before PostToolUse; compare recorded digest with bytes actually returned.
+
+Required remediation:
+Obtain a host-provided content/result digest at the execution boundary, or mediate reads through a trusted open fd/snapshot. Use PostToolBatch to digest the exact serialized content sent to the model where supported, without necessarily storing content.
+
+Required regression/integration tests:
+Mid-read replacement, atomic save, large file, partial read, line ranges, binary, failed read, and batch serialization.
+
+
+SG-HARD-027 — HIGH — Only one 'worst' candidate is evaluated before a multi-artifact operation
+------------------------------------------------------------------------------------------------
+Affected claims/surfaces:
+  CLAIM-01, CLAIM-07 and data-flow completeness
+
+Evidence locations:
+  - stop_guessing/cli/gate.py — candidates/worst loop
+
+Finding:
+The gate chooses one classified candidate and ignores other inputs in the same call for pre-decision
+state and record subjects. A shell command joining several files may therefore understate sources,
+labels, and derivation.
+
+Minimal reproduction / validation:
+Run one command touching multiple differently classified inputs and inspect the pre-decision record and taint sources.
+
+Required remediation:
+Resolve and classify all candidate resources, compute the label join, and record all subjects. Prefer structured tool mediation over regex shell parsing.
+
+Required regression/integration tests:
+Multiple reads, mixed labels, repeated same artifact, output plus inputs, and arguments containing spaces/globs/variables.
+
+
+SG-HARD-028 — HIGH — Shell path and egress heuristics are bypassable and incomplete
+-------------------------------------------------------------------------------------
+Affected claims/surfaces:
+  CLAIM-07 enforcement interpretation; egress completeness explicitly caveated
+
+Evidence locations:
+  - stop_guessing/artifacts/classify.py — paths_in() and classify_egress()
+
+Finding:
+Regex extraction misses quoted paths with spaces, variables, command substitution, globs, relative
+directories, descriptors, interpreters, encoded commands, and many outbound mechanisms. Egress
+detection misses arbitrary Python/Node sockets, SSH stdin/redirection, DNS, dynamically assembled
+commands, alternative clients, and local relay processes.
+
+Minimal reproduction / validation:
+Use Python socket send, variable-composed curl, quoted path with spaces, or indirect local relay.
+
+Required remediation:
+Keep the heuristic only as advisory detection. Enforced egress requires OS/network mediation or a constrained execution broker. Record detector coverage/version and unknown command shapes.
+
+Required regression/integration tests:
+Corpus of alternate shells, encodings, interpreters, network APIs, local sockets, containers, and false positives.
+
+
+SG-HARD-029 — HIGH — Session-state cache filenames can collide
+----------------------------------------------------------------
+Affected claims/surfaces:
+  Session isolation and accumulation
+
+Evidence locations:
+  - stop_guessing/taint/persist.py — _path() sanitizes and truncates to 120 chars
+
+Finding:
+Distinct session IDs containing different invalid characters or sharing the same first 120 sanitized
+characters map to the same cache and lock file. This can mix state or cause interference, especially
+during authoritative-state failure paths.
+
+Minimal reproduction / validation:
+Choose two colliding session IDs and save/load concurrently.
+
+Required remediation:
+Use a cryptographic digest of the full session ID as the filename and store/verify the original ID inside.
+
+Required regression/integration tests:
+Collision fixtures, long IDs, Unicode, path separators, concurrency, and mismatched stored ID.
+
+
+SG-HARD-030 — HIGH — Sealing does not archive, close, rotate, or make a segment immutable
+-------------------------------------------------------------------------------------------
+Affected claims/surfaces:
+  CLAIM-04
+
+Evidence locations:
+  - stop_guessing/ledger/segments.py — seal(), verify_series()
+  - stop_guessing/prove/procedures.py — CLAIM-04 manually creates two files and passes link
+
+Finding:
+seal() writes a MACed sidecar but leaves the active file appendable. The sink has no seal awareness.
+No archive/rename, next-segment creation, immutable marker, atomic rollover, or automatic previous
+seal link exists. The proof demonstrates seal mathematics by manually constructing two paths, not
+the claimed operational lifecycle.
+
+Minimal reproduction / validation:
+Seal an active ledger and call sink.record() on the same path; append succeeds.
+
+Required remediation:
+Implement an atomic service-owned rollover transaction: freeze writer, fsync, seal, close/rename into immutable archive, create next segment with predecessor seal link, update manifest/head, resume.
+
+Required regression/integration tests:
+Append-after-seal refusal, crash at each rollover step, concurrent writers, missing segment, reordered series, and recovery.
+
+
+SG-HARD-031 — HIGH — Ledger IO mishandles partial writes and malformed middle records
+---------------------------------------------------------------------------------------
+Affected claims/surfaces:
+  CLAIM-03 and forensic reliability
+
+Evidence locations:
+  - stop_guessing/ledger/sink.py — load(), _record_locked()
+
+Finding:
+A single os.write() is assumed to write the whole JSON line. Partial writes are possible and not
+looped. load() stops at the first malformed JSON line and labels it truncated even if it is in the
+middle, discarding later evidence and the exact corruption classification. Invalid UTF-8 raises out.
+
+Minimal reproduction / validation:
+Monkeypatch os.write for short writes; insert malformed line in the middle; insert invalid UTF-8.
+
+Required remediation:
+Use a write-all loop or buffered file write with checked length, fsync file and directory where needed. Parse bytes line-by-line with line number and distinguish torn final line from malformed interior/tamper.
+
+Required regression/integration tests:
+Short write, EINTR, disk full, fsync failure, malformed middle/tail, invalid UTF-8, blank lines, and huge line.
+
+
+SG-HARD-032 — HIGH — Ledger append and daemon design allow availability exhaustion and evidence downgrade
+-----------------------------------------------------------------------------------------------------------
+Affected claims/surfaces:
+  Recorder availability and complete evidence
+
+Evidence locations:
+  - stop_guessing/ledger/sink.py — full ledger read/verify per append
+  - stop_guessing/recorder/daemon.py — ThreadingUnixStreamServer/readline
+  - stop_guessing/recorder/client.py — fallback on mid-request unavailability
+
+Finding:
+Every append rereads and verifies the full ledger, producing O(n^2) lifetime cost. The daemon creates
+a thread per connection and has no explicit read timeout; a local client can hold connections or
+inflate the ledger. Availability failure can trigger tier-0 direct fallback, reducing evidence
+strength at attacker-chosen times.
+
+Minimal reproduction / validation:
+Open many slow socket clients and append many large events while measuring latency/fallback.
+
+Required remediation:
+Bound authenticated clients, set per-connection deadlines, limit concurrency/size/rate, maintain a verified head/index, checkpoint safely, and do not silently downgrade on suspected resource exhaustion.
+
+Required regression/integration tests:
+Slowloris, connection storm, oversized requests, high-volume append, restart recovery, and fallback policy.
+
+
+SG-HARD-033 — HIGH — The ledger CLI and installed hook use different default ledgers and key discovery
+--------------------------------------------------------------------------------------------------------
+Affected claims/surfaces:
+  CLAIM-02/03/04 CLI surfaces and /custody documentation
+
+Evidence locations:
+  - stop_guessing/cli/cmd_ledger.py — ~/.stop-guessing/ledger.jsonl and from_env()
+  - stop_guessing/cli/gate.py — CLAUDE_CONFIG_DIR/.../custody.jsonl and discover()
+  - skills/custody.md — user-facing commands
+
+Finding:
+The normal installed hook writes $CLAUDE_CONFIG_DIR/stop-guessing/ledger/custody.jsonl with a
+discovered keyfile. stop-guessing ledger defaults to ~/.stop-guessing/ledger.jsonl and environment-
+only key resolution. A user following /custody can inspect an empty/different ledger and receive
+chain-only results.
+
+Minimal reproduction / validation:
+Install normally, create hook records, then run ledger tail/verify with no flags.
+
+Required remediation:
+Create one shared profile-aware ledger/key resolver used by every CLI, hook, daemon, doctor, CAIQ, and proof command. Print the resolved profile/path/key source in output.
+
+Required regression/integration tests:
+Default profile, CLAUDE_CONFIG_DIR, explicit path/key, multiple profiles, and existing-ledger key-id selection.
+
+
+SG-HARD-034 — CRITICAL — The plugin package is not self-contained and resolves executable code from ambient state
+-------------------------------------------------------------------------------------------------------------------
+Affected claims/surfaces:
+  CLAIM-17, CLAIM-20, marketplace installation
+
+Evidence locations:
+  - .claude-plugin/plugins/stop-guessing/hooks/hooks.json
+  - .claude-plugin/plugins/stop-guessing/.claude-plugin/plugin.json
+  - absence of stop_guessing package under plugin subtree
+  - Official Claude plugin hook documentation — ${CLAUDE_PLUGIN_ROOT}
+
+Finding:
+Plugin hooks execute python3 -m stop_guessing... but the plugin subtree does not contain/install the
+Python package. Marketplace installation therefore depends on a separate ambient Python install and
+top-level policy/rules/VERSION assets. The interpreter and module are resolved from ambient runtime
+state, the substitution class the recorder guard says must be eliminated.
+
+Minimal reproduction / validation:
+Install only the marketplace plugin in a clean profile/environment with no pip package.
+
+Required remediation:
+Bundle an immutable runtime under ${CLAUDE_PLUGIN_ROOT} or use a verified installer that creates one. Invoke a pinned absolute interpreter/wrapper from the plugin root. Verify runtime manifest before hook execution.
+
+Required regression/integration tests:
+Clean plugin-only install, repo absent from PYTHONPATH, alternate PATH/python, moved plugin cache, and tampered bundled runtime.
+
+
+SG-HARD-035 — HIGH — Normal wheel/sdist packaging omits required runtime assets
+---------------------------------------------------------------------------------
+Affected claims/surfaces:
+  Python distribution and CLAIM-20
+
+Evidence locations:
+  - pyproject.toml — packages include stop_guessing* only; no package-data/data-files
+  - stop_guessing/version.py — searches top-level VERSION
+  - classification/policy/page/CAIQ code — top-level rules, policy, docs dependencies
+  - no MANIFEST.in found
+
+Finding:
+Editable repository installation masks missing package data. A normal wheel can lack VERSION,
+policy/, rules/, docs/reference metadata, plugin assets, and other top-level files required at
+runtime. install.sh manually copies extras, hiding the broken Python distribution path.
+
+Minimal reproduction / validation:
+Build a wheel, install it into a clean venv outside the repository, and import/run every command.
+
+Required remediation:
+Move runtime data under the package and declare package_data, or provide a formal data-files layout with importlib.resources. Build/test wheel and sdist in CI.
+
+Required regression/integration tests:
+Wheel/sdist install, no repository cwd, read-only site-packages, and all CLI/hook entrypoints.
+
+
+SG-HARD-036 — HIGH — Installer upgrades can leave stale mixed-version code while stamping the new version
+-----------------------------------------------------------------------------------------------------------
+Affected claims/surfaces:
+  Installation/upgrade assurance
+
+Evidence locations:
+  - install.sh — pip --target existing runtime, recursive copies, VERSION stamp
+
+Finding:
+pip install --target an existing directory without a clean replacement/upgrade can leave existing
+package directories untouched. Recursive copies merge and retain files removed by a new release.
+The installer then writes the new version stamp, so a reported 0.4.0 installation may execute a
+mixed older runtime.
+
+Minimal reproduction / validation:
+Install version A containing an extra module, then install version B that removes/changes it; inspect runtime and behavior.
+
+Required remediation:
+Build a versioned immutable runtime directory, verify its manifest, then atomically switch a symlink/pointer. Never merge code directories. Roll back on health-check failure.
+
+Required regression/integration tests:
+Upgrade/downgrade, removed files, interrupted copy, pip unavailable fallback, disk full, and rollback.
+
+
+SG-HARD-037 — HIGH — Installer settings and service lifecycle changes are non-atomic and multi-profile unsafe
+---------------------------------------------------------------------------------------------------------------
+Affected claims/surfaces:
+  CLAIM-17/19 and operational reliability
+
+Evidence locations:
+  - install.sh — settings rewrite, one plist label/path, uninstall
+
+Finding:
+settings.json is rewritten directly without temp file, fsync, lock, or backup. One plist label/path is
+used for all profiles, so later installs overwrite prior service configuration. Uninstall removes the
+plist without bootout and may leave a running daemon. Runtime/key/ledger service ownership can be
+left inconsistent after interruption.
+
+Minimal reproduction / validation:
+Run concurrent installs, interrupt during settings write, install two profiles, and uninstall one while daemon runs.
+
+Required remediation:
+Transactional read-modify-write with lock/temp/fsync/rename/backup; per-profile service IDs; explicit bootstrap/health check/bootout; rollback journal.
+
+Required regression/integration tests:
+Concurrent installer, SIGKILL at each step, malformed settings, two profiles, reinstall, and uninstall.
+
+
+SG-HARD-038 — HIGH — Vendored security hooks can disappear and be silently skipped
+------------------------------------------------------------------------------------
+Affected claims/surfaces:
+  CLAIM-16 and CLAIM-17
+
+Evidence locations:
+  - stop_guessing/cli/hook_gate.py — run_vendored(): missing file -> continue
+
+Finding:
+If a vendored hook is missing, run_vendored silently continues, making the dispatcher more permissive.
+No per-invocation manifest validation is performed. The claimed supersession equivalence therefore
+depends on mutable files remaining present without runtime enforcement.
+
+Minimal reproduction / validation:
+Remove one vendored hook from the active runtime and run a command that only it blocks.
+
+Required remediation:
+Missing or digest-mismatched required rule is a critical configuration failure. Verify an install manifest before dispatch and define fail behavior by posture.
+
+Required regression/integration tests:
+Each required hook missing, modified, non-executable, timeout, malformed output, and reordered.
+
+
+SG-HARD-039 — HIGH — CLAIM-18's 'CI performs no fetch' assertion is false
+---------------------------------------------------------------------------
+Affected claims/surfaces:
+  CLAIM-18
+
+Evidence locations:
+  - stop_guessing/prove/procedures.py — checks only literal curl/wget
+  - .github/workflows/ci.yml — actions/checkout, actions/setup-python, pip install
+
+Finding:
+The proof equates absence of literal curl/wget text with no fetch. GitHub Actions checkout/setup and
+pip dependency installation resolve remote actions/packages. The source-audit caveat is reasonable,
+but the CI subclaim and test are not.
+
+Minimal reproduction / validation:
+Observe network required by a clean CI run or inspect action/package resolution.
+
+Required remediation:
+Withdraw the subclaim or reword precisely: application runtime source contains no detected direct network call sites except named opt-in paths. Use network-disabled runtime integration tests for runtime behavior; do not claim CI is fetch-free.
+
+Required regression/integration tests:
+Run packaged application tests in a network-denied sandbox and separately document build-time dependency retrieval.
+
+
+SG-HARD-040 — CRITICAL — CAIQ fill trusts editable derived YAML and does not prove deterministic causation
+------------------------------------------------------------------------------------------------------------
+Affected claims/surfaces:
+  CLAIM-21 and all CAIQ mappings
+
+Evidence locations:
+  - stop_guessing/cli/cmd_caiq.py — cmd_fill()
+  - stop_guessing/caiq/answers.py — derive()/to_yaml_doc()
+  - stop_guessing/cli/cmd_caiq.py — cmd_evidence_check()
+
+Finding:
+caiq fill reads the editable YAML and writes its answers without re-deriving from the proof ledger.
+caiq evidence only checks that cited record IDs are currently live; it does not verify that control,
+answer, claim set, owner, implementation text, or negative result are the deterministic output of
+those records. A hand-edited Yes can retain valid refs and pass.
+
+Minimal reproduction / validation:
+Edit an answer/implementation/claim mapping in stop-guessing.yaml while preserving live evidence refs, then run evidence and fill.
+
+Required remediation:
+At fill time re-derive in memory and byte/semantic-compare the entire document. Bind the derivation algorithm, claim registry, standards version, and output digest into a signed release manifest. Treat YAML as output only.
+
+Required regression/integration tests:
+Edit every field independently, reorder entries, add/remove control, stale ref, valid ref on wrong control, and altered negative answer.
+
+
+SG-HARD-041 — CRITICAL — CLAIM-21 is circular and spans two incompatible evidence epochs
+------------------------------------------------------------------------------------------
+Affected claims/surfaces:
+  CLAIM-21 and GOAL MET
+
+Evidence locations:
+  - stop_guessing/prove/procedures.py — prove_caiq_filled_from_proofs()
+  - stop_guessing/prove/runner.py — run_one() appends proof after procedure returns
+  - docs/ai-caiq/stop-guessing.yaml — meta claims_proven: 20/21
+
+Finding:
+The CLAIM-21 procedure derives/fills the CAIQ before its own passing proof record exists, so the
+generated artifact correctly reflects 20/21. run_one() then appends CLAIM-21 and changes the claim
+state to 21/21. Attestation accepts the older workbook because metadata/mapping equivalence is not
+required. Regenerating after the proof changes the workbook digest and invalidates the proof that
+bound the earlier workbook.
+
+This is not repairable by simply rerunning; it needs a non-circular release epoch.
+
+Minimal reproduction / validation:
+Inspect the current YAML meta (20/21) beside the current claim/page status (21/21), then trace procedure order.
+
+Required remediation:
+Choose an explicit model, for example:
+  - Claims 1..N are application claims.
+  - A separate release attestation, not counted among those claims, derives the CAIQ and signs a
+    manifest over claim epoch, workbook, YAML, code, policies, and evidence.
+or:
+  - two-phase prepare/commit protocol with a deterministic pre-attestation artifact and final
+    release record that does not recursively alter its own source count.
+
+Required regression/integration tests:
+Re-run from empty ledger and prove the final manifest is stable, non-recursive, and reproducible byte-for-byte.
+
+
+SG-HARD-042 — HIGH — Attestation does not validate CAIQ metadata or complete deterministic mapping
+----------------------------------------------------------------------------------------------------
+Affected claims/surfaces:
+  CLAIM-21
+
+Evidence locations:
+  - stop_guessing/prove/runner.py — attest_self() CAIQ checks
+  - docs/ai-caiq/stop-guessing.yaml — 20/21
+
+Finding:
+attest_self checks a derivation note, live refs, and workbook digest binding. It does not require
+claims_proven, control counts, answers, claim sets, implementation text, standards version, or
+proposed-control partition to equal current derivation.
+
+Minimal reproduction / validation:
+Change CAIQ metadata/mapping while keeping refs/workbook digest expected by the current proof.
+
+Required remediation:
+Recompute the complete canonical CAIQ document during attestation and compare its digest/semantic content to the release artifact.
+
+Required regression/integration tests:
+Metadata and mapping mutation suite.
+
+
+SG-HARD-043 — HIGH — The external CAIQ verification path is machine-specific and not reproducible
+---------------------------------------------------------------------------------------------------
+Affected claims/surfaces:
+  CLAIM-15 and CLAIM-21 external-verifier language
+
+Evidence locations:
+  - stop_guessing/caiq/fill.py — hard-coded /Users/isme/.claude/plugins/cache/rich-text/...
+
+Finding:
+The claimed third-party verifier is discovered only under one maintainer-specific absolute path.
+A clean machine cannot reproduce the proof without recreating that private plugin cache layout.
+
+Minimal reproduction / validation:
+Run CLAIM-15/21 on a clean machine without that path.
+
+Required remediation:
+Pin a released verifier version/digest as a test dependency or documented external command, execute it from a portable location/container, and record its artifact digest/version.
+
+Required regression/integration tests:
+Clean macOS/Linux environment and unavailable-verifier behavior.
+
+
+SG-HARD-044 — HIGH — Known proof adequacy objections do not affect GOAL MET
+-----------------------------------------------------------------------------
+Affected claims/surfaces:
+  All claims
+
+Evidence locations:
+  - stop_guessing/prove/judge.py — deferred non-blocking panel
+  - stop_guessing/prove/runner.py — goal_met excludes judge
+  - GitHub issue #33 — 19/21 procedures lacked controls
+
+Finding:
+The judge records 21 independence objections and many missing-control/adversarial/witness objections,
+but goal_met deliberately ignores them. A mechanical judge should not silently become certification;
+however, a full assurance headline also should not ignore known adequacy failures. Execution,
+adequacy, and independent verification are distinct states.
+
+Minimal reproduction / validation:
+Run attest with deferred disapprovals and observe GOAL MET remains possible.
+
+Required remediation:
+Use a multi-axis assurance result: executed, surface-validated, control-backed, independently reproduced. Define release thresholds and do not collapse them to one flattering boolean.
+
+Required regression/integration tests:
+Threshold policy for each lens/class and external-review evidence.
+
+
+SG-HARD-045 — HIGH — CLAIM-20 checks presence and permissive exit codes rather than every distributed surface
+---------------------------------------------------------------------------------------------------------------
+Affected claims/surfaces:
+  CLAIM-20
+
+Evidence locations:
+  - stop_guessing/prove/procedures.py — prove_every_surface_runs()
+
+Finding:
+The proof:
+  - accepts CLI exit 1 as successful exercise;
+  - checks .venv/bin aliases exist but does not execute them;
+  - runs repo modules rather than a clean marketplace install;
+  - checks plugin manifests/skill files exist rather than loading/invoking them;
+  - says records are keyed without verifying hash algorithm/key;
+  - does not exercise both Pre and Post installed wrapper scripts or failure/lifecycle hooks.
+
+Minimal reproduction / validation:
+Break an alias/plugin runtime while leaving files/manifests present; the proof can still pass.
+
+Required remediation:
+Create clean-environment black-box matrices for wheel, installer, Claude plugin, Codex plugin, each console alias, each command/skill, every hook event, and daemon mode. Require expected semantics, not rc in {0,1}.
+
+Required regression/integration tests:
+One deliberately broken surface per matrix.
+
+
+SG-HARD-046 — HIGH — OpenTelemetry export is not valid OTLP JSON
+------------------------------------------------------------------
+Affected claims/surfaces:
+  Export/standards alignment
+
+Evidence locations:
+  - stop_guessing/prov/export_otel.py
+  - Official OpenTelemetry OTLP JSON and file exporter specifications
+
+Finding:
+The exporter returns a bare list of span-like objects, uses enum names such as SPAN_KIND_INTERNAL
+where OTLP JSON encodes enums as integers, can emit missing/invalid trace IDs and timestamps, and
+does not produce the TracesData/resourceSpans/scopeSpans envelope expected by OTLP/file exporters.
+
+Minimal reproduction / validation:
+Submit output to an OTLP JSON/protobuf parser or Collector file receiver.
+
+Required remediation:
+Generate the official protobuf JSON mapping or use the OTel SDK/exporter. Validate trace/span IDs, nanosecond timestamps, resource/scope structure, attributes, status, and enum values.
+
+Required regression/integration tests:
+Round-trip through protobuf JSON parser and an OpenTelemetry Collector.
+
+
+SG-HARD-047 — HIGH — Export and some analysis paths accept a truncated ledger prefix
+--------------------------------------------------------------------------------------
+Affected claims/surfaces:
+  PROV/CASE/OTel outputs and assurance portability
+
+Evidence locations:
+  - stop_guessing/cli/cmd_ops.py — cmd_export() checks chain.intact only
+
+Finding:
+A truncated ledger may have an intact prefix. cmd_export refuses a broken chain but not
+loaded.truncated, allowing an incomplete prefix to be transformed into authoritative-looking
+standards output without an explicit truncation finding.
+
+Minimal reproduction / validation:
+Append a partial final line, then export PROV/CASE/OTel.
+
+Required remediation:
+Every consumer must require the same complete-ledger verdict or embed an explicit incomplete-prefix status that downstream validators cannot mistake for complete evidence.
+
+Required regression/integration tests:
+Broken, truncated, chain-only, wrong key, empty ledger, and sealed-series gaps for every exporter.
+
+
+SG-HARD-048 — HIGH — Lifecycle and batch evidence required by the architecture is not registered
+--------------------------------------------------------------------------------------------------
+Affected claims/surfaces:
+  CLAIM-11, 13, 14, 20 and complete custody
+
+Evidence locations:
+  - .claude-plugin/plugins/stop-guessing/hooks/hooks.json
+  - Official Claude Code hooks documentation
+
+Finding:
+Current Claude Code supports SessionStart, UserPromptSubmit, PreToolUse, PostToolUse,
+PostToolUseFailure, PostToolBatch, Stop, SubagentStop, PreCompact, SessionEnd, ConfigChange, and
+other events. The plugin registers only PreToolUse/PostToolUse.
+
+Without the missing events the application cannot establish session boundaries, prompt lineage,
+compaction checkpoints, config mutations, parallel batch completion, final missing-result
+reconciliation, failed outcomes, or orderly close.
+
+Minimal reproduction / validation:
+Compare hooks.json to the declared claim surfaces and official event list.
+
+Required remediation:
+Implement only the lifecycle events required by a formal event model, with pairing/idempotency and surface proofs. Do not add hooks merely for count; define the evidence each event closes.
+
+Required regression/integration tests:
+Complete session, failed session, compacted session, subagent, config change, parallel batch, missing Post event, and abrupt termination.
+
+
+SG-HARD-049 — HIGH — Pre/Post request-result pairing and reconciliation are absent at runtime
+-----------------------------------------------------------------------------------------------
+Affected claims/surfaces:
+  CLAIM-13
+
+Evidence locations:
+  - stop_guessing/ledger/reconcile.py — library-only Dispatch/Reported model
+  - stop_guessing/cli/gate.py and hook_post.py — no runtime nonce/pair reconciliation
+  - absence of Stop/SessionEnd reconciliation hook
+
+Finding:
+tool_use_id is recorded in places, but no recorder-owned dispatch nonce is issued and no runtime
+process detects missing, duplicate, replayed, mismatched, or attributed-to-other-agent results.
+CLAIM-13 proves an isolated reconciliation function, not deployed execution corroboration.
+
+Minimal reproduction / validation:
+Remove/drop/replay a PostToolUse event and run the installed system; no final finding is generated.
+
+Required remediation:
+Recorder creates dispatch records/nonces, result hooks return host observations, and Stop/SessionEnd performs reconciliation with explicit incomplete-session state.
+
+Required regression/integration tests:
+Missing, duplicate, replay, wrong tool/action/session/actor/nonce, delayed batch result, and crash.
+
+
+SG-HARD-050 — MEDIUM — Record identifiers and disable behavior can be ambiguous or unrecorded
+-----------------------------------------------------------------------------------------------
+Affected claims/surfaces:
+  Record uniqueness and operational transparency
+
+Evidence locations:
+  - stop_guessing/cli/gate.py — fallback record_id sg:<session>:<op>
+  - stop_guessing/cli/hook_gate.py — STOP_GUESSING_DISABLE returns silently
+
+Finding:
+When tool_use_id is missing, repeated operations can receive the same logical record.id even though
+the chain entries differ. Setting STOP_GUESSING_DISABLE=1 bypasses custody with no explicit disabled
+event or operator authorization record.
+
+Minimal reproduction / validation:
+Submit repeated payloads without tool_use_id; enable the environment disable switch.
+
+Required remediation:
+Use recorder-generated unique IDs and record an authorized disabled/degraded mode transition outside the bypassed hook path.
+
+Required regression/integration tests:
+Missing/duplicate tool_use_id and disable/reenable transitions.
+
+
+SG-HARD-051 — HIGH — Mixed full and flat records make deployed sufficiency structurally unattainable
+------------------------------------------------------------------------------------------------------
+Affected claims/surfaces:
+  CLAIM-06 and governance sufficiency
+
+Evidence locations:
+  - stop_guessing/verify/sufficiency.py — every record must fully populate regimes
+  - stop_guessing/cli/gate.py — full Pre statement
+  - stop_guessing/cli/hook_post.py and recorder tests — flat/minimal records
+
+Finding:
+The deployed ledger mixes full schema statements, flat PostToolUse records, proof events, and minimal
+recorder events. sufficiency assesses every record and requires each regime to be fully populated
+across all records. A normal ledger containing flat events is therefore likely permanently
+INCOMPLETE. Failing safe is acceptable, but it means the application has not implemented a path to
+the advertised sufficient state.
+
+Minimal reproduction / validation:
+Assess a normal installed ledger containing both pre-decision and post-result events.
+
+Required remediation:
+Use event-type-specific schemas and evaluate governance questions over the required joined event set, not require unrelated fields on every event. Preserve explicit incompleteness.
+
+Required regression/integration tests:
+Complete paired event set, intentionally missing regime, unrelated event types, and mixed sessions.
+
+
+SG-HARD-052 — HIGH — Security strength labels trust insufficient metadata and overstate isolation
+---------------------------------------------------------------------------------------------------
+Affected claims/surfaces:
+  CLAIM-12 and exported verification strength
+
+Evidence locations:
+  - stop_guessing/ledger/entry.py — strength()
+
+Finding:
+strength() promotes chain-keyed to chain-keyed+isolated for recorder isolation_tier >=1, even though
+tier 1 is same UID and keyfile-readable by the agent. The value is computed in caller-built
+predicate metadata rather than solely from recorder-trusted service facts.
+
+Minimal reproduction / validation:
+Create a caller statement claiming tier 1 and inspect strength; compare with actual same-user authority.
+
+Required remediation:
+Recorder overwrites all verification-boundary fields from observed peer/service state. Redefine ladder using tested authority separation, not process count.
+
+Required regression/integration tests:
+Caller-forged strength/tier/writer fields and each real architecture tier.
+
+
+SG-HARD-053 — HIGH — Public proof counts include superseded historical refs as current assurance
+--------------------------------------------------------------------------------------------------
+Affected claims/surfaces:
+  Public/README generated status; page held
+
+Evidence locations:
+  - stop_guessing/cli/cmd_page.py — refs = sum(len(claim proofs))
+  - stop_guessing/prove/runner.py — only latest surviving proof is current
+
+Finding:
+The page labels every reference still listed in claims.yaml as 'ledger proofs', while runner.check()
+treats only the latest surviving proof as current and older refs as superseded. Historical reruns
+inflate the displayed assurance count.
+
+Minimal reproduction / validation:
+Compare raw proofs list lengths to runner rows live/superseded.
+
+Required remediation:
+When page work resumes, render current live evidence separately from historical runs, using only the corrected attestation object.
+
+Required regression/integration tests:
+Multiple reruns with stable claim result must not inflate current assurance.
+
+
+SG-HARD-054 — HIGH — Current generated status artifacts disagree and contain stale runtime statements
+-------------------------------------------------------------------------------------------------------
+Affected claims/surfaces:
+  Public page/README/CAIQ; page held
+
+Evidence locations:
+  - docs/ai-caiq/stop-guessing.yaml — 20/21
+  - docs/index.html — 21/21 and GOAL MET
+  - stop_guessing/cli/cmd_page.py — stale default/daemon statements
+  - runtime hook_gate.py — default observe
+
+Finding:
+The CAIQ metadata reports 20/21 while the page reports 21/21. The page generator contains statements
+that no longer match runtime, including prior default-posture and daemon/isolation descriptions.
+page check requires a key and skips in ordinary CI, so freshness is not repository-enforced.
+
+Minimal reproduction / validation:
+Compare generated artifacts and run page check in ordinary CI/no-key context.
+
+Required remediation:
+Keep page frozen. Later generate a versioned research/assurance artifact from one signed release manifest and fail release when it cannot be verified.
+
+Required regression/integration tests:
+Cross-artifact canonical manifest comparison and stale-data mutation.
+
+CLAIM-BY-CLAIM DISPOSITION
+==========================
+
+The terms below are intentionally conservative:
+  RETAIN-LIMITED  = a primitive has useful evidence, but wording/surface must be narrowed.
+  WITHDRAW        = current deployed-system claim is not supported.
+  RE-PROVE        = implementation may be salvageable after hardening, but all current refs must
+                    be invalidated by the new evidence-subject/surface schema.
+
+CLAIM-01 — WITHDRAW / RE-PROVE
+  Derivation primitive exists, but PostToolUse bypasses cocd, normal byte identity is not bound,
+  multiple resources/outputs are incomplete, and deployed derivation records can disappear.
+
+CLAIM-02 — RETAIN-LIMITED / RE-PROVE
+  HMAC-chain mathematics and the real-key control are useful. Do not claim adversarial protection
+  when the recorded agent can read the same-user keyfile. Re-prove through the installed ledger CLI.
+
+CLAIM-03 — RETAIN-LIMITED / RE-PROVE
+  Sink refusal on detected break/torn tail is useful. Fix malformed-middle/partial-write handling,
+  CLI split brain, and truncated attestation.
+
+CLAIM-04 — WITHDRAW / RE-PROVE
+  Seal/MAC math is demonstrated; operational archive/rotation/next-segment chaining is not built.
+
+CLAIM-05 — WITHDRAW / RE-PROVE
+  Builder validation is demonstrated; the recorder boundary accepts incomplete arbitrary events.
+
+CLAIM-06 — RETAIN-LIMITED / RE-PROVE
+  The incomplete-by-default sufficiency primitive is useful. Normal mixed deployed records do not
+  form a complete event set and the user-facing CLI points at the wrong default ledger.
+
+CLAIM-07 — WITHDRAW / RE-PROVE
+  Cross-process work exists, but concurrent decision races, mutable policy, symlink classification,
+  cache fallback, artifact-ID replacement, and replay mismatch invalidate hardened accumulation.
+
+CLAIM-08 — WITHDRAW / RE-PROVE
+  Steer ask behavior exists, but project config can downgrade it and handler code executes before
+  policy. Prove the installed managed-policy path.
+
+CLAIM-09 — WITHDRAW
+  Test-before-live-data is bypassed by mutable-path TOCTOU and malicious paired tests. Requires an
+  immutable execution subject and real capability boundary.
+
+CLAIM-10 — WITHDRAW
+  Signed execution is bypassable; bar runtime sends full handler output; project handler executes
+  before authorization; no OS sandbox exists.
+
+CLAIM-11 — WITHDRAW
+  Declared PreCompact hook is absent. Real deployed replay is not equivalent to live state.
+
+CLAIM-12 — WITHDRAW
+  Tier 2 installer is nonfunctional, tier 1 is same authority, socket content is unauthenticated,
+  doctor is disconnected, policy can disable ledger protection, and key is agent-readable.
+
+CLAIM-13 — WITHDRAW
+  Reconciliation is a useful library primitive, but Stop hook/runtime nonce/pair reconciliation
+  is absent.
+
+CLAIM-14 — RETAIN-LIMITED / RE-PROVE
+  A1 workbook inspection primitive is useful. Declared SessionStart surface is absent; bind it to
+  a portable standards artifact path and installed lifecycle.
+
+CLAIM-15 — RETAIN-LIMITED / RE-PROVE
+  Copy-only template handling appears useful. External verifier path is machine-specific and the
+  recorder/claim surface still needs clean independent reproduction.
+
+CLAIM-16 — RETAIN-LIMITED / RE-PROVE
+  Compatibility corpus is one of the stronger primitives. Runtime missing-hook behavior and
+  installed-manifest enforcement must be fixed; prove installed dispatcher, not repo path.
+
+CLAIM-17 — WITHDRAW / RE-PROVE
+  File/manifest checks do not establish marketplace plugin operation; installer upgrades can be
+  stale/mixed and service lifecycle is unsafe.
+
+CLAIM-18 — NARROW AND RE-PROVE
+  Retain only a precisely scoped static source-lint statement. Withdraw "CI performs no fetch" and
+  do not infer runtime network absence from regex source scanning.
+
+CLAIM-19 — RETAIN-LIMITED / RE-PROVE
+  Temporary-profile uninstall behavior may preserve files, but real daemon/service/multi-profile
+  cleanup and stopped-process state are not tested.
+
+CLAIM-20 — WITHDRAW
+  Presence checks and rc 0/1 do not prove every distributed surface. Requires clean black-box
+  matrices and per-surface witness.
+
+CLAIM-21 — WITHDRAW / REDESIGN
+  The proof is circular and spans incompatible 20/21 and 21/21 epochs. Replace with a separate,
+  non-recursive signed release attestation.
+
+HARDENING WORK ORDER
+====================
+
+P0 — STOP FALSE ASSURANCE
+-------------------------
+1. Disable GOAL MET/public 21/21 and freeze page/CAIQ release output.
+2. Make missing procedure, missing declared surface, truncated ledger, and subject-digest drift
+   invalidate a proof.
+3. Disable --isolated until real separate-UID architecture exists.
+4. Withdraw CLAIM-09/10/11/12/13/20/21 in their present form.
+5. Make CI fail on real findings/cannot-verify in protected release jobs.
+6. Create a clean release-evidence epoch model that is not recursive.
+
+P1 — RESTORE TRUSTED RECORDING
+------------------------------
+1. Put event validation, state transition, policy evaluation, sequence assignment, and append
+   inside the trusted recorder transaction.
+2. Route PostToolUse and PostToolUseFailure through cocd.
+3. Add recorder peer credential/admission controls and request/result reconciliation.
+4. Remove cache fallback on any integrity failure.
+5. Establish immutable managed policies/rules and record ConfigChange.
+6. Use one profile-aware ledger/key resolver across all surfaces.
+7. Correct ledger IO and segment rollover.
+
+P2 — HARDEN DATA HANDLING
+-------------------------
+1. Eliminate pre-policy project handler execution.
+2. Replace mutable-path testing/signing/execution with immutable content-addressed subjects.
+3. Implement an OS capability boundary for handlers.
+4. Canonicalize/classify actual targets before access and define hardlink/mount semantics.
+5. Bind the exact model-visible result bytes/digest at the host execution boundary.
+6. Move multi-resource joins and concurrent state transitions into recorder-owned logic.
+
+P3 — HARDEN DISTRIBUTION AND OPERATIONS
+--------------------------------------
+1. Build a self-contained plugin runtime using ${CLAUDE_PLUGIN_ROOT}.
+2. Fix wheel/sdist package data and test isolated installation.
+3. Make installer upgrades atomic, versioned, manifest-verified, and rollback capable.
+4. Implement per-profile real services with verified UIDs/groups and lifecycle.
+5. Pin CI actions/dependencies by digest/lock and publish signed build provenance.
+6. Make doctor verify actual installed state.
+
+P4 — STANDARDS AND INDEPENDENT ASSURANCE
+----------------------------------------
+1. Redesign CAIQ causation/release epoch and deterministic comparison.
+2. Validate OTLP through official protobuf/Collector tooling.
+3. Validate PROV/CASE exports with independent implementations and explicit incomplete status.
+4. Run the full adversarial matrix on clean macOS and Linux hosts.
+5. Have an independent reviewer reproduce the release bundle and sign a separate result.
+
+MANDATORY CLEAN-ROOM TEST MATRIX
+================================
+
+Environment matrices:
+  - source checkout;
+  - built wheel;
+  - built sdist;
+  - install.sh default;
+  - marketplace Claude plugin only;
+  - Codex plugin only;
+  - macOS LaunchDaemon separate UID;
+  - Linux systemd separate UID;
+  - repository absent from cwd/PYTHONPATH;
+  - network denied;
+  - read-only runtime.
+
+Proof/assurance mutations:
+  - delete proof procedure;
+  - change implementation only;
+  - change rule/policy/manifest only;
+  - remove declared hook;
+  - replace CLI proof with direct library call;
+  - truncate/malformed proof ledger;
+  - wrong key/key rotation;
+  - edit CAIQ answer/mapping/metadata;
+  - alter final workbook;
+  - rerun same claim without inflating current evidence.
+
+Recorder/adversarial:
+  - unauthorized socket client;
+  - forged actor/action/session;
+  - missing/replayed/duplicate result;
+  - slowloris/connection storm;
+  - daemon killed/restarted;
+  - chain broken/truncated;
+  - disk full/short write/fsync failure;
+  - separate UID cannot read key or ledger;
+  - hook cannot bypass daemon;
+  - emergency gap path works.
+
+Policy/classification:
+  - project posture downgrade;
+  - protect_ledger=false;
+  - classify/policy file mutation;
+  - config/rule symlink replacement;
+  - benign symlink to credential;
+  - hardlink alias;
+  - atomic file replacement;
+  - multiple resources with mixed labels;
+  - shell/network bypass corpus;
+  - concurrent read + egress.
+
+Delegation/bar:
+  - malicious test rewrites signed script;
+  - concurrent path replacement;
+  - unsigned project handler under bar;
+  - handler full-file output;
+  - raw socket/DNS/subprocess/key-read attempts;
+  - immutable snapshot execution;
+  - output disclosure schema and size limits.
+
+Lifecycle:
+  - SessionStart/open;
+  - UserPromptSubmit lineage;
+  - Pre/PostToolUse success;
+  - PostToolUseFailure;
+  - PostToolBatch parallel completion;
+  - PreCompact/checkpoint;
+  - Stop/SessionEnd reconciliation;
+  - ConfigChange;
+  - abrupt crash and incomplete session.
+
+Release exit criteria:
+  - every active claim has a current procedure;
+  - every declared surface is actually observed;
+  - every proof binds exact build/runtime/policy subjects;
+  - no unresolved CRITICAL finding;
+  - protected CI fails closed;
+  - clean independent run reproduces the signed release manifest;
+  - page and CAIQ are generated only from that manifest;
+  - public wording distinguishes self-attestation from independent verification.
+
+ISSUE-READY TITLES
+==================
+The connected GitHub integration could not create Issues (HTTP 403). Suggested issue split:
+
+1. Assurance gate accepts proofs that never exercise declared surfaces
+2. Missing proof procedure does not invalidate historical proof
+3. Proof records do not bind implementation/build/policy subjects
+4. Truncated proof ledger can report GOAL MET
+5. CI Claims gate unconditionally succeeds
+6. --isolated cannot produce tier 2
+7. Same-UID keyfile is readable by the recorded agent
+8. PostToolUse bypasses cocd and silently loses evidence
+9. Register and reconcile PostToolUseFailure/PostToolBatch/lifecycle events
+10. Recorder socket accepts fabricated event content
+11. Enforce record schemas inside cocd
+12. doctor does not inspect live installation
+13. Agent-writable project config can weaken managed policy
+14. Policy/classification assets are mutable and unanchored
+15. Symlink classification bypass
+16. Atomic replacement sheds artifact identity
+17. Project handler executes before policy
+18. Signed script can be rewritten by paired test
+19. Eliminate delegation TOCTOU with immutable execution subjects
+20. bar runtime exposes full handler output
+21. Add real OS handler sandbox
+22. Make session decision and append atomic
+23. Never fall back to cache after ledger integrity failure
+24. Make recording failures explicit/fail-closed
+25. Rebuild is not equivalent to live state
+26. Bind exact model-visible bytes
+27. Record all resources in multi-artifact operations
+28. Define heuristic vs enforced egress boundary
+29. Prevent session cache filename collisions
+30. Implement real atomic segment rotation/archive
+31. Correct ledger short-write and malformed-line handling
+32. Bound daemon resource use and downgrade behavior
+33. Unify installed ledger/key defaults
+34. Make plugin runtime self-contained
+35. Fix wheel/sdist package data
+36. Make installer upgrades atomic and immutable
+37. Make settings/service lifecycle transactional and per-profile
+38. Missing vendored hook must fail closed
+39. Withdraw false CI no-fetch claim
+40. Re-derive CAIQ at fill/attest time
+41. Redesign CLAIM-21 as a non-recursive release attestation
+42. Validate complete CAIQ metadata/mapping
+43. Make external workbook verification portable
+44. Define release treatment of deferred adequacy objections
+45. Replace CLAIM-20 presence checks with clean black-box surface tests
+46. Emit valid OTLP JSON
+47. Reject or mark truncated-ledger exports
+48. Implement runtime request/result reconciliation
+49. Make record IDs unique and disabled mode auditable
+50. Redesign sufficiency over typed joined event sets
+51. Derive security strength from recorder-observed authority
+52. Separate current proof count from historical reruns
+53. Generate final research page only from signed release manifest
+
+REFERENCES
+==========
+Repository:
+  https://github.com/mEllergrace/stop-guessing
+  https://github.com/mEllergrace/stop-guessing/issues/29
+  https://github.com/mEllergrace/stop-guessing/issues/33
+
+Official Claude Code hooks:
+  https://code.claude.com/docs/en/hooks
+  Relevant events include PostToolUseFailure, PostToolBatch, Stop, PreCompact, SessionEnd,
+  ConfigChange, and the installed plugin ${CLAUDE_PLUGIN_ROOT} path convention.
+
+Official OpenTelemetry:
+  https://opentelemetry.io/docs/specs/otlp/
+  https://opentelemetry.io/docs/specs/otel/protocol/exporter/
+  https://opentelemetry.io/docs/specs/otel/trace/api/
+  OTLP JSON uses the protobuf JSON mapping; enum fields are integers and trace/span IDs have
+  strict hex lengths.
+
+Cloud Security Alliance:
+  https://cloudsecurityalliance.org/artifacts/ai-controls-matrix
+  AICM/AI-CAIQ v1.1 should be treated as a mapping target, not certification.
+
+PASSOFF NOTES
+=============
+- No repository or page files were modified.
+- No Issues or branch were created because the connected GitHub integration denied write access.
+- The page redesign remains paused by explicit instruction.
+- This file should be handed to the implementation agent/team before any attempt to restore a full
+  assurance headline.
