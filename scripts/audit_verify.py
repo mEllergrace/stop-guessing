@@ -223,12 +223,24 @@ def c_socket_unauthenticated():
 
 
 def c_schema_not_enforced_at_sink():
-    sink = _code("stop_guessing/ledger/sink.py")
+    """Does op_append VALIDATE before sequencing — by any implementation, not one name.
+
+    The first predicate grepped for `validate_tier_a`, the builder-side helper. Enforcing the
+    schema at the boundary with a different function therefore read as unfixed. What settles the
+    finding is whether an incomplete record can reach the chain, not which symbol rejects it.
+    """
     daemon = _code("stop_guessing/recorder/daemon.py")
-    enforced = "validate_tier_a" in sink or "validate_tier_a" in daemon
-    return (ABSENT, "Tier-A validation runs at the sink/daemon boundary") if enforced else (
-        PRESENT, "validate_tier_a() is only reachable via CustodyRecord.build(); "
-                 "sink.record() and daemon op_append() accept any dict")
+    m = re.search(r"def op_append.*?(?=\n    def |\nclass |\Z)", daemon, re.S)
+    body = m.group(0) if m else ""
+    validates = re.search(r"validate_tier_a|_validate_event|REQUIRED_EVENT_FIELDS", body)
+    before_record = validates and validates.start() < (body.find("record(") or len(body))
+    if validates and before_record:
+        return ABSENT, ("op_append validates the event and refuses it before sequencing, so an "
+                        "incomplete record cannot reach the chain")
+    if validates:
+        return PRESENT, "validation exists in op_append but runs after the record is appended"
+    return PRESENT, ("op_append accepts any dict; the Tier-A gate is reachable only through "
+                     "CustodyRecord.build(), which a caller can simply not use")
 
 
 def c_doctor_blind():

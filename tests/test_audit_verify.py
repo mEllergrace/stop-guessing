@@ -66,6 +66,8 @@ FIXED = {
     "SG-HARD-041": "CLAIM-21 is a release attestation, counted in neither the epoch nor the evidence",
     "SG-HARD-054": "the workbook epoch and the attestation agree and the scope is stated",
     "SG-HARD-015": "both the supplied spelling and its canonical target are classified and joined",
+    "SG-HARD-010": "the daemon reads and records peer credentials and admits by uid",
+    "SG-HARD-011": "op_append validates and refuses before sequencing",
 }
 
 

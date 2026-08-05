@@ -19,8 +19,8 @@ headline is exactly who they matter to.**
 
 **What this gate does not establish.** An independent hardening audit on 2026-08-04
 raised 54 findings. Each was re-verified against source rather than accepted; the current state,
-generated from [`docs/audit-status.json`](docs/audit-status.json) at commit `f9daf33`, is
-**22 confirmed outstanding, 22 fixed, 10 unverified** (no static
+generated from [`docs/audit-status.json`](docs/audit-status.json) at commit `3a7bd18`, is
+**20 confirmed outstanding, 24 fixed, 10 unverified** (no static
 predicate — those need a live adversarial test and are not counted as passing).
 
 Outstanding CRITICAL findings:
@@ -28,10 +28,10 @@ Outstanding CRITICAL findings:
 - Proof staleness binds only the procedure, not the implementation (SG-HARD-003)
 - --isolated cannot start a separate-UID recorder (SG-HARD-006)
 - PostToolUse bypasses cocd and can lose records silently (SG-HARD-008)
-- The recorder authenticates ordering, not event truth (SG-HARD-010)
-- Custody schema is not enforced at the recorder boundary (SG-HARD-011)
 - Project-writable config can downgrade enforcement (SG-HARD-013)
-- …and 6 more — see the `hardening-audit` label.
+- Rules/policies/handlers are untrusted mutable inputs (SG-HARD-014)
+- Project handler executes on classified data before policy (SG-HARD-017)
+- …and 4 more — see the `hardening-audit` label.
 
 Re-derive any of it with `scripts/audit_verify.py --id <id>`; the predicate reports only whether
 the defect is still present.

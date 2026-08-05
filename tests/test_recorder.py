@@ -40,8 +40,18 @@ def running(tmp_path):
     daemon.socket_path(cfg).unlink(missing_ok=True)
 
 
-def _event(i=0):
-    return {"op": "artifact.read", "at": "t", "actor": "a", "detail": str(i)}
+def _event(i=0, **over):
+    """A COMPLETE event.
+
+    #44: these fixtures were minimal — {op, at, actor} — and the daemon accepted them, which is
+    precisely how the Tier-A gate came to exist only in an optional builder while the recorder
+    boundary took anything at all. The fixtures now carry what a record must carry, so a
+    regression in the boundary shows up here rather than passing quietly.
+    """
+    ev = {"op": "artifact.read", "at": "t", "actor": "a", "detail": str(i),
+          "known_gaps": [], "alterations": []}
+    ev.update(over)
+    return ev
 
 
 # ── it runs, and reports itself honestly ─────────────────────────────────────
@@ -143,10 +153,10 @@ def test_a_refusal_is_not_laundered_by_the_fallback(running):
 
 
 def test_the_daemon_derives_custody_state(running):
-    client.append(running, {
-        "op": "artifact.read", "at": "t", "actor": "a", "session_id": "s1",
-        "resources": {"used": [{"artifact_id": "a1", "path": "/x/roster.csv",
-                                "digest": "sha256:x", "labels": ["restricted", "pii"]}]}})
+    client.append(running, _event(
+        session_id="s1",
+        resources={"used": [{"artifact_id": "a1", "path": "/x/roster.csv",
+                             "digest": "sha256:x", "labels": ["restricted", "pii"]}]}))
     st = client.custody_state(running, "s1")
     assert st["depth"] == 1 and "restricted" in st["labels"] and st["digest"]
 
@@ -154,7 +164,7 @@ def test_the_daemon_derives_custody_state(running):
 def test_state_is_refused_when_the_chain_is_broken(running):
     import json
 
-    client.append(running, {"op": "artifact.read", "at": "t", "session_id": "s1"})
+    client.append(running, _event(session_id="s1"))
     led = daemon.ledger_path(running)
     d = json.loads(led.read_text().splitlines()[0])
     d["op"] = "artifact.write"
@@ -205,3 +215,79 @@ def test_stale_socket_is_reclaimed(tmp_path):
     finally:
         server.server_close()
         sock.unlink(missing_ok=True)
+
+
+# ── the boundary the agent actually reaches — SG-HARD-010/011 (#43, #44) ─────
+
+
+def test_a_structurally_incomplete_record_is_refused_at_the_daemon(running):
+    """The Tier-A gate used to live only in an optional builder the caller could skip."""
+    resp = client._request(running, {"op": "append", "event": {"op": "artifact.read"}})
+    assert resp["ok"] is False and resp["refused"] is True
+    assert "missing at" in resp["error"] and "missing actor" in resp["error"]
+
+
+def test_a_missing_known_gaps_key_is_refused_but_an_empty_list_is_accepted(running):
+    """`[]` asserts nothing was skipped; a missing key means nobody looked."""
+    without = {"op": "artifact.read", "at": "t", "actor": "a", "alterations": []}
+    resp = client._request(running, {"op": "append", "event": without})
+    assert resp["ok"] is False and "known_gaps" in resp["error"]
+
+    resp = client._request(running, {"op": "append", "event": {**without, "known_gaps": []}})
+    assert resp["ok"] is True
+
+
+def test_every_missing_field_is_reported_not_just_the_first(running):
+    resp = client._request(running, {"op": "append", "event": {"op": "x"}})
+    for expected in ("missing at", "missing actor", "known_gaps", "alterations"):
+        assert expected in resp["error"], f"{expected!r} not named in: {resp['error']}"
+
+
+def test_known_gaps_must_be_a_list_not_a_string(running):
+    ev = {"op": "artifact.read", "at": "t", "actor": "a",
+          "known_gaps": "none", "alterations": []}
+    resp = client._request(running, {"op": "append", "event": ev})
+    assert resp["ok"] is False and "must be a list" in resp["error"]
+
+
+def test_the_recorder_stamps_the_peer_it_recorded_for(running):
+    """A caller-supplied actor is corroboration; who actually connected is evidence."""
+    import json
+
+    client.append(running, _event())
+    rec = json.loads(daemon.ledger_path(running).read_text().splitlines()[-1])
+    assert "peer" in rec, "the record does not say which process asked"
+    peer = rec["peer"]
+    # The contract is honesty, not availability: either the uid is verified and correct, or the
+    # record says plainly that it could not be verified. What must never happen is a confident
+    # wrong answer — which is exactly what the first implementation produced on macOS by reading
+    # a Linux socket option number that means something else here.
+    if peer["verified"]:
+        assert peer["uid"] == os.getuid()
+    else:
+        assert peer["uid"] is None, "unverified credentials must not carry a uid"
+
+
+def test_the_recorder_stamps_recorded_at_separately_from_at(running):
+    """SEC 17a-4(f): when the act happened and when the record was made are different facts."""
+    import json
+
+    client.append(running, _event())
+    rec = json.loads(daemon.ledger_path(running).read_text().splitlines()[-1])
+    assert rec["recorded_at"] and rec["recorded_at"] != rec["at"]
+
+
+def test_a_connection_that_never_speaks_does_not_hold_a_thread_forever(running):
+    """#45: no read deadline meant one silent client could pin a worker indefinitely."""
+    import socket as _socket
+
+    from stop_guessing.recorder.daemon import REQUEST_TIMEOUT, socket_path
+
+    assert REQUEST_TIMEOUT > 0, "there must be a deadline at all"
+    s = _socket.socket(_socket.AF_UNIX, _socket.SOCK_STREAM)
+    s.connect(str(socket_path(running)))
+    try:
+        # The daemon must still serve other callers while this one stays silent.
+        assert client.daemon_info(running) is not None
+    finally:
+        s.close()
