@@ -114,7 +114,8 @@ def _esc(s) -> str:
 def build(attest: dict, claims: dict, caiq: dict | None) -> str:
     proven, total = attest["proven"], attest["total"]
     controls = attest["aicm_controls_evidenced"]
-    refs = sum(len(c.get("proofs") or []) for c in claims["claims"])
+    # SG-HARD-053: current live evidence, not every historical re-run. See readme_status().
+    refs = sum(len(r.get("live") or []) for r in attest.get("rows") or [])
     kinds: dict[str, int] = {}
     for c in claims["claims"]:
         kinds[c.get("proof_kind", "?")] = kinds.get(c.get("proof_kind", "?"), 0) + 1
@@ -440,28 +441,66 @@ def readme_status(attest: dict, claims: dict, caiq: dict | None) -> str:
     commits after that stopped being true. Prose rots; a rendering of the ledger does not.
     """
     proven, total = attest["proven"], attest["total"]
-    refs = sum(len(c.get("proofs") or []) for c in claims["claims"])
+    # SG-HARD-053: this used to sum every ref ever recorded, including superseded re-runs, while
+    # runner.check() counts only the latest surviving proof per claim. That inflated the headline
+    # with repetition — 134 "records" where most were the same procedures re-run. Current live
+    # evidence and historical runs are now reported as the different things they are.
+    live = sum(len(r.get("live") or []) for r in attest.get("rows") or [])
+    superseded = sum(len(r.get("superseded") or []) for r in attest.get("rows") or [])
     controls = attest["aicm_controls_evidenced"]
     published = caiq["answers"] if caiq else []
     yes = sum(1 for a in published if a["answer"] == "Yes")
     no = sum(1 for a in published if a["answer"] == "No")
-    verdict = "GOAL MET" if attest["goal_met"] else "GOAL NOT MET"
     kinds: dict[str, int] = {}
     for c in claims["claims"]:
         kinds[c.get("proof_kind", "?")] = kinds.get(c.get("proof_kind", "?"), 0) + 1
     kind_str = ", ".join(f"{v} {k}" for k, v in sorted(kinds.items()))
 
-    return f"""{BEGIN}
-**Version {__version__} — `stop-guessing attest --self` reports {verdict}.**
+    # SG-HARD-041 / 044: "GOAL MET" collapsed execution, adequacy and independent verification into
+    # one flattering boolean. An independent hardening audit on 2026-08-04 established that the gate
+    # producing it does not validate a claim's declared surface, survives a deleted procedure and a
+    # truncated ledger, and that the workbook it binds is written one epoch behind its own proof.
+    # The evidence is real; the headline it carried was not, so the headline is what changes.
+    verdict = ("self-attested" if attest["goal_met"] else "SELF-ATTESTATION INCOMPLETE")
+    caiq_epoch = ""
+    if caiq and (caiq.get("meta") or {}).get("claims_proven"):
+        epoch = caiq["meta"]["claims_proven"]
+        if epoch != f"{proven}/{total}":
+            caiq_epoch = (
+                f"\n> **The carried workbook reports `{epoch}`, not `{proven}/{total}`.** CLAIM-21 "
+                f"derives and fills the questionnaire *before* its own proof record exists, so the "
+                f"artifact is always one claim behind the count that cites it. This is a design "
+                f"defect, not a rendering lag — see SG-HARD-041.\n"
+            )
 
+    return f"""{BEGIN}
+**Version {__version__} — `stop-guessing attest --self` reports {verdict}: {proven}/{total} claims
+executed, witnessed and chain-verified on the maintainer's machine.**
+
+**This is self-attestation. It has not been independently verified, and the gate that produces it
+has known limits — stated here rather than in a subsection, because a reader who stops at the
+headline is exactly who they matter to.**
+{caiq_epoch}
 | | |
 |---|---|
-| Claims proven | **{proven}/{total}**, by {refs} records in its own keyed ledger |
+| Claims executed | **{proven}/{total}**, by {live} current ledger record(s){f" ({superseded} superseded re-run(s) not counted)" if superseded else ""} |
 | Proof kinds | {kind_str} — negative and adversarial are not optional |
 | AICM controls evidenced | {len(controls)} |
 | Chain | intact, {"keyed-verified" if attest["chain_keyed"] else "NOT keyed-verified"} |
 | Carried AI-CAIQ | {len(published)} published controls answered ({yes} Yes, {no} No), derived from those proofs |
 | Judge panel | {(attest.get("judge") or {}).get("deferred_disapprovals", "?")} deferred disapprovals, recorded not blocking — including `independence` on every claim |
+
+**What this gate does not establish** (independent audit, 2026-08-04, verified against source):
+
+- a claim's declared `surface:` is never validated — a claim naming `hook:PreCompact` passes while
+  no such hook is registered (SG-HARD-001)
+- deleting a proof procedure does not un-prove its claim (SG-HARD-002)
+- a proof binds only its own function source, not the implementation, policy or build it exercised
+  (SG-HARD-003)
+- a truncated ledger still attests: `check()` reads `chain.intact` and ignores `truncated`
+  (SG-HARD-004)
+- 2 of the 31 available hook events are registered, so custody is complete per tool call and
+  incomplete per session (SG-HARD-048)
 
 A **proof** is a record in this toolchain's own ledger, produced by a procedure that exercises the
 real surface — not a passing test. `proofs:` in [`docs/claims.yaml`](docs/claims.yaml) is written

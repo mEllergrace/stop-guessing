@@ -1,16 +1,35 @@
 # STOP-GUESSING
 
 <!-- BEGIN GENERATED STATUS -->
-**Version 0.4.0 — `stop-guessing attest --self` reports GOAL MET.**
+**Version 0.4.0 — `stop-guessing attest --self` reports self-attested: 21/21 claims
+executed, witnessed and chain-verified on the maintainer's machine.**
+
+**This is self-attestation. It has not been independently verified, and the gate that produces it
+has known limits — stated here rather than in a subsection, because a reader who stops at the
+headline is exactly who they matter to.**
+
+> **The carried workbook reports `20/21`, not `21/21`.** CLAIM-21 derives and fills the questionnaire *before* its own proof record exists, so the artifact is always one claim behind the count that cites it. This is a design defect, not a rendering lag — see SG-HARD-041.
 
 | | |
 |---|---|
-| Claims proven | **21/21**, by 134 records in its own keyed ledger |
+| Claims executed | **21/21**, by 21 current ledger record(s) (52 superseded re-run(s) not counted) |
 | Proof kinds | 3 adversarial, 8 live-run, 7 negative, 3 property — negative and adversarial are not optional |
 | AICM controls evidenced | 14 |
 | Chain | intact, keyed-verified |
 | Carried AI-CAIQ | 11 published controls answered (9 Yes, 2 No), derived from those proofs |
 | Judge panel | 46 deferred disapprovals, recorded not blocking — including `independence` on every claim |
+
+**What this gate does not establish** (independent audit, 2026-08-04, verified against source):
+
+- a claim's declared `surface:` is never validated — a claim naming `hook:PreCompact` passes while
+  no such hook is registered (SG-HARD-001)
+- deleting a proof procedure does not un-prove its claim (SG-HARD-002)
+- a proof binds only its own function source, not the implementation, policy or build it exercised
+  (SG-HARD-003)
+- a truncated ledger still attests: `check()` reads `chain.intact` and ignores `truncated`
+  (SG-HARD-004)
+- 2 of the 31 available hook events are registered, so custody is complete per tool call and
+  incomplete per session (SG-HARD-048)
 
 A **proof** is a record in this toolchain's own ledger, produced by a procedure that exercises the
 real surface — not a passing test. `proofs:` in [`docs/claims.yaml`](docs/claims.yaml) is written
