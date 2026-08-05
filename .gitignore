@@ -12,3 +12,6 @@ venv/
 docs/ai-caiq/reference/*.xlsx
 .venv/
 .stop-guessing/
+
+# build artifacts — a tracked duplicate of the package
+build/
