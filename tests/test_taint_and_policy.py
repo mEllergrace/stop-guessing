@@ -9,9 +9,11 @@ from stop_guessing.delegate import DelegationRefused, run, run_test, scaffold
 from stop_guessing.policy.engine import PolicySet, evaluate_when, load, to_cedar
 from stop_guessing.taint.labels import describe, dominates, is_classified, join, sensitivity_of
 from stop_guessing.taint.state import ArtifactRef, SessionCustodyState, rebuild
-from stop_guessing.version import repo_root
+from stop_guessing.version import policy_dir
 
-POLICY_DIR = repo_root() / "policy" / "coc.policy.d"
+# #68: resolved, not assembled from repo_root(). The data moved inside the package so a wheel
+# carries it, and policy_dir() honours a checkout layout first so this keeps finding the same file.
+POLICY_DIR = policy_dir()
 
 
 @pytest.fixture(scope="module")

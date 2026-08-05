@@ -22,9 +22,9 @@ from functools import lru_cache
 from pathlib import Path
 
 from stop_guessing.taint.labels import join
-from stop_guessing.version import repo_root
+from stop_guessing.version import rules_dir
 
-DEFAULT_RULES = repo_root() / "rules" / "classify.yaml"
+DEFAULT_RULES = rules_dir() / "classify.yaml"
 
 
 @dataclass(frozen=True)

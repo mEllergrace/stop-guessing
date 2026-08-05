@@ -25,7 +25,7 @@ from stop_guessing.ledger import segments
 from stop_guessing.ledger.chain import ChainKey, append, canonical_material, verify
 from stop_guessing.ledger.sink import LedgerError, load, record
 from stop_guessing.prove.registry import ProofResult, proof
-from stop_guessing.version import repo_root
+from stop_guessing.version import policy_dir, repo_root
 
 PROOF_KEY = ChainKey("proof-procedure-key", b"procedure-local-key-32-bytes!!!!")
 OTHER_KEY = ChainKey("wrong-key", b"a-different-key-32-bytes-long!!!")
@@ -420,7 +420,7 @@ def prove_sufficiency_refuses_to_overclaim() -> ProofResult:
 
 def _policy_set():
     from stop_guessing.policy.engine import load
-    return load(repo_root() / "policy" / "coc.policy.d")
+    return load(policy_dir())
 
 
 def _artifact_ctx(path: str, first_touch: bool):
@@ -828,7 +828,7 @@ def prove_recorder_isolation() -> ProofResult:
         r.observe("(5) registration rewritten to a literal ~ -> CAUGHT")
 
         # the ledger is deny-listed under EVERY posture, including observe
-        ps = load_policies(repo_root() / "policy" / "coc.policy.d")
+        ps = load_policies(policy_dir())
         for posture in ("observe", "steer", "bar"):
             d = ps.evaluate("artifact.write", SessionCustodyState("s").context(
                 posture=posture, call={"is_write": True, "is_egress": False},
@@ -982,7 +982,7 @@ def prove_bar_requires_signed_scripts() -> ProofResult:
     from stop_guessing.taint.state import SessionCustodyState
 
     r = ProofResult(passed=True)
-    ps = load_policies(repo_root() / "policy" / "coc.policy.d")
+    ps = load_policies(policy_dir())
     key = b"a-key-the-model-cannot-reach!!!!"
 
     art = {"classified": True, "first_touch": True, "labels": ["restricted", "pii"]}

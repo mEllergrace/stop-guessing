@@ -1,5 +1,5 @@
 {
-  "commit": "e0fb850",
+  "commit": "e1547f4",
   "findings": [
     {
       "id": "SG-HARD-001",
@@ -154,7 +154,7 @@
         "stop_guessing/cli/gate.py"
       ],
       "status": "PRESENT",
-      "evidence": "classify_path() runs on the user-supplied spelling at char 2905; canonicalisation via identify() only at 3200"
+      "evidence": "classify_path() runs on the user-supplied spelling at char 2879; canonicalisation via identify() only at 3174"
     },
     {
       "id": "SG-HARD-016",
@@ -175,7 +175,7 @@
         "stop_guessing/handlers.py"
       ],
       "status": "PRESENT",
-      "evidence": "handlers.substitute() at char 4355 precedes policy evaluate() at 4850"
+      "evidence": "handlers.substitute() at char 4329 precedes policy evaluate() at 4824"
     },
     {
       "id": "SG-HARD-018",
@@ -358,8 +358,8 @@
       "files": [
         "pyproject.toml"
       ],
-      "status": "PRESENT",
-      "evidence": "no package-data and no MANIFEST.in; a wheel omits VERSION, policy/, rules/"
+      "status": "ABSENT",
+      "evidence": "package data is declared"
     },
     {
       "id": "SG-HARD-036",

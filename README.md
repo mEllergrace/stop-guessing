@@ -1,20 +1,20 @@
 # STOP-GUESSING
 
 <!-- BEGIN GENERATED STATUS -->
-**Version 0.4.0 — `stop-guessing attest --self` reports SELF-ATTESTATION INCOMPLETE: 21/21 claims
+**Version 0.4.0 — `stop-guessing attest --self` reports SELF-ATTESTATION INCOMPLETE: 19/21 claims
 executed, witnessed and chain-verified on the maintainer's machine.**
 
 **This is self-attestation. It has not been independently verified, and the gate that produces it
 has known limits — stated here rather than in a subsection, because a reader who stops at the
 headline is exactly who they matter to.**
 
-> **The carried workbook reports `20/21`, not `21/21`.** CLAIM-21 derives and fills the questionnaire *before* its own proof record exists, so the artifact is always one claim behind the count that cites it. This is a design defect, not a rendering lag — see SG-HARD-041.
+> **The carried workbook reports `20/21`, not `19/21`.** CLAIM-21 derives and fills the questionnaire *before* its own proof record exists, so the artifact is always one claim behind the count that cites it. This is a design defect, not a rendering lag — see SG-HARD-041.
 
 | | |
 |---|---|
-| Claims executed | **21/21**, by 21 current ledger record(s) (45 superseded re-run(s) not counted) |
+| Claims executed | **19/21**, by 19 current ledger record(s) (44 superseded re-run(s) not counted) |
 | Proof kinds | 3 adversarial, 8 live-run, 7 negative, 3 property — negative and adversarial are not optional |
-| AICM controls evidenced | 14 |
+| AICM controls evidenced | 12 |
 | Chain | intact, keyed-verified |
 | Carried AI-CAIQ | 11 published controls answered (9 Yes, 2 No), derived from those proofs |
 | Judge panel | 46 deferred disapprovals, recorded not blocking — including `independence` on every claim |

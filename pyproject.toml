@@ -44,6 +44,11 @@ version = { file = "VERSION" }
 [tool.setuptools.packages.find]
 include = ["stop_guessing*"]
 
+# #68 (SG-HARD-035). Without this a wheel shipped no policy set, no classification rules and no
+# VERSION, and an editable install from the checkout hid it completely.
+[tool.setuptools.package-data]
+stop_guessing = ["data/VERSION", "data/policy/coc.policy.d/*.yaml", "data/rules/*.yaml"]
+
 [tool.ruff]
 line-length = 100
 target-version = "py311"

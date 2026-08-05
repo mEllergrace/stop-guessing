@@ -59,6 +59,8 @@ FIXED = {
     "SG-HARD-009": "PostToolUseFailure is registered and records the outcome PostToolUse cannot see",
     "SG-HARD-048": "SessionStart/UserPromptSubmit/PreCompact/SubagentStop/Stop/SessionEnd registered",
     "SG-HARD-049": "reconcile() runs at Stop over the turn's dispatches and results",
+    # Packaging, 2026-08-05. The wheel was not merely missing data — it could not import.
+    "SG-HARD-035": "runtime data ships inside the package; a clean-venv wheel install runs",
 }
 
 

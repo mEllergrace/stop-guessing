@@ -14,7 +14,7 @@ from stop_guessing.artifacts.classify import classify_egress, classify_path, pat
 from stop_guessing.artifacts.identity import identify
 from stop_guessing.policy.engine import load
 from stop_guessing.taint.state import ArtifactRef, SessionCustodyState
-from stop_guessing.version import repo_root
+from stop_guessing.version import policy_dir
 
 _POLICIES = None
 
@@ -43,7 +43,7 @@ def _now() -> str:
 def policies():
     global _POLICIES
     if _POLICIES is None:
-        _POLICIES = load(repo_root() / "policy" / "coc.policy.d")
+        _POLICIES = load(policy_dir())
     return _POLICIES
 
 

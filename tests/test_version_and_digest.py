@@ -58,11 +58,26 @@ def test_read_version_refuses_garbage(tmp_path, monkeypatch):
         read_version()
 
 
-def test_read_version_refuses_missing_file(tmp_path, monkeypatch):
+def test_read_version_falls_back_to_the_packaged_copy(tmp_path, monkeypatch):
+    """#68: a wheel has no checkout above it, and this used to raise at import time.
+
+    `repo_root()` falls back to the package parent — `site-packages` under a wheel — so resolving
+    VERSION through it alone made `import stop_guessing` fail outright for every non-editable
+    install. The packaged copy is the second candidate.
+    """
+    import stop_guessing.version as v
+
+    monkeypatch.setattr(v, "repo_root", lambda: tmp_path)   # an empty "root"
+    assert SEMVER.match(read_version()), "must resolve from stop_guessing/data/VERSION"
+
+
+def test_read_version_refuses_when_no_candidate_resolves(tmp_path, monkeypatch):
+    """Still a hard failure when the version genuinely cannot be found — never invented."""
     import stop_guessing.version as v
 
     monkeypatch.setattr(v, "repo_root", lambda: tmp_path)
-    with pytest.raises(ValueError, match="cannot read"):
+    monkeypatch.setattr(v, "__file__", str(tmp_path / "pkg" / "version.py"))
+    with pytest.raises(ValueError, match="cannot read VERSION"):
         read_version()
 
 

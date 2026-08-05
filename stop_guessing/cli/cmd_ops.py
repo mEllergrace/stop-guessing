@@ -15,7 +15,7 @@ import sys
 from pathlib import Path
 
 from stop_guessing.attest.keys import discover
-from stop_guessing.version import repo_root
+from stop_guessing.version import policy_dir, repo_root
 
 
 def _key(args):
@@ -216,7 +216,7 @@ def cmd_trust(args) -> int:
 def cmd_policy(args) -> int:
     from stop_guessing.policy.engine import load, to_cedar
 
-    ps = load(repo_root() / "policy" / "coc.policy.d")
+    ps = load(policy_dir())
     if args.export == "cedar":
         print(to_cedar(ps))
         return 0

@@ -1,0 +1,3 @@
+# Runtime data must reach the sdist as well as the wheel — see #68.
+include VERSION
+recursive-include stop_guessing/data *.yaml VERSION
