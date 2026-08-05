@@ -69,27 +69,57 @@ def cmd_prove(args) -> int:
 
 
 def cmd_claims_check(args) -> int:
-    result = runner.check(_key(args), _ledger(args))
+    """The release gate.
+
+    #38 (SG-HARD-005): the exit code is now a contract, because CI captured it and echoed it and
+    therefore could not fail. "Cannot verify" and "verified, found a problem" are different states
+    and must not collapse into one silent pass:
+
+        0  verified, no findings
+        1  verified, findings — unproven claims, dead evidence, a broken or truncated ledger
+        2  cannot verify — no chain key, so nothing was actually checked
+    """
+    key = _key(args)
+    result = runner.check(key, _ledger(args))
     print(f"ledger: {result['ledger']}")
-    print(f"chain : intact={result['chain_intact']} keyed={result['chain_keyed']}")
+    print(f"chain : intact={result['chain_intact']} keyed={result['chain_keyed']}"
+          + (" TRUNCATED" if result.get("chain_truncated") else ""))
     if not result["chain_intact"]:
         print(f"        {result['chain_reason']}")
     print()
     for row in result["rows"]:
-        if row["proven"]:
-            mark = "PROVEN  "
-        elif not row["has_procedure"]:
+        # #35: NO-PROC is checked BEFORE PROVEN. It used to be the other way round, so a claim
+        # whose procedure had been deleted printed PROVEN and the missing procedure never showed.
+        if not row["has_procedure"]:
             mark = "NO-PROC "
+        elif row["proven"]:
+            mark = "PROVEN  "
         else:
             mark = "UNPROVEN"
         extra = ""
         if row["dead"]:
             extra = "  !! " + "; ".join(row["dead"])
-        if not row["kind_matches"]:
+        if not row["kind_matches"] and row["has_procedure"]:
             extra += "  !! procedure kind does not match the declared proof_kind"
+        for f in row.get("surface_findings") or []:
+            extra += f"  !! {f}"
         print(f"  {mark} {row['id']:<10} {str(row['milestone']):<4} "
               f"{row['proof_kind']:<12} {len(row['live'])} proof(s){extra}")
+
+    unvalidated = sorted({s for r in result["rows"] for s in (r.get("unvalidated_surfaces") or [])})
+    if unvalidated:
+        print(f"\n{len(unvalidated)} declared surface(s) are NOT validated by this gate — only "
+              f"`hook:` is decidable today. Unchecked, not passed:")
+        for s in unvalidated[:8]:
+            print(f"    {s}")
+        if len(unvalidated) > 8:
+            print(f"    … and {len(unvalidated) - 8} more")
+
     print(f"\n{result['proven']}/{result['total']} claims proven")
+    if key is None:
+        print("\nCANNOT VERIFY: no chain key, so the ledger was not authenticated and nothing "
+              "above was actually checked.")
+        return 2
     if not result["ok"]:
         print("A claim with no surviving proof is a FAILED claim, not an unassessed one.")
     return 0 if result["ok"] else 1

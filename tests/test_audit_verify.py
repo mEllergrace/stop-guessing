@@ -30,6 +30,21 @@ HAND_VERIFIED_PRESENT = [
     "SG-HARD-043",  # fill.py hardcodes /Users/isme/...
 ]
 
+#: Findings this repository has since fixed. Their predicates MUST now report ABSENT.
+#:
+#: This list is the reconfirmation, and it guards both directions. A finding here that reports
+#: PRESENT means a fix was reverted or defeated; a finding in HAND_VERIFIED_PRESENT but not here
+#: that reports ABSENT means a predicate has gone blind — which happened twice while this file was
+#: being written, both times reporting a live defect as fixed.
+FIXED = {
+    "SG-HARD-001": "runner._surface_findings() blocks a claim naming an unregistered hook",
+    "SG-HARD-002": "proven now requires has_procedure",
+    "SG-HARD-004": "chain_ok = intact AND NOT truncated",
+    "SG-HARD-005": "claims check exits 0/1/2 and CI propagates 1 and crashes",
+    "SG-HARD-047": "cmd_export refuses a truncated prefix",
+    "SG-HARD-053": "the page counts current live proofs, not every historical ref",
+}
+
 
 def _by_id(rows):
     return {r["id"]: r for r in rows}
@@ -45,12 +60,26 @@ def test_every_finding_names_at_least_one_file():
         assert f.files, f"{f.id} names no evidence location"
 
 
-def test_hand_verified_findings_are_reported_present():
+def test_hand_verified_findings_are_still_present_unless_fixed():
+    """A predicate must not clear a defect nobody fixed."""
     rows = _by_id(run_all())
     for fid in HAND_VERIFIED_PRESENT:
         assert fid in rows, f"{fid} is missing from the finding table"
+        if fid in FIXED:
+            continue
         assert rows[fid]["status"] == PRESENT, (
-            f"{fid} was confirmed by hand but the predicate reports {rows[fid]['status']}: "
+            f"{fid} was confirmed by hand, is not in FIXED, but the predicate reports "
+            f"{rows[fid]['status']}: {rows[fid]['evidence']}"
+        )
+
+
+def test_every_fixed_finding_reports_absent():
+    """The reconfirmation. If a fix is reverted or defeated, this fails."""
+    rows = _by_id(run_all())
+    for fid, why in FIXED.items():
+        assert fid in rows, f"{fid} is missing from the finding table"
+        assert rows[fid]["status"] == ABSENT, (
+            f"{fid} was fixed ({why}) but its predicate reports {rows[fid]['status']}: "
             f"{rows[fid]['evidence']}"
         )
 

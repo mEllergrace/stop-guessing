@@ -80,9 +80,27 @@ jobs:
 
       - name: Claims gate
         run: |
+          # #38 (SG-HARD-005): this captured the exit code and echoed it, so a step named "gate"
+          # could not fail — for unproven claims, malformed evidence, a key mismatch OR a crash.
+          # The original reasoning was sound and is preserved below; what was missing is that it
+          # collapsed "cannot verify here" and "verified and found a problem" into one silent pass,
+          # so a genuine command failure looked exactly like the expected keyless run.
+          #
+          #   0 = verified, no findings          -> pass
+          #   1 = verified, findings             -> FAIL
+          #   2 = cannot verify (no chain key)   -> pass here, and say so loudly
+          #   *  = the command itself broke      -> FAIL
+          #
+          # CI holds no chain key by design: the ledger is machine-local and deliberately not
+          # committed, so the authoritative run is the one where the key lives (docs/REATTESTATION.md).
+          # That makes 2 legitimate in this job and nowhere else — a protected release job must
+          # run where the key is and must treat 2 as a failure.
           rc=0
           python -m stop_guessing.cli.main claims check || rc=$?
-          # 1 here means unproven claims, which is expected without the chain key: the ledger is
-          # machine-local and deliberately not committed. Recorded, not failed — the authoritative
-          # run is the one on the machine that holds the key, per docs/REATTESTATION.md.
-          echo "claims check rc=$rc (authoritative run happens where the chain key lives)"
+          case "$rc" in
+            0) echo "claims check: verified, no findings" ;;
+            2) echo "claims check: CANNOT VERIFY (no chain key in CI) — this job is not the gate."
+               echo "              The authoritative run happens where the key lives." ;;
+            1) echo "::error::claims check found unproven claims or unresolvable evidence"; exit 1 ;;
+            *) echo "::error::claims check failed to run (exit $rc)"; exit "$rc" ;;
+          esac

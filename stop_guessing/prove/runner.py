@@ -186,13 +186,63 @@ def run_all(key: ChainKey | None, ledger: Path = DEFAULT_LEDGER,
     return [run_one(cid, key, ledger) for cid in ids if cid in procs]
 
 
+def registered_hook_events(root: Path | None = None) -> set[str]:
+    """The hook events the shipped plugin actually registers."""
+    import json as _json
+
+    p = (root or repo_root()) / ".claude-plugin" / "plugins" / "stop-guessing" / "hooks" / "hooks.json"
+    try:
+        doc = _json.loads(p.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return set()
+    return set((doc.get("hooks") or doc).keys())
+
+
+def _surface_findings(claim: dict) -> tuple[list[str], list[str]]:
+    """Check a claim's declared `surface:` against reality. Returns (findings, unvalidated).
+
+    #34 (SG-HARD-001). The gate validated the chain, the record, the procedure digest and an
+    execution witness, and never once looked at what the claim said it exercised. Three claims
+    declared `hook:PreCompact`, `hook:Stop` and `hook:SessionStart` while the plugin registered
+    neither — their procedures called the underlying library directly and passed. That is the exact
+    defect the external review named: *a primitive can work while the installed system never
+    invokes it.*
+
+    Only `hook:` is decidable from the tree today, so only `hook:` blocks. The other kinds are
+    returned as `unvalidated` rather than silently treated as satisfied — a surface nobody checked
+    must read as unchecked, not as passed, which is the same rule this project applies to
+    `known_gaps`.
+    """
+    findings: list[str] = []
+    unvalidated: list[str] = []
+    registered = registered_hook_events()
+    for surface in claim.get("surface") or []:
+        s = str(surface)
+        kind, _, rest = s.partition(":")
+        if kind == "hook":
+            if rest not in registered:
+                findings.append(
+                    f"declares {s} but no {rest} hook is registered in the plugin "
+                    f"(registered: {', '.join(sorted(registered)) or 'none'})"
+                )
+        else:
+            unvalidated.append(s)
+    return findings, unvalidated
+
+
 def check(key: ChainKey | None, ledger: Path = DEFAULT_LEDGER) -> dict:
     """The release gate. A claim with no surviving proof is FAILED, not unassessed."""
     doc = load_claims()
     procs = all_procedures()
     loaded = load(ledger, key)
     by_ref = {proof_ref(e): e for e in loaded.entries if e.get("op") == "proof.run"}
-    chain_ok = loaded.chain.intact
+
+    # #37 (SG-HARD-004): an intact PREFIX is not an intact ledger. load() preserves everything up
+    # to a torn or malformed record and reports `truncated` separately; this read only
+    # `chain.intact`, so appending one partial line after the final proof left every earlier proof
+    # live and still produced a full verdict — while the sink itself refused to write another
+    # record. The gate now agrees with the sink about what a usable ledger is.
+    chain_ok = loaded.chain.intact and not loaded.truncated
 
     # Evidence is CURRENT, not cumulative. Every prove run appended another ref, so a control
     # ended up citing 60 records where 59 were superseded re-runs of the same procedure — and the
@@ -236,23 +286,38 @@ def check(key: ChainKey | None, ledger: Path = DEFAULT_LEDGER) -> dict:
             superseded = live[:-1]
             live = live[-1:]
         proc = procs.get(c["id"])
-        kind_ok = proc is None or proc.kind == c.get("proof_kind")
+        has_procedure = c["id"] in procs
+        # #35 (SG-HARD-002): this was `proc is None or ...`, so a claim whose procedure had been
+        # deleted evaluated kind_ok=True, kept its historical record live (there was no current
+        # source to compare the digest against), and reported PROVEN with has_procedure=False
+        # sitting unread beside it. A claim nobody can re-run is not a proven claim.
+        kind_ok = has_procedure and proc.kind == c.get("proof_kind")
+        surface_findings, unvalidated = _surface_findings(c)
         rows.append({
             "id": c["id"],
             "milestone": c.get("milestone"),
             "proof_kind": c.get("proof_kind"),
-            "has_procedure": c["id"] in procs,
+            "has_procedure": has_procedure,
             "kind_matches": kind_ok,
             "live": live,
             "dead": dead,
             "superseded": superseded,
-            "proven": bool(live) and chain_ok and kind_ok,
+            "surface_findings": surface_findings,
+            "unvalidated_surfaces": unvalidated,
+            "proven": (bool(live) and chain_ok and kind_ok and has_procedure
+                       and not surface_findings),
         })
 
     proven = [r for r in rows if r["proven"]]
     return {
+        # `chain_intact` is the USABLE verdict (intact and not truncated); the two inputs are
+        # reported separately so a truncation can never be mistaken for a hash break, or hidden.
         "chain_intact": chain_ok,
-        "chain_reason": loaded.chain.reason,
+        "chain_verified": loaded.chain.intact,
+        "chain_truncated": loaded.truncated,
+        "chain_reason": (loaded.chain.reason if not loaded.chain.intact
+                         else ("the final record is partial; the ledger is a prefix, not a ledger"
+                               if loaded.truncated else None)),
         "chain_keyed": loaded.chain.verified_keyed,
         "ledger": str(ledger),
         "total": len(rows),

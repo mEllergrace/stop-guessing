@@ -106,13 +106,80 @@ def title_for(row: dict) -> str:
     return f"{row['id']}: {row['title']}"
 
 
+def issue_numbers(repo: str = GH_REPO) -> dict[str, tuple[int, str]]:
+    """finding id -> (issue number, state), from the id prefix in the title."""
+    res = subprocess.run(
+        ["gh", "issue", "list", "--repo", repo, "--state", "all", "--limit", "500",
+         "--json", "number,title,state"],
+        capture_output=True, text=True, timeout=120,
+    )
+    if res.returncode != 0:
+        raise SystemExit(f"could not list issues: {res.stderr[-400:]}")
+    out = {}
+    for row in json.loads(res.stdout or "[]"):
+        fid = row["title"].split(":", 1)[0].strip()
+        if fid.startswith("SG-HARD-"):
+            out[fid] = (row["number"], row["state"])
+    return out
+
+
+def close_fixed(repo: str, commit: str, dry_run: bool) -> int:
+    """Close the issues whose predicate now reports ABSENT.
+
+    This is the reconfirmation half of "fix and reconfirm". The closing comment carries the
+    predicate's own current output rather than a claim that the work was done — a fix asserted in a
+    commit message is the thing this project exists to stop accepting.
+    """
+    absent = [r for r in run_all() if r["status"] == "ABSENT"]
+    known = issue_numbers(repo)
+    closed = 0
+    for row in absent:
+        entry = known.get(row["id"])
+        if not entry:
+            print(f"  {row['id']}: ABSENT but no issue filed")
+            continue
+        number, state = entry
+        if state != "OPEN":
+            continue
+        note = (
+            f"**Reconfirmed FIXED at `{commit}`.**\n\n"
+            f"The predicate that confirmed this finding now reports `ABSENT`:\n\n"
+            f"```\n{row['evidence']}\n```\n\n"
+            f"Re-check independently:\n```bash\nscripts/audit_verify.py --id {row['id']}\n```\n\n"
+            f"`tests/test_audit_verify.py::test_every_fixed_finding_reports_absent` asserts this "
+            f"stays `ABSENT`, so a reverted or defeated fix fails the suite rather than going "
+            f"quiet."
+        )
+        if dry_run:
+            print(f"  WOULD CLOSE #{number} {row['id']}")
+            closed += 1
+            continue
+        res = subprocess.run(
+            ["gh", "issue", "close", str(number), "--repo", repo, "--comment", note,
+             "--reason", "completed"],
+            capture_output=True, text=True, timeout=120)
+        if res.returncode != 0:
+            print(f"  FAILED to close #{number}: {res.stderr.strip()[-200:]}")
+            continue
+        print(f"  closed #{number} {row['id']}")
+        closed += 1
+    return closed
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--status", help="PRESENT or DYNAMIC only")
     ap.add_argument("--repo", default=GH_REPO)
     ap.add_argument("--limit", type=int, help="stop after this many (for a cautious first run)")
+    ap.add_argument("--close-fixed", action="store_true",
+                    help="close issues whose predicate now reports ABSENT, with the evidence")
     args = ap.parse_args(argv)
+
+    if args.close_fixed:
+        n = close_fixed(args.repo, head_commit(), args.dry_run)
+        print(f"\n{'would close' if args.dry_run else 'closed'} {n}")
+        return 0
 
     commit = head_commit()
     rows = plan(args.status)

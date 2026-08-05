@@ -245,6 +245,15 @@ def cmd_export(args) -> int:
         print("         Exporting a ledger that does not verify would launder it into a format "
               "that looks authoritative.")
         return 1
+    # #80 (SG-HARD-047): a truncated ledger has an INTACT PREFIX, so this check passed it. PROV,
+    # CASE/UCO and OTel all carry an authority the source no longer has once part of it is missing,
+    # and a downstream validator has no way to tell a complete graph from a prefix of one. Same
+    # rule as the chain break: refuse rather than launder.
+    if loaded.truncated:
+        print("REFUSED: the ledger's final record is partial, so this is a prefix, not a ledger.")
+        print("         The prefix verifies, which is exactly why exporting it is dangerous: the "
+              "output would be indistinguishable from complete evidence.")
+        return 1
     fmt = {"prov": export_prov.export, "case": export_case.export,
            "otel": export_otel.export}[args.format]
     out = fmt(loaded.entries)
