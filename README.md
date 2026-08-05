@@ -12,7 +12,7 @@ headline is exactly who they matter to.**
 
 | | |
 |---|---|
-| Claims executed | **18/21**, by 21 current ledger record(s) (52 superseded re-run(s) not counted) |
+| Claims executed | **18/21**, by 21 current ledger record(s) (45 superseded re-run(s) not counted) |
 | Proof kinds | 3 adversarial, 8 live-run, 7 negative, 3 property — negative and adversarial are not optional |
 | AICM controls evidenced | 13 |
 | Chain | intact, keyed-verified |
@@ -21,19 +21,19 @@ headline is exactly who they matter to.**
 
 **What this gate does not establish.** An independent hardening audit on 2026-08-04
 raised 54 findings. Each was re-verified against source rather than accepted; the current state,
-generated from [`docs/audit-status.json`](docs/audit-status.json) at commit `b9b90cf`, is
-**38 confirmed outstanding, 6 fixed, 10 unverified** (no static
+generated from [`docs/audit-status.json`](docs/audit-status.json) at commit `dfa8bec`, is
+**34 confirmed outstanding, 10 fixed, 10 unverified** (no static
 predicate — those need a live adversarial test and are not counted as passing).
 
 Outstanding CRITICAL findings:
 
 - Proof staleness binds only the procedure, not the implementation (SG-HARD-003)
 - --isolated cannot start a separate-UID recorder (SG-HARD-006)
-- Tier 1 and the default keyfile do not separate key from agent (SG-HARD-007)
 - PostToolUse bypasses cocd and can lose records silently (SG-HARD-008)
 - Failed tool executions are not covered (PostToolUseFailure) (SG-HARD-009)
 - The recorder authenticates ordering, not event truth (SG-HARD-010)
-- …and 11 more — see the `hardening-audit` label.
+- Custody schema is not enforced at the recorder boundary (SG-HARD-011)
+- …and 9 more — see the `hardening-audit` label.
 
 Re-derive any of it with `scripts/audit_verify.py --id <id>`; the predicate reports only whether
 the defect is still present.

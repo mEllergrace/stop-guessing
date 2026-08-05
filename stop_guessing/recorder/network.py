@@ -40,6 +40,17 @@ ALLOWED = {
 SKIP_DIRS = {"compat/nonoodles", "__pycache__"}
 
 
+#: A unix domain socket is local IPC and reaches no network. `socket.socket(socket.AF_UNIX, ...)`
+#: cannot leave the host — it has no address family that could. The scanner matched the generic
+#: `socket.socket(` shape and flagged the recorder's own client and daemon as network call sites,
+#: which is a false positive of the worst kind here: it makes the offline claim unprovable by
+#: pointing at the one component whose whole design is *not* to use the network.
+#:
+#: This is recognised by ADDRESS FAMILY on the line, not by an entry in ALLOWED, because a
+#: path-based exemption would also excuse a real AF_INET socket appearing in the same file later.
+LOCAL_IPC = re.compile(r"\bAF_UNIX\b")
+
+
 @dataclass(frozen=True)
 class Site:
     path: str
@@ -48,8 +59,19 @@ class Site:
     text: str
 
     @property
+    def local_ipc(self) -> bool:
+        """A unix-socket call site: local IPC, not egress."""
+        return self.pattern == "socket" and bool(LOCAL_IPC.search(self.text))
+
+    @property
     def allowed(self) -> bool:
-        return (self.path, self.pattern) in ALLOWED
+        return self.local_ipc or (self.path, self.pattern) in ALLOWED
+
+    @property
+    def reason(self) -> str:
+        if self.local_ipc:
+            return "AF_UNIX — local IPC, no network address family"
+        return ALLOWED.get((self.path, self.pattern), "")
 
 
 def audit(package_root: Path) -> dict:

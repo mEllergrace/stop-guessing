@@ -263,8 +263,25 @@ PYKEY
   if [ "$ISOLATED" -eq 1 ]; then
     if id "$SERVICE_USER" >/dev/null 2>&1; then
       target_uid="$(id -u "$SERVICE_USER")"
-      tier=2
-      echo "  service account $SERVICE_USER exists (uid $target_uid) — installing tier 2"
+      # #39 (SG-HARD-006). This set tier=2 because the ACCOUNT EXISTED, and then wrote a
+      # LaunchAgent into ~/Library/LaunchAgents. launchd runs a LaunchAgent as the logged-in
+      # user regardless of what target_uid says, so the recorder ran as the agent's own uid
+      # while the installer printed "installing tier 2". Existence of an account is not
+      # separation of authority.
+      #
+      # The flag still works and still does everything it can. What it no longer does is
+      # report a tier it did not deliver. A real tier 2 needs a root-installed LaunchDaemon
+      # in /Library/LaunchDaemons with UserName set, which this installer does not yet write.
+      tier=1
+      cat <<EOF
+  service account $SERVICE_USER exists (uid $target_uid), but this installer writes a
+  LaunchAgent, and launchd runs LaunchAgents as the logged-in user ($(id -un), uid $(id -u)).
+  So the recorder would run under the agent's own authority.
+
+  Installing TIER 1 and saying so. Tier 2 requires a root-installed LaunchDaemon
+  (/Library/LaunchDaemons with <key>UserName</key>), which is tracked and not yet built.
+  Reporting tier 2 here would put a false isolation_tier into every record written.
+EOF
     else
       cat <<EOF
   --isolated requested but the service account does not exist, so tier 2 is NOT installed.

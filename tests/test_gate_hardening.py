@@ -201,3 +201,46 @@ def test_hooks_json_is_parseable_and_its_events_are_discoverable():
                       "PermissionRequest", "PostToolBatch", "ConfigChange"}, \
         f"unexpected event name in hooks.json: {events}"
     json.dumps(sorted(events))  # serialisable, for the record
+
+
+# ── the offline audit must tell local IPC from egress ────────────────────────
+
+
+def test_af_unix_is_not_treated_as_a_network_call(tmp_path):
+    """A unix socket has no address family that could leave the host.
+
+    The scanner matched the generic `socket.socket(` shape and flagged the recorder's own client
+    and daemon — the one component designed never to touch the network — which made CLAIM-18
+    unprovable for the wrong reason.
+    """
+    from stop_guessing.recorder.network import audit
+
+    (tmp_path / "ipc.py").write_text(
+        "import socket\ns = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)\n", encoding="utf-8")
+    result = audit(tmp_path)
+    assert result["unexpected"] == []
+    assert result["sites"][0]["allowed"] is True
+
+
+def test_af_inet_is_still_caught(tmp_path):
+    """The control case. Recognising AF_UNIX must not blind the audit to a real socket."""
+    from stop_guessing.recorder.network import audit
+
+    (tmp_path / "egress.py").write_text(
+        "import socket\ns = socket.socket(socket.AF_INET, socket.SOCK_STREAM)\n", encoding="utf-8")
+    result = audit(tmp_path)
+    assert len(result["unexpected"]) == 1
+    assert "AF_INET" in result["unexpected"][0]["text"]
+
+
+def test_the_exemption_is_by_address_family_not_by_file(tmp_path):
+    """A path-based exemption would also excuse a real socket added to that file later."""
+    from stop_guessing.recorder.network import audit
+
+    (tmp_path / "mixed.py").write_text(
+        "import socket\n"
+        "a = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)\n"
+        "b = socket.socket(socket.AF_INET, socket.SOCK_STREAM)\n", encoding="utf-8")
+    result = audit(tmp_path)
+    assert len(result["unexpected"]) == 1, "the AF_INET line in the same file must still be caught"
+    assert "AF_INET" in result["unexpected"][0]["text"]

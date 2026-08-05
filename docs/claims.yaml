@@ -170,8 +170,12 @@ claims:
   must_touch:
   - stop_guessing.policy.engine
 - id: CLAIM-09
-  statement: A delegated script cannot touch live data until its paired test has passed, and cannot run
-    at all if its digest changed after the test passed.
+  statement: The delegation sequence enforces test-before-live-data, and refuses a script whose digest
+    changed after its test passed. NARROWED 2026-08-04 (SG-HARD-018/019). This holds against a cooperative
+    script, not an adversarial one. The security subject is a mutable pathname, so a concurrent replacer
+    can swap the bytes between the digest check and execution; and the paired test itself runs unsigned
+    and can rewrite the script it has just certified. Immutable content-addressed execution is required
+    before this is a security property rather than a discipline.
   surface:
   - cli:"stop-guessing delegate new"
   - cli:"stop-guessing run"
@@ -217,8 +221,12 @@ claims:
   must_touch:
   - stop_guessing.taint.state
 - id: CLAIM-12
-  statement: 'The recorder is not reachable by the agent it records: PATH-shadowing the CLI, direct ledger
-    writes, hook-script substitution and daemon kill are each refused or detected.'
+  statement: PATH-shadowing the CLI, direct ledger writes, hook-script substitution and daemon kill are
+    each refused or detected. NARROWED 2026-08-04 (SG-HARD-006/007/010). This is no longer the broader
+    claim that the recorder is unreachable by the agent it records. At the tiers the installer can actually
+    deliver (0 and 1) the recorder runs under the agent's own uid, the chain key is a mode-600 file that
+    anything the agent runs can read, and the socket authenticates ordering rather than the caller. The
+    four named attacks are refused or detected. An agent that simply reads the key is not among them.
   surface:
   - cli:"stop-guessing doctor"
   - daemon:cocd
@@ -351,9 +359,12 @@ claims:
   witness_mode: subprocess
 - id: CLAIM-18
   statement: 'No statically detectable network call site exists in the shipped Python package except the
-    named opt-in anchoring exception, and CI performs no fetch. This is a source audit, not a proof of
-    no network activity: it cannot see indirect subprocess calls, shell network programs, dynamic imports
-    or commands assembled at runtime.'
+    named opt-in anchoring exception. This is a source audit, not a proof of no network activity. It cannot
+    see indirect subprocess calls, shell network programs, dynamic imports or commands assembled at runtime.
+    SUB-CLAIM WITHDRAWN 2026-08-04 (SG-HARD-039): this also asserted "and CI performs no fetch", which
+    is false. CI runs actions/checkout, actions/setup-python and pip install, every one of which resolves
+    a remote action or package. The proof equated the absence of literal curl and wget text with the absence
+    of fetching. Build-time dependency retrieval is real and is not claimed away.'
   surface:
   - cli:"stop-guessing doctor --network"
   proof_kind: property
@@ -362,21 +373,8 @@ claims:
   - DSP-05
   - I&S-01
   proofs:
-  - sg:31:e3f89cd814900706
-  - sg:58:f4c71b0ec7276039
-  - sg:79:b41619813ad4e433
-  - sg:100:45b3fff47c6680f0
-  - sg:122:6e1971822861b99a
-  - sg:143:d9c2d5aed3fb3892
-  - sg:164:0a17213da88916a0
-  - sg:185:722aa012e9e81176
-  - sg:206:e376384aa84cb442
-  - sg:227:395621be5822edd0
-  - sg:249:3593fb118d2fca63
-  - sg:271:d364696547ebe95c
-  - sg:293:f73310695b98f452
-  - sg:314:c5482c11a08df3ec
-  last_proved: '2026-08-04T02:49:19.976Z'
+  - sg:364:1866196d6a8738f6
+  last_proved: '2026-08-05T02:22:45.390Z'
   must_touch:
   - stop_guessing.recorder.network
 - id: CLAIM-19
@@ -407,8 +405,13 @@ claims:
   last_proved: '2026-08-04T15:52:25.569Z'
   witness_mode: subprocess
 - id: CLAIM-20
-  statement: Every distributed surface — plugin, skill, slash-command and CLI — has been exercised by
-    at least one live-run proof recorded in this toolchain's own ledger.
+  statement: 'Every distributed surface — plugin, skill, slash-command and CLI — is accounted for by a
+    live-run proof recorded in this toolchain''s own ledger. NARROWED 2026-08-04 (SG-HARD-045). "Accounted
+    for" is deliberately weaker than "exercised": CLI surfaces are invoked, but the proof accepts exit
+    code 1 as a successful exercise, runs repository modules rather than a clean marketplace install,
+    and establishes plugin, skill and command surfaces by manifest and file presence rather than by loading
+    or invoking them. Clean-environment black-box matrices are required before this claims per-surface
+    behaviour.'
   surface:
   - plugin:stop-guessing
   - skill:stop-guessing

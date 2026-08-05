@@ -385,14 +385,39 @@ def _substituted(payload, tool, sub, artifact, ident, state, call, posture, cach
                              posture, cache_agreed, substitution=sub)
 
     labels = ",".join(artifact.get("labels") or [])
+
+    # #53 (SG-HARD-020). CLAIM-10 says that under `bar` the model receives only a handle or a
+    # summary. It was false in the deployed path: emit_for_model() existed, was proved, and was
+    # called by nothing, while this text embedded the handler's ENTIRE output — and a hook decision
+    # reason is shown to the model. A handler returning the file's contents therefore placed the
+    # protected bytes in context while the record said delegated handling had occurred.
+    #
+    # The disclosure now follows the posture: `bar` gets handle+summary, everything else keeps the
+    # full output it has always had. Under `bar` the whole point is that the bytes never arrive.
+    from stop_guessing.delegate import emit_for_model
+
+    emitted = emit_for_model(sub.output, "summary" if posture == "bar" else "full",
+                             artifact_id=artifact.get("id") or "")
+    if emitted["mode"] == "full":
+        result_block = ["RESULT:", sub.output.rstrip()]
+    else:
+        result_block = [
+            "RESULT (posture `bar` — the bytes are withheld by design, not by failure):",
+            f"  handle : {emitted['handle']}",
+            f"  size   : {emitted['lines']} line(s), {emitted['bytes']} byte(s)",
+            f"  digest : {emitted['digest'][:32]}",
+            f"  shape  : {emitted.get('first_line_shape', '')}",
+            "",
+            "Pass the handle to a delegated script to work with this without reading it.",
+        ]
+
     lines = [
         f"CHAIN-OF-CUSTODY [delegated]: {ident.canonical_path} is classified {labels}.",
         "",
         f"No permission prompt was pending, so the preferred path was taken automatically: "
         f"{Path(sub.script).name} handled it and the file was not read into context.",
         "",
-        "RESULT:",
-        sub.output.rstrip(),
+        *result_block,
         "",
         f"That answers the request. Handler test passed, digest "
         f"{(sub.script_digest or '')[:16]}, recorded {entry}.",

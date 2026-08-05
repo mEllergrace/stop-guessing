@@ -948,10 +948,17 @@ def prove_offline_by_default() -> ProofResult:
     for (path, pat), why in ALLOWED.items():
         r.observe(f"  {path} [{pat}] — {why}")
 
+    # #72 (SG-HARD-039). This used to assert "CI performs no fetch" on the grounds that ci.yml
+    # contains no literal curl or wget. That was false, and the test was the reason nobody noticed:
+    # actions/checkout, actions/setup-python and pip install each resolve something remote. The
+    # sub-claim is withdrawn from CLAIM-18 rather than reworded into something still untrue, and
+    # what CI actually fetches is now enumerated as an observation instead of denied.
     ci = (repo_root() / ".github" / "workflows" / "ci.yml").read_text()
-    if "curl" in ci or "wget" in ci:
-        return r.fail("CI performs a network fetch")
-    r.observe("CI workflow performs no fetch either")
+    fetchers = sorted({m for m in ("actions/checkout", "actions/setup-python", "pip install",
+                                   "curl", "wget") if m in ci})
+    r.observe("SCOPE: this claim is about the SHIPPED PACKAGE's source, not about CI. CI does "
+              "fetch, and the build-time retrieval it performs is: "
+              + (", ".join(fetchers) or "none detected"))
     r.evidence = {"files_scanned": result["files_scanned"],
                   "sites": len(result["sites"]), "unexpected": 0}
     return r

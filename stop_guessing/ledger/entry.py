@@ -69,9 +69,31 @@ OUTCOMES = frozenset({"allow", "ask", "deny", "defer", "allow-with-conditions"})
 POSTURES = frozenset({"observe", "steer", "bar"})
 METHOD_KINDS = frozenset({"direct-model", "delegated-script", "signed-script", "denied"})
 
+#: Every level any version of this tool has emitted. Nothing is removed — a consumer matching on
+#: "chain-keyed+isolated" keeps working. What changed (#85, SG-HARD-052/007) is *when* that level
+#: is emitted: it now requires custody the recorded agent cannot reach, which is tier 2 and above.
+#: Tier 1 is a separate process on the SAME uid reading a keyfile the agent can also read, so
+#: calling it "isolated" described a process count rather than an authority boundary.
 STRENGTH_LADDER = (
     "chain-only", "chain-keyed", "chain-keyed+isolated", "+signed", "+tsa", "+transparency",
 )
+
+#: What each level actually asserts, so the word does not have to carry it alone.
+STRENGTH_MEANING = {
+    "chain-only": "hash-chained, unkeyed — a rewrite recomputes cleanly and is undetectable",
+    "chain-keyed": ("HMAC-keyed under the SAME authority as the recorded agent. The chain detects "
+                    "a rewrite by anyone who lacks the key; it does not establish that the agent "
+                    "lacks it"),
+    "chain-keyed+isolated": ("HMAC-keyed with the key held by an authority the recorded agent "
+                             "cannot reach (separate uid or better)"),
+    "+signed": "additionally signed",
+    "+tsa": "additionally timestamped by an RFC 3161 authority",
+    "+transparency": "additionally logged to a transparency service",
+}
+
+#: The isolation tier at which "+isolated" stops being a claim about process count and starts
+#: being a claim about authority. Tier 1 is same-uid; tier 2 is a different uid.
+ISOLATED_MIN_TIER = 2
 
 
 class RecordInvalid(Exception):
@@ -152,11 +174,21 @@ def validate_tier_b(predicate: dict) -> list[str]:
 
 
 def strength(predicate: dict) -> str:
-    """Where this record sits on the ladder. Reports the floor, never the ceiling."""
+    """Where this record sits on the ladder. Reports the floor, never the ceiling.
+
+    #85 (SG-HARD-052/007): this promoted to "+isolated" at `isolation_tier >= 1`, and tier 1 is a
+    separate *process* on the *same uid*, reading a mode-600 keyfile that anything the agent can
+    run can also read. An agent holding the key can rewrite a fully valid chain — the keyed-chain
+    control case in this repository's own proofs demonstrates exactly that. So the word described a
+    process count while reading as an authority boundary.
+
+    The level still exists and any consumer matching it still works; it now requires the tier at
+    which the claim is true.
+    """
     chain = dig(predicate, "verification.chain")[1] or {}
     level = "chain-keyed" if chain.get("algo") == "hmac-sha256" else "chain-only"
     recorder = dig(predicate, "verification.recorder")[1] or {}
-    if level == "chain-keyed" and (recorder.get("isolation_tier") or 0) >= 1:
+    if level == "chain-keyed" and (recorder.get("isolation_tier") or 0) >= ISOLATED_MIN_TIER:
         level = "chain-keyed+isolated"
     if (dig(predicate, "verification.signature")[1] or {}).get("present"):
         level = "+signed"

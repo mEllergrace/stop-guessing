@@ -95,14 +95,14 @@ class Finding:
 
 
 def c_surface_unvalidated():
-    src = _read("stop_guessing/prove/runner.py")
+    src = _code("stop_guessing/prove/runner.py")
     uses = re.search(r"""\bsurface\b""", src.split("def attest_self")[0])
     return (ABSENT, "runner.check() references surface") if uses else (
         PRESENT, "no reference to claims.yaml `surface` anywhere in runner.check()")
 
 
 def c_missing_procedure_still_proven():
-    src = _read("stop_guessing/prove/runner.py")
+    src = _code("stop_guessing/prove/runner.py")
     lenient = re.search(r"kind_ok\s*=\s*proc is None", src)
     in_proven = re.search(r'"proven":\s*bool\(live\)[^\n]*has_procedure', src)
     if lenient and not in_proven:
@@ -112,7 +112,7 @@ def c_missing_procedure_still_proven():
 
 
 def c_truncated_ledger_attests():
-    src = _read("stop_guessing/prove/runner.py")
+    src = _code("stop_guessing/prove/runner.py")
     if "truncated" in src:
         return ABSENT, "runner.py now considers loaded.truncated"
     return PRESENT, ("runner.py never references `truncated`; chain_ok = loaded.chain.intact only, "
@@ -120,7 +120,7 @@ def c_truncated_ledger_attests():
 
 
 def c_proof_binds_only_procedure_source():
-    src = _read("stop_guessing/prove/registry.py") + _read("stop_guessing/prove/runner.py")
+    src = _code("stop_guessing/prove/registry.py") + _code("stop_guessing/prove/runner.py")
     binds_more = re.search(r"policy_digest|tree_digest|build_digest|subject_digest", src)
     return (ABSENT, "a broader evidence subject is bound") if binds_more else (
         PRESENT, "only inspect.getsource() of the decorated function is pinned")
@@ -135,24 +135,57 @@ def c_ci_gate_cannot_fail():
 
 
 def c_isolated_cannot_reach_tier2():
+    """Read where the plist is actually WRITTEN, not where the word appears.
+
+    Third false negative of the same family: explaining in an installer message that tier 2 would
+    require a LaunchDaemon put the string "LaunchDaemons" in the file, and a substring check read
+    that as the daemon being used. Prose about a mechanism is not the mechanism.
+    """
     src = _read("install.sh")
-    agent = "LaunchAgents" in src
-    daemon = "LaunchDaemons" in src
-    if agent and not daemon:
-        return PRESENT, ("install.sh writes $HOME/Library/LaunchAgents, which runs as the "
-                         "logged-in user; target_uid is computed and never applied")
-    return ABSENT, "a LaunchDaemon (root-installed, separate uid) is used"
+    written = re.findall(r'plist=["\']?(\$HOME/Library/LaunchAgents|/Library/LaunchDaemons)', src)
+    sets_tier2 = re.search(r"^\s*tier=2\s*$", src, re.M)
+    if "/Library/LaunchDaemons" in written:
+        return ABSENT, "install.sh writes a plist into /Library/LaunchDaemons"
+    if written:
+        return PRESENT, (
+            f"the plist is written to {written[0]}, which launchd runs as the logged-in user, so "
+            f"the recorder shares the agent's uid"
+            + ("" if sets_tier2 else "; the installer no longer reports tier 2 for it")
+        )
+    return DYNAMIC, "could not locate the plist target in install.sh"
 
 
 def c_same_uid_key_not_isolated():
-    src = _read("stop_guessing/ledger/entry.py")
-    if re.search(r"isolated", src) and re.search(r"isolation_tier.*>=?\s*1|tier\s*>=?\s*1", src):
-        return PRESENT, "strength() promotes to '+isolated' at tier >= 1, which is the same uid"
-    return ABSENT, "strength no longer claims isolation at same-uid tier 1"
+    """Extract the ACTUAL promotion threshold from strength(), not the words around it.
+
+    Fourth false negative of the same family. Writing "tier 1 is same-uid" in a comment explaining
+    the fix made a prose-reading predicate match and report the defect present forever; reading raw
+    text also made it match the docstring. Behaviour predicates read code only, and this one
+    resolves the named constant rather than pattern-matching the comparison.
+    """
+    src = _code("stop_guessing/ledger/entry.py")
+    m = re.search(r"def strength.*?(?=\n@|\ndef |\nclass )", src, re.S)
+    body = m.group(0) if m else ""
+    cmp_ = re.search(r"isolation_tier[^\n]*?>=\s*([A-Za-z_0-9]+)", body)
+    if not cmp_:
+        return DYNAMIC, "could not locate the isolation threshold in strength()"
+    token = cmp_.group(1)
+    if token.isdigit():
+        threshold = int(token)
+    else:
+        const = re.search(rf"^{re.escape(token)}\s*=\s*(\d+)", src, re.M)
+        if not const:
+            return DYNAMIC, f"threshold is the symbol {token}, which could not be resolved"
+        threshold = int(const.group(1))
+    if threshold < 2:
+        return PRESENT, (f"strength() promotes to '+isolated' at isolation_tier >= {threshold}; "
+                         "tier 1 is a separate process on the SAME uid")
+    return ABSENT, (f"'+isolated' requires isolation_tier >= {threshold}, i.e. a different uid; "
+                    "same-uid tier 1 now reports plain 'chain-keyed'")
 
 
 def c_posttooluse_bypasses_daemon():
-    src = _read("stop_guessing/cli/hook_post.py")
+    src = _code("stop_guessing/cli/hook_post.py")
     direct = "from stop_guessing.ledger.sink import record" in src or re.search(
         r"\brecord\(ledger_path\(\)", src)
     via_client = "recorder.client" in src or "client.append" in src
@@ -190,8 +223,8 @@ def c_socket_unauthenticated():
 
 
 def c_schema_not_enforced_at_sink():
-    sink = _read("stop_guessing/ledger/sink.py")
-    daemon = _read("stop_guessing/recorder/daemon.py")
+    sink = _code("stop_guessing/ledger/sink.py")
+    daemon = _code("stop_guessing/recorder/daemon.py")
     enforced = "validate_tier_a" in sink or "validate_tier_a" in daemon
     return (ABSENT, "Tier-A validation runs at the sink/daemon boundary") if enforced else (
         PRESENT, "validate_tier_a() is only reachable via CustodyRecord.build(); "
@@ -206,7 +239,7 @@ def c_doctor_blind():
     a tier it was never given the inputs to compute. What doctor passes in is the only thing that
     decides whether it can see the installed architecture.
     """
-    src = _read("stop_guessing/cli/cmd_ops.py")
+    src = _code("stop_guessing/cli/cmd_ops.py")
     m = re.search(r"def cmd_doctor.*?(?=\ndef )", src, re.S)
     body = m.group(0) if m else ""
     call = re.search(r"self_check\((.*?)\)", body, re.S)
@@ -220,7 +253,7 @@ def c_doctor_blind():
 
 
 def c_project_config_can_downgrade():
-    src = _read("stop_guessing/cli/hook_gate.py")
+    src = _code("stop_guessing/cli/hook_gate.py")
     proj_first = re.search(r"cwd\).*\.stop-guessing\.json", src, re.S)
     managed = re.search(r"managed|operator_policy|cannot_weaken", src)
     if proj_first and not managed:
@@ -230,14 +263,14 @@ def c_project_config_can_downgrade():
 
 
 def c_policy_assets_unanchored():
-    src = _code("stop_guessing/cli/gate.py") + _read("stop_guessing/policy/engine.py")
+    src = _code("stop_guessing/cli/gate.py") + _code("stop_guessing/policy/engine.py")
     if re.search(r"expected_policy_digest|verify_policy_digest|pinned_digest", src):
         return ABSENT, "the policy set is checked against a pinned expected digest"
     return PRESENT, "policy_set_digest is recorded but never compared to a trusted expectation"
 
 
 def c_symlink_classification_bypass():
-    src = _read("stop_guessing/cli/gate.py")
+    src = _code("stop_guessing/cli/gate.py")
     cls = src.find("classify_path(")
     ident = src.find("identify(")
     if cls != -1 and ident != -1 and cls < ident:
@@ -247,14 +280,14 @@ def c_symlink_classification_bypass():
 
 
 def c_artifact_id_inode():
-    src = _read("stop_guessing/artifacts/identity.py")
+    src = _code("stop_guessing/artifacts/identity.py")
     if re.search(r"st_ino|st_dev|inode", src):
         return PRESENT, "artifact_id incorporates dev/inode; atomic replacement mints a new id"
     return ABSENT, "identity no longer depends on inode"
 
 
 def c_handler_runs_before_policy():
-    src = _read("stop_guessing/cli/gate.py")
+    src = _code("stop_guessing/cli/gate.py")
     sub = src.find("handlers.substitute(")
     ev = src.find(".evaluate(")
     if sub != -1 and ev != -1 and sub < ev:
@@ -263,7 +296,7 @@ def c_handler_runs_before_policy():
 
 
 def c_bar_leaks_handler_output():
-    src = _read("stop_guessing/cli/gate.py")
+    src = _code("stop_guessing/cli/gate.py")
     if "emit_for_model" in src:
         return ABSENT, "the gate routes handler output through emit_for_model()"
     if re.search(r"sub\.output", src):
@@ -279,7 +312,7 @@ def c_no_sandbox():
 
 
 def c_cache_fallback_on_integrity_failure():
-    src = _read("stop_guessing/cli/gate.py")
+    src = _code("stop_guessing/cli/gate.py")
     m = re.search(r"def state_for.*?(?=\ndef )", src, re.S)
     body = m.group(0) if m else ""
     broad = re.search(r"except Exception", body)
@@ -291,7 +324,7 @@ def c_cache_fallback_on_integrity_failure():
 
 
 def c_gap_recording_env_only():
-    src = _read("stop_guessing/cli/hook_gate.py")
+    src = _code("stop_guessing/cli/hook_gate.py")
     m = re.search(r"def _record_gap.*?(?=\ndef )", src, re.S)
     body = m.group(0) if m else ""
     if "from_env" in body and "discover" not in body:
@@ -308,7 +341,7 @@ def c_seal_does_not_rotate():
 
 
 def c_partial_write():
-    src = _read("stop_guessing/ledger/sink.py")
+    src = _code("stop_guessing/ledger/sink.py")
     if re.search(r"while .*written|memoryview|\.write\(.*\)\s*!=\s*len", src):
         return ABSENT, "writes are looped/length-checked"
     if "os.write" in src:
@@ -317,7 +350,7 @@ def c_partial_write():
 
 
 def c_full_reverify_per_append():
-    src = _read("stop_guessing/ledger/sink.py")
+    src = _code("stop_guessing/ledger/sink.py")
     m = re.search(r"def _record_locked.*?(?=\ndef |\Z)", src, re.S)
     body = m.group(0) if m else ""
     if re.search(r"load\(|verify\(", body):
@@ -326,8 +359,8 @@ def c_full_reverify_per_append():
 
 
 def c_cli_ledger_split_brain():
-    cli = _read("stop_guessing/cli/cmd_ledger.py")
-    gate = _read("stop_guessing/cli/gate.py")
+    cli = _code("stop_guessing/cli/cmd_ledger.py")
+    gate = _code("stop_guessing/cli/gate.py")
     cli_default = re.search(r"~?/?\.stop-guessing/ledger\.jsonl|\.stop-guessing.*ledger\.jsonl", cli)
     gate_default = "custody.jsonl" in gate
     if cli_default and gate_default:
@@ -354,7 +387,7 @@ def c_wheel_missing_data():
 
 
 def c_vendored_hook_missing_silently():
-    src = _read("stop_guessing/cli/hook_gate.py")
+    src = _code("stop_guessing/cli/hook_gate.py")
     m = re.search(r"def run_vendored.*?(?=\ndef )", src, re.S)
     body = m.group(0) if m else ""
     if re.search(r"is_file\(\)[^\n]*\n\s*continue|not .*exists\(\)[^\n]*\n\s*continue", body):
@@ -363,14 +396,32 @@ def c_vendored_hook_missing_silently():
 
 
 def c_ci_no_fetch_claim():
-    src = _read("stop_guessing/prove/procedures.py")
-    if re.search(r"curl|wget", src) and re.search(r"no.?fetch|performs no fetch|no network", src, re.I):
-        return PRESENT, "the proof equates absence of literal curl/wget with 'no fetch'; CI uses actions/checkout and pip"
-    return ABSENT, "the CI no-fetch subclaim is gone or reworded"
+    """Measure the ASSERTION, not words near it.
+
+    The finding is that CLAIM-18 asserts "CI performs no fetch", which is false. The first
+    predicate searched the procedure for "no fetch"/"no network" and matched the claim's own
+    legitimate scope caveat ("not a proof of no network activity"), so it could never clear. What
+    settles this is the claim text plus whether the procedure still FAILS on the CI check.
+    """
+    stmt = ""
+    for m in re.finditer(r"^- id: (CLAIM-\d+)\n(.*?)(?=^- id: |\Z)", _read("docs/claims.yaml"),
+                         re.S | re.M):
+        if m.group(1) == "CLAIM-18":
+            stmt = " ".join(m.group(2).split())
+    asserts_ci = re.search(r"CI performs no fetch", stmt) and "WITHDRAWN" not in stmt
+    src = _code("stop_guessing/prove/procedures.py")
+    fails_on_ci = re.search(r'if "curl" in ci or "wget" in ci:\s*\n\s*return r\.fail', src)
+    if asserts_ci or fails_on_ci:
+        return PRESENT, ("CLAIM-18 still asserts CI performs no fetch"
+                         if asserts_ci else
+                         "the procedure still fails on literal curl/wget in ci.yml, which equates "
+                         "that with 'no fetch'")
+    return ABSENT, ("the CI sub-claim is withdrawn in claims.yaml and the procedure now enumerates "
+                    "what CI actually fetches instead of denying it")
 
 
 def c_fill_trusts_editable_yaml():
-    src = _read("stop_guessing/cli/cmd_caiq.py")
+    src = _code("stop_guessing/cli/cmd_caiq.py")
     m = re.search(r"def cmd_fill.*?(?=\ndef )", src, re.S)
     body = m.group(0) if m else ""
     if "derive(" in body:
@@ -392,14 +443,14 @@ def c_caiq_epoch_circular():
 
 
 def c_verifier_path_machine_specific():
-    src = _read("stop_guessing/caiq/fill.py")
+    src = _code("stop_guessing/caiq/fill.py")
     if re.search(r"/Users/[a-z]+/", src):
         return PRESENT, "fill.py hardcodes an absolute maintainer path to the rich-text verifier"
     return ABSENT, "the verifier is resolved portably"
 
 
 def c_judge_not_in_verdict():
-    src = _read("stop_guessing/prove/runner.py")
+    src = _code("stop_guessing/prove/runner.py")
     m = re.search(r'result\["goal_met"\]\s*=.*?\n\s*\)', src, re.S)
     body = m.group(0) if m else ""
     if "judge" not in body:
@@ -408,7 +459,7 @@ def c_judge_not_in_verdict():
 
 
 def c_claim20_permissive():
-    src = _read("stop_guessing/prove/procedures.py")
+    src = _code("stop_guessing/prove/procedures.py")
     m = re.search(r"def prove_every_surface_runs.*?(?=\n@proof|\ndef )", src, re.S)
     body = m.group(0) if m else ""
     if re.search(r"returncode in \(0, 1\)|rc in \(0, 1\)|in \(0, 1\)", body):
@@ -417,7 +468,7 @@ def c_claim20_permissive():
 
 
 def c_otel_not_otlp():
-    src = _read("stop_guessing/prov/export_otel.py")
+    src = _code("stop_guessing/prov/export_otel.py")
     if re.search(r"resourceSpans|scopeSpans", src):
         return ABSENT, "the exporter emits the OTLP resourceSpans/scopeSpans envelope"
     return PRESENT, ("no resourceSpans/scopeSpans envelope; OTLP JSON requires it and encodes enums "
@@ -425,7 +476,7 @@ def c_otel_not_otlp():
 
 
 def c_export_accepts_truncated():
-    src = _read("stop_guessing/cli/cmd_ops.py")
+    src = _code("stop_guessing/cli/cmd_ops.py")
     m = re.search(r"def cmd_export.*?(?=\ndef )", src, re.S)
     body = m.group(0) if m else ""
     if "truncated" in body:
@@ -442,7 +493,7 @@ def c_reconcile_unwired():
 
 
 def c_session_cache_collision():
-    src = _read("stop_guessing/taint/persist.py")
+    src = _code("stop_guessing/taint/persist.py")
     if re.search(r"sha256|blake2|hashlib", src):
         return ABSENT, "the cache filename is a digest of the full session id"
     if re.search(r"\[:120\]|120\]", src):
@@ -451,21 +502,21 @@ def c_session_cache_collision():
 
 
 def c_sufficiency_over_all_records():
-    src = _read("stop_guessing/verify/sufficiency.py")
+    src = _code("stop_guessing/verify/sufficiency.py")
     if re.search(r"event_type|by_type|typed|joined", src):
         return ABSENT, "sufficiency evaluates typed/joined event sets"
     return PRESENT, "sufficiency requires every record to populate every regime; flat events make it permanently incomplete"
 
 
 def c_page_counts_superseded():
-    src = _read("stop_guessing/cli/cmd_page.py")
+    src = _code("stop_guessing/cli/cmd_page.py")
     if re.search(r'sum\(len\(c\.get\("proofs"\)', src):
         return PRESENT, "the page sums every historical ref rather than current live proofs"
     return ABSENT, "the page renders current live evidence separately from historical runs"
 
 
 def c_record_id_ambiguous():
-    src = _read("stop_guessing/cli/gate.py")
+    src = _code("stop_guessing/cli/gate.py")
     if re.search(r'f?"sg:\{[^}]*session[^}]*\}:\{[^}]*op', src) or re.search(
             r'sg:\{sid\}:\{op\}', src):
         return PRESENT, "fallback record id is sg:<session>:<op>; repeated ops collide"
@@ -473,7 +524,7 @@ def c_record_id_ambiguous():
 
 
 def c_disable_switch_silent():
-    src = _read("stop_guessing/cli/hook_gate.py")
+    src = _code("stop_guessing/cli/hook_gate.py")
     if "STOP_GUESSING_DISABLE" in src and not re.search(r"STOP_GUESSING_DISABLE.*\n.*record", src):
         return PRESENT, "STOP_GUESSING_DISABLE bypasses custody with no recorded disabled-mode event"
     return ABSENT, "the disable switch records a transition"

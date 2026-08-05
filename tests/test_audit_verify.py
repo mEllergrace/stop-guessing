@@ -43,6 +43,12 @@ FIXED = {
     "SG-HARD-005": "claims check exits 0/1/2 and CI propagates 1 and crashes",
     "SG-HARD-047": "cmd_export refuses a truncated prefix",
     "SG-HARD-053": "the page counts current live proofs, not every historical ref",
+    # Claim narrowing, 2026-08-04. No feature was removed: bar, --isolated and signed delegation
+    # all still work. What changed is what they assert about themselves.
+    "SG-HARD-007": "'+isolated' now requires tier >= 2 (a different uid), not tier >= 1",
+    "SG-HARD-052": "same-uid tier 1 reports plain 'chain-keyed'",
+    "SG-HARD-020": "the gate routes handler output through emit_for_model(); bar gets handle+summary",
+    "SG-HARD-039": "the CI no-fetch sub-claim is withdrawn and what CI fetches is enumerated",
 }
 
 
