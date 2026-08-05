@@ -162,8 +162,19 @@ def run(deleg: Delegation, artifacts: list[str], *, timeout: int = 120) -> dict:
             "about a file that no longer exists. Re-run the test."
         )
 
-    res = subprocess.run(  # noqa: S603
+    # #54 (SG-HARD-021). The environment allowlist and proxy variables are advisory — this
+    # module's own docstring said so — and the application claims leaned on "capability-
+    # constrained" anyway. There is a real OS boundary now, and where the host cannot provide one
+    # the record says `mechanism: none` rather than implying otherwise.
+    from stop_guessing import sandbox as _sandbox
+
+    argv, sb = _sandbox.wrap(
         [sys.executable, str(deleg.script), *artifacts],
+        reads=[str(deleg.script.parent), *artifacts],
+        writes=[str(deleg.script.parent)],
+    )
+    res = subprocess.run(  # noqa: S603
+        argv,
         capture_output=True, cwd=str(deleg.script.parent), timeout=timeout,
         env={**_clean_env(), "PYTHONPATH": str(deleg.script.parent),
              "SG_NETWORK": "deny", "http_proxy": "127.0.0.1:1", "https_proxy": "127.0.0.1:1"},
@@ -175,13 +186,26 @@ def run(deleg: Delegation, artifacts: list[str], *, timeout: int = 120) -> dict:
         "output_digest": bytes_digest(output.encode()),
         "argv_digest": bytes_digest(" ".join(artifacts).encode()),
         "stderr_tail": res.stderr.decode("utf-8", "replace").strip()[-300:],
+        # The record states the boundary that was ACTUALLY applied. #19 named this honestly when
+        # there was no boundary; #54 supplied one, so the caveat must not outlive the defect —
+        # a record that still said "this is not a sandbox" under an enforced profile would be
+        # wrong in the other direction, and equally useless to an auditor.
         "sandbox": {
-            # Honest naming (#19): an environment restriction, not a capability boundary.
-            "kind": "env-allowlist-only",
-            "network": "proxy-variables-only, NOT enforced",
+            "mechanism": sb.mechanism,
+            "enforced": sb.enforced,
+            "boundary": sb.detail,
+            "kind": "os-capability-boundary" if sb.enforced else "env-allowlist-only",
+            "network": "denied by the OS" if sb.enforced
+                       else "proxy-variables-only, NOT enforced",
             "env_allowlist": list(ENV_ALLOWLIST),
             "cwd": str(deleg.script.parent),
-            "caveat": "a script can open raw sockets or exec another binary; this is not a sandbox",
+            "caveat": (
+                "deny-listed, not deny-by-default: network, writes outside the declared outputs, "
+                "and reads of the custody directory are refused by the OS. A container is still "
+                "stronger."
+                if sb.enforced else
+                "a script can open raw sockets or exec another binary; this is not a sandbox"
+            ),
         },
     }
 

@@ -86,6 +86,8 @@ FIXED = {
     "SG-HARD-032": "digest-pinned verified prefix plus a per-connection read deadline",
     "SG-HARD-034": "hooks run a launcher in the plugin root that pins the interpreter",
     "SG-HARD-051": "regimes are assessed over applicable record kinds; empty is not a pass",
+    "SG-HARD-006": "install.sh generates and (as root) installs a tier-2 LaunchDaemon",
+    "SG-HARD-021": "delegated execution runs under an OS capability boundary, self-tested",
 }
 
 

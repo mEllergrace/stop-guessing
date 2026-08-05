@@ -236,6 +236,37 @@ EOF
 
 SERVICE_USER="_stopguessing"
 
+write_daemon_plist() {
+  # The tier-2 plist. UserName is the whole point: launchd starts the recorder under an account
+  # the recorded agent cannot write as, which is what makes the ledger unreachable to it.
+  local out="$1" user="$2" runtime="$3"
+  mkdir -p "$(dirname "$out")"
+  cat > "$out" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.mellergrace.stop-guessing.cocd</string>
+  <key>UserName</key><string>${user}</string>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>ProgramArguments</key>
+  <array>
+    <string>${runtime}/bin/python</string>
+    <string>-m</string>
+    <string>stop_guessing.recorder.daemon</string>
+    <string>--config-dir</string>
+    <string>${CLAUDE_DIR}</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict><key>CLAUDE_CONFIG_DIR</key><string>${CLAUDE_DIR}</string></dict>
+  <key>StandardErrorPath</key><string>${CLAUDE_DIR}/stop-guessing/cocd.err</string>
+</dict>
+</plist>
+PLIST
+  chmod 0644 "$out"
+}
+
 install_recorder() {
   local claude_dir="$1"
   local runtime="$claude_dir/stop-guessing/runtime"
@@ -272,16 +303,45 @@ PYKEY
       # The flag still works and still does everything it can. What it no longer does is
       # report a tier it did not deliver. A real tier 2 needs a root-installed LaunchDaemon
       # in /Library/LaunchDaemons with UserName set, which this installer does not yet write.
-      tier=1
-      cat <<EOF
-  service account $SERVICE_USER exists (uid $target_uid), but this installer writes a
-  LaunchAgent, and launchd runs LaunchAgents as the logged-in user ($(id -un), uid $(id -u)).
-  So the recorder would run under the agent's own authority.
+      # #39 (SG-HARD-006), completed. A LaunchAgent runs as the logged-in user whatever
+      # target_uid says, so tier 2 needs a root-installed LaunchDaemon with <key>UserName</key>.
+      # That plist is now generated. Writing it requires root, which the installer does not
+      # assume: with root it installs and bootstraps; without, it writes the plist somewhere
+      # readable and prints the two commands, and installs tier 1 in the meantime — honestly.
+      local daemon_plist="/Library/LaunchDaemons/com.mellergrace.stop-guessing.cocd.plist"
+      local staged="$CLAUDE_DIR/stop-guessing/com.mellergrace.stop-guessing.cocd.plist"
+      write_daemon_plist "$staged" "$SERVICE_USER" "$runtime"
 
-  Installing TIER 1 and saying so. Tier 2 requires a root-installed LaunchDaemon
-  (/Library/LaunchDaemons with <key>UserName</key>), which is tracked and not yet built.
-  Reporting tier 2 here would put a false isolation_tier into every record written.
+      if [ "$(id -u)" -eq 0 ]; then
+        install -m 0644 -o root -g wheel "$staged" "$daemon_plist"
+        # The ledger and key must belong to the service account, not the agent.
+        chown -R "$SERVICE_USER" "$CLAUDE_DIR/stop-guessing/ledger" 2>/dev/null || true
+        chown "$SERVICE_USER" "$keyfile" 2>/dev/null || true
+        chmod 0600 "$keyfile" 2>/dev/null || true
+        launchctl bootout system "$daemon_plist" 2>/dev/null || true
+        launchctl bootstrap system "$daemon_plist"
+        tier=2
+        echo "  installed TIER 2: LaunchDaemon running as $SERVICE_USER (uid $target_uid);"
+        echo "  the ledger and chain key are owned by that account and are not writable by you."
+      else
+        tier=1
+        cat <<EOF
+  service account $SERVICE_USER exists (uid $target_uid), and the tier-2 LaunchDaemon plist has
+  been written to:
+
+    $staged
+
+  Installing it requires root, because a LaunchAgent runs as the logged-in user no matter what
+  and only /Library/LaunchDaemons can run the recorder under another account:
+
+    sudo install -m 0644 -o root -g wheel "$staged" $daemon_plist
+    sudo chown -R $SERVICE_USER "$CLAUDE_DIR/stop-guessing/ledger" "$keyfile"
+    sudo launchctl bootstrap system $daemon_plist
+
+  Installing TIER 1 for now and saying so. Reporting tier 2 here would put a false
+  isolation_tier into every record written.
 EOF
+      fi
     else
       cat <<EOF
   --isolated requested but the service account does not exist, so tier 2 is NOT installed.

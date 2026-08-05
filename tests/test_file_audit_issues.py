@@ -34,7 +34,16 @@ def test_only_present_and_dynamic_are_filed():
 
 
 def test_a_confirmed_finding_says_it_was_re_derived():
-    row = next(r for r in plan() if r["status"] == PRESENT)
+    """Skips once nothing is PRESENT — reaching zero is the goal, not a test failure.
+
+    Written against a synthetic row rather than `next(...)` on a live plan, so the wording is
+    still asserted after the last real finding is fixed. A test that only holds while defects
+    exist stops protecting the thing it was written for at exactly the moment it matters.
+    """
+    row = next((r for r in plan() if r["status"] == PRESENT), None) or {
+        "id": "SG-HARD-001", "severity": "CRITICAL", "title": "synthetic",
+        "status": PRESENT, "evidence": "synthetic evidence for the wording assertion",
+    }
     body = body_for(row, "abc1234")
     assert "CONFIRMED PRESENT" in body
     assert "re-derived from source" in body
@@ -63,5 +72,8 @@ def test_every_body_names_the_commit_it_was_verified_at():
 
 
 def test_status_filter_narrows_the_plan():
-    only = plan("PRESENT")
-    assert only and all(r["status"] == PRESENT for r in only)
+    """The filter must be correct whether or not anything currently matches."""
+    assert all(r["status"] == PRESENT for r in plan("PRESENT"))
+    dynamic = plan("DYNAMIC")
+    assert all(r["status"] == DYNAMIC for r in dynamic)
+    assert dynamic, "some findings should still require a live adversarial test"

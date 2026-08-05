@@ -19,14 +19,13 @@ headline is exactly who they matter to.**
 
 **What this gate does not establish.** An independent hardening audit on 2026-08-04
 raised 54 findings. Each was re-verified against source rather than accepted; the current state,
-generated from [`docs/audit-status.json`](docs/audit-status.json) at commit `334884a`, is
-**2 confirmed outstanding, 42 fixed, 10 unverified** (no static
+generated from [`docs/audit-status.json`](docs/audit-status.json) at commit `0a85291`, is
+**0 confirmed outstanding, 44 fixed, 10 unverified** (no static
 predicate — those need a live adversarial test and are not counted as passing).
 
-Outstanding CRITICAL findings:
+Outstanding findings:
 
-- --isolated cannot start a separate-UID recorder (SG-HARD-006)
-- Delegated execution is not sandboxed (SG-HARD-021)
+- none outstanding
 
 
 Re-derive any of it with `scripts/audit_verify.py --id <id>`; the predicate reports only whether

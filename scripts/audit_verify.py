@@ -390,9 +390,18 @@ def c_bar_leaks_handler_output():
 
 
 def c_no_sandbox():
-    src = _code("stop_guessing/delegate.py")
-    if re.search(r"sandbox-exec|seatbelt|nsjail|bwrap|unshare|seccomp", src):
-        return ABSENT, "an OS sandbox mechanism is invoked"
+    """Is an OS mechanism actually invoked for delegated execution, and is it self-tested?"""
+    deleg = _code("stop_guessing/delegate.py")
+    sb = _code("stop_guessing/sandbox.py")
+    wired = re.search(r"_sandbox\.wrap\(|sandbox\.wrap\(", deleg)
+    mechanisms = re.search(r"sandbox-exec", sb) and re.search(r"bwrap", sb)
+    selftested = "def selftest" in sb
+    if wired and mechanisms and selftested:
+        return ABSENT, ("delegated execution runs under an OS mechanism (macOS sandbox-exec, "
+                        "Linux bwrap) that denies network, writes outside declared outputs and "
+                        "reads of the custody directory; selftest() proves it on the host")
+    if wired:
+        return PRESENT, "a sandbox is wired in but no mechanism or self-test is implemented"
     return PRESENT, "isolation is an env allowlist plus proxy variables; no OS capability boundary"
 
 

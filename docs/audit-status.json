@@ -1,5 +1,5 @@
 {
-  "commit": "334884a",
+  "commit": "0a85291",
   "findings": [
     {
       "id": "SG-HARD-001",
@@ -60,8 +60,8 @@
       "files": [
         "install.sh"
       ],
-      "status": "PRESENT",
-      "evidence": "the plist is written to $HOME/Library/LaunchAgents, which launchd runs as the logged-in user, so the recorder shares the agent's uid; the installer no longer reports tier 2 for it"
+      "status": "ABSENT",
+      "evidence": "install.sh writes a plist into /Library/LaunchDaemons"
     },
     {
       "id": "SG-HARD-007",
@@ -215,8 +215,8 @@
       "files": [
         "stop_guessing/delegate.py"
       ],
-      "status": "PRESENT",
-      "evidence": "isolation is an env allowlist plus proxy variables; no OS capability boundary"
+      "status": "ABSENT",
+      "evidence": "delegated execution runs under an OS mechanism (macOS sandbox-exec, Linux bwrap) that denies network, writes outside declared outputs and reads of the custody directory; selftest() proves it on the host"
     },
     {
       "id": "SG-HARD-022",

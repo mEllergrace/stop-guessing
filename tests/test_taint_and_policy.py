@@ -400,14 +400,17 @@ def test_run_refuses_after_a_failing_test(tmp_path):
         run(d, [])
 
 
-def test_implemented_script_runs_under_an_env_allowlist_not_a_sandbox(tmp_path):
-    """Renamed and re-asserted for #19.
+def test_the_record_states_the_isolation_that_was_actually_applied(tmp_path):
+    """Renamed twice, and the history is the point.
 
-    The old name said "is_sandboxed" and the old assertion checked `network == "deny"`. Neither
-    was true: proxy variables and an env allowlist are not a capability boundary, and a test
-    asserting the comfortable string is how the overclaim survived. It now asserts the honest
-    record, including the caveat, so the test fails if the record ever overstates the isolation
-    again.
+    It began as "is_sandboxed" asserting `network == "deny"`, which was false: proxy variables and
+    an env allowlist are not a capability boundary, and a test asserting the comfortable string is
+    how the overclaim survived (#19). It was then rewritten to assert the honest "this is not a
+    sandbox" caveat — and #54 supplied a real OS boundary, at which point THAT assertion became the
+    wrong one in the other direction.
+
+    So it no longer asserts a fixed string. It asserts that the record agrees with what the host
+    can actually enforce, which is the property that has to hold whichever way the answer goes.
     """
     d = scaffold(tmp_path, "thing", "x")
     d.script.write_text("import sys\n\n\ndef handle(p):\n    return f'{len(p)} in'\n\n\n"
@@ -416,10 +419,23 @@ def test_implemented_script_runs_under_an_env_allowlist_not_a_sandbox(tmp_path):
     out = run(d, ["/a", "/b"])
     assert "2 in" in out["output"]
     sb = out["sandbox"]
-    assert sb["kind"] == "env-allowlist-only"
-    assert "NOT enforced" in sb["network"]
-    assert "not a sandbox" in sb["caveat"]
     assert "PATH" in sb["env_allowlist"]
+
+    from stop_guessing.sandbox import available
+
+    enforced_here = available() != "none"
+    assert sb["enforced"] is enforced_here, (
+        f"the record says enforced={sb['enforced']} but this host offers {available()!r}"
+    )
+    if enforced_here:
+        assert sb["kind"] == "os-capability-boundary"
+        assert "denied by the OS" in sb["network"]
+        assert "not a sandbox" not in sb["caveat"], \
+            "an enforced boundary must not still be described as absent"
+    else:
+        assert sb["kind"] == "env-allowlist-only"
+        assert "NOT enforced" in sb["network"]
+        assert "not a sandbox" in sb["caveat"]
 
 
 def test_run_refuses_a_script_edited_after_its_test_passed(tmp_path):
