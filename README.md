@@ -1,28 +1,28 @@
 # STOP-GUESSING
 
 <!-- BEGIN GENERATED STATUS -->
-**Version 0.4.0 — `stop-guessing attest --self` reports SELF-ATTESTATION INCOMPLETE: 18/21 claims
+**Version 0.4.0 — `stop-guessing attest --self` reports SELF-ATTESTATION INCOMPLETE: 21/21 claims
 executed, witnessed and chain-verified on the maintainer's machine.**
 
 **This is self-attestation. It has not been independently verified, and the gate that produces it
 has known limits — stated here rather than in a subsection, because a reader who stops at the
 headline is exactly who they matter to.**
 
-> **The carried workbook reports `20/21`, not `18/21`.** CLAIM-21 derives and fills the questionnaire *before* its own proof record exists, so the artifact is always one claim behind the count that cites it. This is a design defect, not a rendering lag — see SG-HARD-041.
+> **The carried workbook reports `20/21`, not `21/21`.** CLAIM-21 derives and fills the questionnaire *before* its own proof record exists, so the artifact is always one claim behind the count that cites it. This is a design defect, not a rendering lag — see SG-HARD-041.
 
 | | |
 |---|---|
-| Claims executed | **18/21**, by 21 current ledger record(s) (45 superseded re-run(s) not counted) |
+| Claims executed | **21/21**, by 21 current ledger record(s) (45 superseded re-run(s) not counted) |
 | Proof kinds | 3 adversarial, 8 live-run, 7 negative, 3 property — negative and adversarial are not optional |
-| AICM controls evidenced | 13 |
+| AICM controls evidenced | 14 |
 | Chain | intact, keyed-verified |
 | Carried AI-CAIQ | 11 published controls answered (9 Yes, 2 No), derived from those proofs |
 | Judge panel | 46 deferred disapprovals, recorded not blocking — including `independence` on every claim |
 
 **What this gate does not establish.** An independent hardening audit on 2026-08-04
 raised 54 findings. Each was re-verified against source rather than accepted; the current state,
-generated from [`docs/audit-status.json`](docs/audit-status.json) at commit `8a83e0d`, is
-**29 confirmed outstanding, 15 fixed, 10 unverified** (no static
+generated from [`docs/audit-status.json`](docs/audit-status.json) at commit `e0fb850`, is
+**26 confirmed outstanding, 18 fixed, 10 unverified** (no static
 predicate — those need a live adversarial test and are not counted as passing).
 
 Outstanding CRITICAL findings:
@@ -30,10 +30,10 @@ Outstanding CRITICAL findings:
 - Proof staleness binds only the procedure, not the implementation (SG-HARD-003)
 - --isolated cannot start a separate-UID recorder (SG-HARD-006)
 - PostToolUse bypasses cocd and can lose records silently (SG-HARD-008)
-- Failed tool executions are not covered (PostToolUseFailure) (SG-HARD-009)
 - The recorder authenticates ordering, not event truth (SG-HARD-010)
 - Custody schema is not enforced at the recorder boundary (SG-HARD-011)
-- …and 9 more — see the `hardening-audit` label.
+- Project-writable config can downgrade enforcement (SG-HARD-013)
+- …and 8 more — see the `hardening-audit` label.
 
 Re-derive any of it with `scripts/audit_verify.py --id <id>`; the predicate reports only whether
 the defect is still present.

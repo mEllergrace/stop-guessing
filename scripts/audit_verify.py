@@ -485,11 +485,21 @@ def c_export_accepts_truncated():
 
 
 def c_reconcile_unwired():
-    cli = " ".join(_read(f"stop_guessing/cli/{n}") for n in
-                   ("gate.py", "hook_gate.py", "hook_post.py", "cmd_ops.py"))
-    if re.search(r"from stop_guessing\.ledger\.reconcile import|ledger\.reconcile\.", cli):
-        return ABSENT, "reconcile() is called from a runtime path"
-    return PRESENT, "ledger/reconcile.py is imported by no hook or CLI runtime path"
+    """Scan the whole CLI package, not a hardcoded module list.
+
+    The list named four modules, so wiring reconcile() into a NEW hook module would have left this
+    reporting the defect present forever. A predicate that only looks where the defect used to live
+    cannot observe the fix — the same blindness as matching prose, in a different disguise.
+    """
+    cli_dir = REPO / "stop_guessing" / "cli"
+    files = sorted(p.name for p in cli_dir.glob("*.py")) if cli_dir.is_dir() else []
+    hit = [n for n in files
+           if re.search(r"from stop_guessing\.ledger\.reconcile import|ledger\.reconcile\.",
+                        _code(f"stop_guessing/cli/{n}"))]
+    if hit:
+        return ABSENT, f"reconcile() is called from a runtime path: {', '.join(hit)}"
+    return PRESENT, (f"ledger/reconcile.py is imported by none of the {len(files)} CLI modules, "
+                     "so nothing detects a fabricated or replayed execution at runtime")
 
 
 def c_session_cache_collision():

@@ -123,17 +123,27 @@ def test_non_hook_surfaces_are_reported_unvalidated_not_passed(monkeypatch):
     assert set(unvalidated) == {"cli:stop-guessing attest", "skill:custody"}
 
 
-def test_the_real_claims_file_has_unregistered_hook_surfaces():
-    """Documents the live defect: claims name hooks the shipped plugin does not register."""
+def test_every_hook_a_claim_declares_is_actually_registered():
+    """This test previously asserted the DEFECT, and failed the moment it was fixed.
+
+    That was deliberate — it was written to fail loudly rather than silently pass once
+    `PreCompact`, `Stop` and `SessionStart` were registered, so the audit record could not drift
+    out of date behind a green suite. They are now registered (#42/#81), so it asserts the property
+    instead: no claim may declare a surface the shipped plugin does not provide.
+    """
     registered = runner.registered_hook_events()
-    declared = set()
-    for c in runner.load_claims()["claims"]:
-        for s in c.get("surface") or []:
-            if str(s).startswith("hook:"):
-                declared.add(str(s).split(":", 1)[1])
+    declared = {
+        str(s).split(":", 1)[1]
+        for c in runner.load_claims()["claims"]
+        for s in (c.get("surface") or [])
+        if str(s).startswith("hook:")
+    }
     missing = declared - registered
-    assert missing, "if this ever passes empty, the hooks got registered — update the audit record"
-    assert {"PreCompact", "SessionStart", "Stop"} & missing
+    assert not missing, (
+        f"claims declare hook(s) the plugin does not register: {sorted(missing)}. "
+        f"Registered: {sorted(registered)}"
+    )
+    assert {"PreCompact", "SessionStart", "Stop"} <= registered
 
 
 # ── SG-HARD-047 · #80 — exports must refuse a prefix ─────────────────────────

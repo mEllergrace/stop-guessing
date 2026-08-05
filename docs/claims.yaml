@@ -216,8 +216,8 @@ claims:
   aicm:
   - LOG-AG-01
   proofs:
-  - sg:355:015da777a025d5e0
-  last_proved: '2026-08-04T23:49:41.349Z'
+  - sg:365:8cc0047f7e86320a
+  last_proved: '2026-08-05T13:25:40.528Z'
   must_touch:
   - stop_guessing.taint.state
 - id: CLAIM-12
@@ -266,8 +266,8 @@ claims:
   - LOG-03
   - SEF-01
   proofs:
-  - sg:357:4d19d87c964f6ddd
-  last_proved: '2026-08-04T23:49:41.584Z'
+  - sg:366:664adc74b93c07cf
+  last_proved: '2026-08-05T13:25:40.701Z'
   must_touch:
   - stop_guessing.ledger.reconcile
 - id: CLAIM-14
@@ -282,8 +282,8 @@ claims:
   - A&A-01
   - STA-09
   proofs:
-  - sg:360:d2992df5128d3665
-  last_proved: '2026-08-05T00:23:37.503Z'
+  - sg:367:4b63cbe5c106e5b8
+  last_proved: '2026-08-05T13:25:42.778Z'
   must_touch:
   - stop_guessing.caiq.workbook
 - id: CLAIM-15

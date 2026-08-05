@@ -21,6 +21,83 @@
           }
         ]
       }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -m stop_guessing.cli.hook_lifecycle SessionStart",
+            "statusMessage": "Chain-of-custody: opening session..."
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -m stop_guessing.cli.hook_lifecycle UserPromptSubmit",
+            "statusMessage": "Chain-of-custody: recording prompt lineage..."
+          }
+        ]
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -m stop_guessing.cli.hook_lifecycle PostToolUseFailure",
+            "statusMessage": "Chain-of-custody: recording failed call..."
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -m stop_guessing.cli.hook_lifecycle PreCompact",
+            "statusMessage": "Chain-of-custody: checkpointing custody state..."
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -m stop_guessing.cli.hook_lifecycle SubagentStop",
+            "statusMessage": "Chain-of-custody: merging subagent taint..."
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -m stop_guessing.cli.hook_lifecycle Stop",
+            "statusMessage": "Chain-of-custody: reconciling the turn..."
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -m stop_guessing.cli.hook_lifecycle SessionEnd",
+            "statusMessage": "Chain-of-custody: closing session..."
+          }
+        ]
+      }
     ]
   }
 }

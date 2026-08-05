@@ -1,5 +1,5 @@
 {
-  "commit": "8a83e0d",
+  "commit": "e0fb850",
   "findings": [
     {
       "id": "SG-HARD-001",
@@ -91,8 +91,8 @@
       "files": [
         ".claude-plugin/plugins/stop-guessing/hooks/hooks.json"
       ],
-      "status": "PRESENT",
-      "evidence": "PostToolUseFailure is a documented event and is not registered"
+      "status": "ABSENT",
+      "evidence": "PostToolUseFailure is registered"
     },
     {
       "id": "SG-HARD-010",
@@ -490,8 +490,8 @@
       "files": [
         ".claude-plugin/plugins/stop-guessing/hooks/hooks.json"
       ],
-      "status": "PRESENT",
-      "evidence": "2 of 31 documented events registered (PostToolUse, PreToolUse); no session boundary, prompt lineage, compaction, batch or reconciliation evidence"
+      "status": "ABSENT",
+      "evidence": "9 events registered: PostToolUse, PostToolUseFailure, PreCompact, PreToolUse, SessionEnd, SessionStart, Stop, SubagentStop, UserPromptSubmit"
     },
     {
       "id": "SG-HARD-049",
@@ -500,8 +500,8 @@
       "files": [
         "stop_guessing/ledger/reconcile.py"
       ],
-      "status": "PRESENT",
-      "evidence": "ledger/reconcile.py is imported by no hook or CLI runtime path"
+      "status": "ABSENT",
+      "evidence": "reconcile() is called from a runtime path: hook_lifecycle.py"
     },
     {
       "id": "SG-HARD-050",

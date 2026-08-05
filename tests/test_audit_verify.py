@@ -55,6 +55,10 @@ FIXED = {
     "SG-HARD-038": "a missing vendored rule records a critical selfcheck instead of continuing",
     "SG-HARD-043": "the rich-text verifier is resolved via $STOP_GUESSING_CAIQ_VERIFIER and a search path",
     "SG-HARD-050": "STOP_GUESSING_DISABLE records a critical disabled-mode transition once per day",
+    # Lifecycle batch, 2026-08-05. 9 of 31 events registered, each closing a named evidence gap.
+    "SG-HARD-009": "PostToolUseFailure is registered and records the outcome PostToolUse cannot see",
+    "SG-HARD-048": "SessionStart/UserPromptSubmit/PreCompact/SubagentStop/Stop/SessionEnd registered",
+    "SG-HARD-049": "reconcile() runs at Stop over the turn's dispatches and results",
 }
 
 
