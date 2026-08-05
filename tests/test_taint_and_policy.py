@@ -21,7 +21,8 @@ def ps() -> PolicySet:
 
 def _ctx(state, posture="steer", **call):
     art = call.pop("artifact", {})
-    base = {"is_egress": False, "is_write": False, "is_own_binary": False}
+    base = {"is_egress": False, "is_write": False, "is_own_binary": False,
+            "protect_ledger": True}
     return state.context(posture=posture, call={**base, **call}, artifact=art)
 
 
@@ -202,11 +203,27 @@ def test_deny_by_default():
 
 
 def test_forbid_overrides_permit_regardless_of_order(ps):
+    """Precedence is unchanged; the SCOPE of the credential rule is not.
+
+    It used to be postureless, so `observe` denied credential egress. That made the default
+    posture an enforcement posture, which is not what this tool is for: the host's permission
+    model has already decided, and a recorder that refuses afterwards is overriding its operator.
+    The rule now applies under the opt-in enforcement postures, and the record still says the
+    egress carried credential taint — which is the evidence the tool exists to produce.
+    """
+    s = SessionCustodyState("s")
+    s.touch(_ref(1, {"restricted", "credential"}))
+    d = ps.evaluate("artifact.egress", _ctx(s, posture="steer", is_egress=True))
+    assert d.outcome == "deny"
+    assert "credential" in d.determining_policy
+
+
+def test_observe_does_not_deny_credential_egress(ps):
+    """It records it. Blocking is the host's decision, not this tool's."""
     s = SessionCustodyState("s")
     s.touch(_ref(1, {"restricted", "credential"}))
     d = ps.evaluate("artifact.egress", _ctx(s, posture="observe", is_egress=True))
-    assert d.outcome == "deny"
-    assert "forbid" in d.determining_policy or "credential" in d.determining_policy
+    assert d.outcome == "allow"
 
 
 def test_steer_asks_on_first_touch(ps):
@@ -235,12 +252,63 @@ def test_observe_records_but_never_blocks(ps):
     assert d.outcome == "allow"
 
 
-def test_postureless_forbids_still_apply_under_observe(ps):
+def test_the_ledger_is_protected_even_under_observe(ps):
+    """The one refusal that outlives `observe`, and it is not about the operator's work.
+
+    A recorder whose own ledger can be overwritten has recorded nothing. This protects the record,
+    not the user — and it is switchable via `protect_ledger`, so even that option stays open.
+    """
     s = SessionCustodyState("s")
     d = ps.evaluate("artifact.write", _ctx(
-        s, posture="observe", is_write=True,
+        s, posture="observe", is_write=True, protect_ledger=True,
         artifact={"classified": True, "is_ledger": True}))
     assert d.outcome == "deny"
+
+
+def test_ledger_protection_can_be_switched_off(ps):
+    s = SessionCustodyState("s")
+    d = ps.evaluate("artifact.write", _ctx(
+        s, posture="observe", is_write=True, protect_ledger=False,
+        artifact={"classified": True, "is_ledger": True}))
+    assert d.outcome == "allow"
+
+
+def test_the_default_posture_is_observe(tmp_path, monkeypatch):
+    """The product decision: this records evidence, it does not seek permissions.
+
+    Hermetic on purpose. This test previously passed no config dir, so it read whichever
+    `stop-guessing.json` the developer had installed — and this machine's says `steer`, so it
+    asserted the default while measuring an explicit opt-in. Same failure as the one recorded at
+    ``prove/runner.py:274``: a test that reads production state tests nothing repeatable. The
+    empty tmp_path is the point — no project file, no global file, no legacy state, so what comes
+    back is the default and only the default.
+    """
+    import inspect
+
+    from stop_guessing.cli import gate
+    from stop_guessing.cli.hook_gate import resolve_posture
+
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path / "empty-config"))
+    assert "observe" in inspect.signature(gate.decide).parameters["posture"].default
+    assert resolve_posture(str(tmp_path / "nonexistent-project")) == "observe"
+
+
+def test_an_installed_config_still_selects_its_posture(tmp_path, monkeypatch):
+    """`observe` is the default, not a ceiling — opting into enforcement must keep working."""
+    import json
+
+    from stop_guessing.cli.hook_gate import resolve_posture
+
+    cfg = tmp_path / "cfg"
+    cfg.mkdir()
+    (cfg / "stop-guessing.json").write_text(json.dumps({"posture": "steer"}), encoding="utf-8")
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(cfg))
+    assert resolve_posture(str(tmp_path / "nonexistent-project")) == "steer"
+
+    proj = tmp_path / "proj"
+    proj.mkdir()
+    (proj / ".stop-guessing.json").write_text(json.dumps({"posture": "bar"}), encoding="utf-8")
+    assert resolve_posture(str(proj)) == "bar", "project layer must still override global"
 
 
 def test_accumulation_flips_the_same_call(ps):

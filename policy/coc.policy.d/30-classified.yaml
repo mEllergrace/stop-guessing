@@ -10,9 +10,19 @@ policies:
       call.is_egress: {is_true: true}
       session.taint_depth: {gte: 1}
 
-  - id: forbid-credential-egress-always
+  # Scoped to the ENFORCEMENT postures. Under `observe` this tool records and does not block —
+  # the host's permission system has already decided, and a second gate refusing afterwards is a
+  # recorder overriding its operator. The record still says the egress carried credential taint,
+  # which is the evidence this exists to produce.
+  - id: forbid-credential-egress
     effect: forbid
-    reason: Credential material never leaves the host, under any posture including observe.
+    postures: [steer, bar]
+    # Out-ranks forbid-tainted-egress as the EXPLANATION. Both deny, and the outcome is identical
+    # either way; but "credential material left the host" and "the session held some taint" are
+    # very different findings to read back in an audit, and the record should carry the sharper
+    # one. Priority never crosses effects — it only picks which forbid gets to explain itself.
+    priority: 10
+    reason: Credential material does not leave the host under an enforcement posture.
     when:
       call.is_egress: {is_true: true}
       session.taint: {contains: credential}
@@ -27,11 +37,16 @@ policies:
       session.taint_depth: {gte: 4}
       artifact.classified: {is_true: true}
 
+  # The ONE refusal that survives `observe`, and it is not about the user's work: a recorder that
+  # lets its own ledger be overwritten records nothing, so this protects the evidence rather than
+  # policing the operator. Disable with {"protect_ledger": false} if even that is unwanted —
+  # the option stays open, it just defaults to protecting the thing the tool exists to produce.
   - id: forbid-ledger-write
     effect: forbid
     reason: >-
-      The evidence ledger is deny-listed under EVERY posture, including observe. The recorder
-      must not be reachable by the agent it records.
+      The evidence ledger is not writable through the agent under any posture. This protects the
+      record, not the operator: a recorder whose ledger can be overwritten has recorded nothing.
     when:
       artifact.is_ledger: {is_true: true}
       call.is_write: {is_true: true}
+      call.protect_ledger: {is_true: true}

@@ -35,6 +35,13 @@ class Policy:
     actions: tuple[str, ...] = ()
     postures: tuple[str, ...] = ()
     guidance: str = ""
+    #: Tiebreak among rules of the SAME effect. Never crosses effects — forbid still beats ask
+    #: beats permit regardless of this. It decides only which matching rule is reported as
+    #: `determining_policy`, and that is an evidence question, not an enforcement one: a
+    #: credential egress denied under the generic "session holds taint" rule is denied correctly
+    #: and explained badly, and the explanation is what an auditor reads. Higher wins; ties fall
+    #: back to declaration order, which is the previous behaviour.
+    priority: int = 0
 
     def applies_to(self, action: str, posture: str) -> bool:
         if self.actions and action not in self.actions:
@@ -139,8 +146,9 @@ class PolicySet:
                 evaluated,
             )
 
-        # forbid > ask > permit, regardless of declaration order.
-        winner = max(matches, key=lambda p: PRECEDENCE[p.effect])
+        # forbid > ask > permit, regardless of declaration order. Within one effect, the rule
+        # that declares the higher priority explains the decision — see Policy.priority.
+        winner = max(matches, key=lambda p: (PRECEDENCE[p.effect], p.priority))
         outcome = {"forbid": "deny", "ask": "ask", "permit": "allow"}[winner.effect]
         overridden = [p.id for p in matches
                       if PRECEDENCE[p.effect] < PRECEDENCE[winner.effect]]
@@ -177,6 +185,7 @@ def load(directory: str | Path) -> PolicySet:
                 actions=tuple(entry.get("actions", ())),
                 postures=tuple(entry.get("postures", ())),
                 guidance=entry.get("guidance", ""),
+                priority=int(entry.get("priority", 0)),
             ))
     return PolicySet(policies, bytes_digest(b"".join(blobs)))
 
