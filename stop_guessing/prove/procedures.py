@@ -475,11 +475,26 @@ def prove_steer_asks_on_first_touch() -> ProofResult:
     r.observe(f"same first touch under observe -> ALLOW via {d3.determining_policy} "
               "(records, does not block)")
 
+    # The ONE refusal that outlives `observe`, and it is not about the operator's work: a recorder
+    # that lets its own ledger be overwritten records nothing. It is gated on `protect_ledger`,
+    # which `gate.py` supplies on every call defaulting to on — omitting it here evaluated a
+    # configuration the deployed gate never produces, which is not a proof of anything.
     led = ps.evaluate("artifact.write", state.context(
-        posture="observe", call={"is_egress": False, "is_write": True},
+        posture="observe",
+        call={"is_egress": False, "is_write": True, "protect_ledger": True},
         artifact={"classified": True, "is_ledger": True, "first_touch": True}))
     if led.outcome != "deny":
-        return r.fail("the ledger was writable under observe; that forbid is postureless")
+        return r.fail("the ledger was writable under observe with protection ON")
+    r.observe(f"ledger write under observe -> DENY via {led.determining_policy} "
+              "(the one refusal that outlives observe)")
+
+    # ...and the option stays open: turning protection off is honoured, not overridden.
+    off = ps.evaluate("artifact.write", state.context(
+        posture="observe",
+        call={"is_egress": False, "is_write": True, "protect_ledger": False},
+        artifact={"classified": True, "is_ledger": True, "first_touch": True}))
+    if off.outcome == "deny":
+        return r.fail("protect_ledger:false was ignored — the switch must be real")
     r.observe(f"but a ledger write under observe -> DENY via {led.determining_policy} "
               "(forbid overrides permit)")
     r.evidence = {"labels": sorted(c.labels), "policy_set": ps.digest}
@@ -538,14 +553,32 @@ def prove_accumulation_denies_egress() -> ProofResult:
     r.observe(f"  contributing artifacts: {sorted(state.sources)}")
     r.observe(f"  custody digest in the decision basis: {state.digest[:16]}…")
 
+    # `observe` records and does not block — including this. The rule used to be postureless and
+    # this step asserted a DENY here; that made the default posture an enforcement posture, which
+    # is not what an evidence tool is for: the host has a permission model, the operator has
+    # already configured it, and a recorder refusing afterwards overrides its own user. What must
+    # still hold is that the record says the egress carried credential taint, because that is the
+    # evidence this exists to produce. Enforcement is asserted below, under `steer`.
     cred = SessionCustodyState("s2")
     cart, _ = _artifact_ctx("/Users/isme/.ssh/id_rsa", first_touch=True)
     cred.touch(_ref_from(cart, "/Users/isme/.ssh/id_rsa"))
     obs = ps.evaluate("artifact.egress", cred.context(
         posture="observe", call=call, artifact={"classified": False}))
-    if obs.outcome != "deny":
-        return r.fail("credential egress was not denied under observe; that rule is postureless")
-    r.observe(f"credential egress under OBSERVE -> DENY via {obs.determining_policy}")
+    if obs.outcome == "deny":
+        return r.fail("credential egress was DENIED under observe; observe must record, not block")
+    if "credential" not in cred.labels:
+        return r.fail("the session did not carry credential taint, so the record would understate it")
+    r.observe(f"credential egress under OBSERVE -> {obs.outcome.upper()} (records, does not block) "
+              f"with session labels {sorted(cred.labels)}")
+
+    enf = ps.evaluate("artifact.egress", cred.context(
+        posture="steer", call=call, artifact={"classified": False}))
+    if enf.outcome != "deny":
+        return r.fail(f"credential egress was not denied under steer: {enf.outcome}")
+    if "credential" not in enf.determining_policy:
+        return r.fail(f"denied under steer but attributed to {enf.determining_policy!r}, which "
+                      "explains the denial less precisely than the credential rule does")
+    r.observe(f"credential egress under STEER  -> DENY via {enf.determining_policy}")
 
     # ── the deployed path, across SEPARATE PROCESSES ─────────────────────────
     # The in-process check above proves the state machine. It passed for weeks while the
@@ -554,7 +587,15 @@ def prove_accumulation_denies_egress() -> ProofResult:
     import os as _os
 
     with tempfile.TemporaryDirectory(prefix="sg-proof-") as td:
-        env = {**_os.environ, "CLAUDE_CONFIG_DIR": str(Path(td) / "claude")}
+        cfg = Path(td) / "claude"
+        cfg.mkdir(parents=True, exist_ok=True)
+        # This step proves ENFORCEMENT across processes, so it must run under an enforcement
+        # posture. The temp profile has no config, so it would otherwise resolve to the default
+        # `observe`, which records and does not block — and the step would be asserting `ask`
+        # against a posture whose entire contract is not to ask. Opting in explicitly is also
+        # what a real deployment does; `steer` is one config key, exactly as written here.
+        (cfg / "stop-guessing.json").write_text(json.dumps({"posture": "steer"}), encoding="utf-8")
+        env = {**_os.environ, "CLAUDE_CONFIG_DIR": str(cfg)}
         sid = "proof-crossproc"
 
         def hook(tool, inp):
@@ -830,8 +871,13 @@ def prove_recorder_isolation() -> ProofResult:
         # the ledger is deny-listed under EVERY posture, including observe
         ps = load_policies(policy_dir())
         for posture in ("observe", "steer", "bar"):
+            # `protect_ledger` is what `gate.py` supplies on every call, defaulting to on. The
+            # context here omitted it, so `forbid-ledger-write` — which is gated on that key —
+            # could never fire, and this step was evaluating a configuration the deployed gate
+            # does not produce. A proof must build the context the real caller builds.
             d = ps.evaluate("artifact.write", SessionCustodyState("s").context(
-                posture=posture, call={"is_write": True, "is_egress": False},
+                posture=posture,
+                call={"is_write": True, "is_egress": False, "protect_ledger": True},
                 artifact={"classified": True, "is_ledger": True, "first_touch": True}))
             if d.outcome != "deny":
                 return r.fail(f"ledger writable under {posture}: {d.outcome} via "
@@ -1387,7 +1433,13 @@ def prove_every_surface_runs() -> ProofResult:
     import tempfile as _tf
 
     box = _tf.mkdtemp(prefix="sg-surface-")
-    env = {**_os.environ, "CLAUDE_CONFIG_DIR": str(Path(box) / "claude")}
+    _surface_cfg = Path(box) / "claude"
+    _surface_cfg.mkdir(parents=True, exist_ok=True)
+    # Same reason as CLAIM-07: this exercises the installed hook's ENFORCEMENT surface, and a
+    # temp profile with no config resolves to the default `observe`, which does not ask.
+    (_surface_cfg / "stop-guessing.json").write_text(json.dumps({"posture": "steer"}),
+                                                     encoding="utf-8")
+    env = {**_os.environ, "CLAUDE_CONFIG_DIR": str(_surface_cfg)}
     classified = Path(box) / "roster.csv"
     classified.write_text("name,email\nA,a@x\n", encoding="utf-8")
     cases = [

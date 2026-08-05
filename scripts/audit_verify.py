@@ -430,16 +430,37 @@ def c_fill_trusts_editable_yaml():
 
 
 def c_caiq_epoch_circular():
+    """Compare the workbook's epoch against APPLICATION claims, not all claims.
+
+    The recursion is cut by excluding the release-attestation claim — the one whose procedure
+    writes this document — from both the count it states and the evidence it cites. Its proof
+    record does not exist while it is running, so any ref it contributed was stale on arrival.
+    Comparing against the all-claims total re-manufactures the very off-by-one that was removed.
+    """
     doc = _read("docs/ai-caiq/stop-guessing.yaml")
     m = re.search(r"claims_proven:\s*(\S+)", doc)
     if not m:
         return DYNAMIC, "no claims_proven in the answers file"
     epoch = m.group(1)
+
+    src = _code("stop_guessing/caiq/answers.py")
+    declared = re.search(r"RELEASE_ATTESTATION_CLAIMS\s*=\s*frozenset\(\{([^}]*)\}\)", src)
+    if not declared:
+        return PRESENT, ("no RELEASE_ATTESTATION_CLAIMS: the claim that generates this document is "
+                         "still counted inside it, so the artifact and the attestation citing it "
+                         "disagree by one, permanently")
+    excluded = len(re.findall(r'"CLAIM-\d+"', declared.group(1)))
     n_claims = _count("docs/claims.yaml", r"^\s*-\s*id:\s*CLAIM-\d+")
-    if epoch != f"{n_claims}/{n_claims}":
-        return PRESENT, (f"the carried workbook reports {epoch} against {n_claims} claims: CLAIM-21 "
-                         f"fills the questionnaire before its own proof record exists")
-    return ABSENT, f"the workbook epoch {epoch} matches the claim count"
+    app = n_claims - excluded
+    if epoch != f"{app}/{app}":
+        return PRESENT, (f"the workbook reports {epoch} but there are {app} application claims "
+                         f"({n_claims} total minus {excluded} release attestation) — it is stale "
+                         "or a claim is unproven")
+    if "claims_scope" not in doc:
+        return PRESENT, "the epoch does not state its scope, so a reader cannot tell what it counts"
+    return ABSENT, (f"the workbook reports {epoch} application claims, states its scope, and "
+                    f"excludes the {excluded} release-attestation claim from both the count and "
+                    "the evidence — the loop is cut on both halves")
 
 
 def c_verifier_path_machine_specific():

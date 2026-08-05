@@ -87,6 +87,25 @@ class DerivedAnswer:
         }
 
 
+#: Claims whose procedure GENERATES this document. They cannot be counted inside it: the proof
+#: record does not exist while the procedure that writes the file is still running, so including
+#: them guarantees the artifact and the attestation citing it disagree by exactly one. See #74.
+RELEASE_ATTESTATION_CLAIMS = frozenset({"CLAIM-21"})
+
+
+def _app_rows(result: dict) -> list[dict]:
+    return [r for r in (result.get("rows") or [])
+            if r["id"] not in RELEASE_ATTESTATION_CLAIMS]
+
+
+def _app_proven(result: dict) -> int:
+    return sum(1 for r in _app_rows(result) if r.get("proven"))
+
+
+def _app_total(result: dict) -> int:
+    return len(_app_rows(result))
+
+
 def derive(key, ledger=None) -> tuple[list[DerivedAnswer], dict]:
     """Compute answers from the claims that are PROVEN, and only those.
 
@@ -101,6 +120,13 @@ def derive(key, ledger=None) -> tuple[list[DerivedAnswer], dict]:
     by_control: dict[str, list[dict]] = {}
     for row in result["rows"]:
         if not row["proven"]:
+            continue
+        # #74, the last of the recursion. A release-attestation claim is the attestation *of* this
+        # document, so it cannot also be evidence *in* it: its proof record is written after the
+        # file, so any ref it contributed was stale the moment it was cited — which is exactly the
+        # "3 evidence refs no longer resolve" finding. Excluding it from the count but leaving it
+        # in the evidence would have cut only half the loop.
+        if row["id"] in RELEASE_ATTESTATION_CLAIMS:
             continue
         claim = by_id[row["id"]]
         for ctrl in claim.get("aicm") or []:
@@ -150,7 +176,25 @@ def to_yaml_doc(answers: list[DerivedAnswer], result: dict) -> dict:
                 "`stop-guessing claims check` re-verifies. Editing this file by hand reverses the "
                 "direction of causation the toolchain exists to enforce."
             ),
-            "claims_proven": f"{result['proven']}/{result['total']}",
+            # #74 (SG-HARD-041). This reported `proven/total` over ALL claims, including the
+            # release-attestation claim whose own procedure generates this file. That claim's
+            # proof record does not exist yet while it is running, so the workbook was written
+            # saying N-1/N and the attestation that cited it then said N/N — two artifacts of
+            # the same run permanently disagreeing, with no re-run able to reconcile them:
+            # regenerating afterwards changes the digest and invalidates the proof that bound it.
+            #
+            # The recursion is cut by counting only the APPLICATION claims. The release
+            # attestation is reported separately, as the thing that produced this document rather
+            # than as one of the facts inside it.
+            "claims_proven": f"{_app_proven(result)}/{_app_total(result)}",
+            "claims_scope": (
+                "APPLICATION claims only. The release-attestation claim "
+                f"({', '.join(RELEASE_ATTESTATION_CLAIMS)}) derives and fills this document, so "
+                "it cannot appear in a count this document states — its proof record does not "
+                "exist until after this file is written. It is reported by "
+                "`stop-guessing attest --self`, not here."
+            ),
+            "release_attestation": sorted(RELEASE_ATTESTATION_CLAIMS),
             "published_controls_answered": len(published),
             "proposed_controls_recorded": len(proposed),
             "chain_intact": result["chain_intact"],

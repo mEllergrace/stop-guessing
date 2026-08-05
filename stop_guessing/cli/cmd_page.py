@@ -510,15 +510,26 @@ def readme_status(attest: dict, claims: dict, caiq: dict | None) -> str:
     # truncated ledger, and that the workbook it binds is written one epoch behind its own proof.
     # The evidence is real; the headline it carried was not, so the headline is what changes.
     verdict = ("self-attested" if attest["goal_met"] else "SELF-ATTESTATION INCOMPLETE")
+
+    # #74 (SG-HARD-041): compare like with like. The workbook counts APPLICATION claims, because
+    # the release-attestation claim's own procedure writes the file and its proof record does not
+    # exist yet at that moment. Comparing that against the all-claims total made the two artifacts
+    # disagree by exactly one, permanently and by construction. A remaining mismatch after this
+    # correction is a real staleness finding, so it is still reported — just not manufactured.
     caiq_epoch = ""
     if caiq and (caiq.get("meta") or {}).get("claims_proven"):
+        from stop_guessing.caiq.answers import RELEASE_ATTESTATION_CLAIMS
+
         epoch = caiq["meta"]["claims_proven"]
-        if epoch != f"{proven}/{total}":
+        app_rows = [r for r in (attest.get("rows") or [])
+                    if r["id"] not in RELEASE_ATTESTATION_CLAIMS]
+        expected = f"{sum(1 for r in app_rows if r.get('proven'))}/{len(app_rows)}"
+        if epoch != expected:
             caiq_epoch = (
-                f"\n> **The carried workbook reports `{epoch}`, not `{proven}/{total}`.** CLAIM-21 "
-                f"derives and fills the questionnaire *before* its own proof record exists, so the "
-                f"artifact is always one claim behind the count that cites it. This is a design "
-                f"defect, not a rendering lag — see SG-HARD-041.\n"
+                f"\n> **The carried workbook reports `{epoch}` application claims, but the current "
+                f"attestation derives `{expected}`.** The workbook is stale — re-run "
+                f"`stop-guessing prove --claim {sorted(RELEASE_ATTESTATION_CLAIMS)[0]}` to "
+                f"regenerate and re-pin it.\n"
             )
 
     return f"""{BEGIN}

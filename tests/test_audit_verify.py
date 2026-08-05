@@ -61,6 +61,10 @@ FIXED = {
     "SG-HARD-049": "reconcile() runs at Stop over the turn's dispatches and results",
     # Packaging, 2026-08-05. The wheel was not merely missing data — it could not import.
     "SG-HARD-035": "runtime data ships inside the package; a clean-venv wheel install runs",
+    # CAIQ epoch, 2026-08-05. The release attestation is excluded from both the count it states
+    # and the evidence it cites, so the loop reaches a fixpoint instead of drifting by one.
+    "SG-HARD-041": "CLAIM-21 is a release attestation, counted in neither the epoch nor the evidence",
+    "SG-HARD-054": "the workbook epoch and the attestation agree and the scope is stated",
 }
 
 

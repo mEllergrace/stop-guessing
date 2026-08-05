@@ -1,5 +1,5 @@
 {
-  "commit": "e1547f4",
+  "commit": "5240403",
   "findings": [
     {
       "id": "SG-HARD-001",
@@ -419,8 +419,8 @@
         "stop_guessing/prove/procedures.py",
         "docs/ai-caiq/stop-guessing.yaml"
       ],
-      "status": "PRESENT",
-      "evidence": "the carried workbook reports 20/21 against 21 claims: CLAIM-21 fills the questionnaire before its own proof record exists"
+      "status": "ABSENT",
+      "evidence": "the workbook reports 20/20 application claims, states its scope, and excludes the 1 release-attestation claim from both the count and the evidence \u2014 the loop is cut on both halves"
     },
     {
       "id": "SG-HARD-042",
@@ -552,8 +552,8 @@
         "docs/ai-caiq/stop-guessing.yaml",
         "docs/index.html"
       ],
-      "status": "PRESENT",
-      "evidence": "the carried workbook reports 20/21 against 21 claims: CLAIM-21 fills the questionnaire before its own proof record exists"
+      "status": "ABSENT",
+      "evidence": "the workbook reports 20/20 application claims, states its scope, and excludes the 1 release-attestation claim from both the count and the evidence \u2014 the loop is cut on both halves"
     }
   ]
 }
