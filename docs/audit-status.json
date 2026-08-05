@@ -1,0 +1,559 @@
+{
+  "commit": "b9b90cf",
+  "findings": [
+    {
+      "id": "SG-HARD-001",
+      "severity": "CRITICAL",
+      "title": "Proof validity ignores the claim's declared surface",
+      "files": [
+        "stop_guessing/prove/runner.py",
+        "docs/claims.yaml"
+      ],
+      "status": "ABSENT",
+      "evidence": "runner.check() references surface"
+    },
+    {
+      "id": "SG-HARD-002",
+      "severity": "CRITICAL",
+      "title": "A claim stays PROVEN after its procedure is deleted",
+      "files": [
+        "stop_guessing/prove/runner.py"
+      ],
+      "status": "ABSENT",
+      "evidence": "a missing procedure now invalidates the claim"
+    },
+    {
+      "id": "SG-HARD-003",
+      "severity": "CRITICAL",
+      "title": "Proof staleness binds only the procedure, not the implementation",
+      "files": [
+        "stop_guessing/prove/registry.py"
+      ],
+      "status": "PRESENT",
+      "evidence": "only inspect.getsource() of the decorated function is pinned"
+    },
+    {
+      "id": "SG-HARD-004",
+      "severity": "CRITICAL",
+      "title": "Truncated proof ledger still yields full attestation",
+      "files": [
+        "stop_guessing/prove/runner.py",
+        "stop_guessing/ledger/sink.py"
+      ],
+      "status": "ABSENT",
+      "evidence": "runner.py now considers loaded.truncated"
+    },
+    {
+      "id": "SG-HARD-005",
+      "severity": "CRITICAL",
+      "title": "CI claims gate accepts every nonzero result",
+      "files": [
+        ".github/workflows/ci.yml"
+      ],
+      "status": "ABSENT",
+      "evidence": "the claims gate propagates a failing exit code"
+    },
+    {
+      "id": "SG-HARD-006",
+      "severity": "CRITICAL",
+      "title": "--isolated cannot start a separate-UID recorder",
+      "files": [
+        "install.sh"
+      ],
+      "status": "PRESENT",
+      "evidence": "install.sh writes $HOME/Library/LaunchAgents, which runs as the logged-in user; target_uid is computed and never applied"
+    },
+    {
+      "id": "SG-HARD-007",
+      "severity": "CRITICAL",
+      "title": "Tier 1 and the default keyfile do not separate key from agent",
+      "files": [
+        "stop_guessing/ledger/entry.py",
+        "stop_guessing/attest/keys.py"
+      ],
+      "status": "PRESENT",
+      "evidence": "strength() promotes to '+isolated' at tier >= 1, which is the same uid"
+    },
+    {
+      "id": "SG-HARD-008",
+      "severity": "CRITICAL",
+      "title": "PostToolUse bypasses cocd and can lose records silently",
+      "files": [
+        "stop_guessing/cli/hook_post.py"
+      ],
+      "status": "PRESENT",
+      "evidence": "hook_post calls ledger.sink.record() directly, never recorder.client.append()"
+    },
+    {
+      "id": "SG-HARD-009",
+      "severity": "CRITICAL",
+      "title": "Failed tool executions are not covered (PostToolUseFailure)",
+      "files": [
+        ".claude-plugin/plugins/stop-guessing/hooks/hooks.json"
+      ],
+      "status": "PRESENT",
+      "evidence": "PostToolUseFailure is a documented event and is not registered"
+    },
+    {
+      "id": "SG-HARD-010",
+      "severity": "CRITICAL",
+      "title": "The recorder authenticates ordering, not event truth",
+      "files": [
+        "stop_guessing/recorder/daemon.py"
+      ],
+      "status": "PRESENT",
+      "evidence": "no peer-credential check; any local process may append arbitrary event content"
+    },
+    {
+      "id": "SG-HARD-011",
+      "severity": "CRITICAL",
+      "title": "Custody schema is not enforced at the recorder boundary",
+      "files": [
+        "stop_guessing/ledger/sink.py",
+        "stop_guessing/recorder/daemon.py"
+      ],
+      "status": "PRESENT",
+      "evidence": "validate_tier_a() is only reachable via CustodyRecord.build(); sink.record() and daemon op_append() accept any dict"
+    },
+    {
+      "id": "SG-HARD-012",
+      "severity": "HIGH",
+      "title": "doctor does not inspect the installed architecture",
+      "files": [
+        "stop_guessing/cli/cmd_ops.py"
+      ],
+      "status": "PRESENT",
+      "evidence": "self_check() receives only argv0, manifest, root, ledger_dir \u2014 no settings.json, pinned registration, daemon pid/uid or peer credentials, so the reported isolation tier cannot exceed 0"
+    },
+    {
+      "id": "SG-HARD-013",
+      "severity": "CRITICAL",
+      "title": "Project-writable config can downgrade enforcement",
+      "files": [
+        "stop_guessing/cli/hook_gate.py"
+      ],
+      "status": "PRESENT",
+      "evidence": "project .stop-guessing.json precedes profile config and can set posture=observe / protect_ledger=false with no managed-policy floor"
+    },
+    {
+      "id": "SG-HARD-014",
+      "severity": "CRITICAL",
+      "title": "Rules/policies/handlers are untrusted mutable inputs",
+      "files": [
+        "stop_guessing/policy/engine.py",
+        "stop_guessing/cli/gate.py"
+      ],
+      "status": "PRESENT",
+      "evidence": "policy_set_digest is recorded but never compared to a trusted expectation"
+    },
+    {
+      "id": "SG-HARD-015",
+      "severity": "CRITICAL",
+      "title": "Symlink aliasing bypasses PreToolUse classification",
+      "files": [
+        "stop_guessing/cli/gate.py"
+      ],
+      "status": "PRESENT",
+      "evidence": "classify_path() runs on the user-supplied spelling at char 4432; canonicalisation via identify() only at 4879"
+    },
+    {
+      "id": "SG-HARD-016",
+      "severity": "HIGH",
+      "title": "Artifact identity changes on atomic replacement",
+      "files": [
+        "stop_guessing/artifacts/identity.py"
+      ],
+      "status": "PRESENT",
+      "evidence": "artifact_id incorporates dev/inode; atomic replacement mints a new id"
+    },
+    {
+      "id": "SG-HARD-017",
+      "severity": "CRITICAL",
+      "title": "Project handler executes on classified data before policy",
+      "files": [
+        "stop_guessing/cli/gate.py",
+        "stop_guessing/handlers.py"
+      ],
+      "status": "PRESENT",
+      "evidence": "handlers.substitute() at char 6569 precedes policy evaluate() at 7125"
+    },
+    {
+      "id": "SG-HARD-018",
+      "severity": "CRITICAL",
+      "title": "Signed-script execution bypassable by its paired test",
+      "files": [
+        "stop_guessing/delegate.py",
+        "stop_guessing/cli/cmd_ops.py"
+      ],
+      "status": "DYNAMIC",
+      "evidence": "no static predicate; requires a live adversarial test"
+    },
+    {
+      "id": "SG-HARD-019",
+      "severity": "CRITICAL",
+      "title": "Delegation has test/hash/execute TOCTOU races",
+      "files": [
+        "stop_guessing/delegate.py"
+      ],
+      "status": "DYNAMIC",
+      "evidence": "no static predicate; requires a live adversarial test"
+    },
+    {
+      "id": "SG-HARD-020",
+      "severity": "CRITICAL",
+      "title": "bar sends full handler output to model-visible context",
+      "files": [
+        "stop_guessing/cli/gate.py"
+      ],
+      "status": "PRESENT",
+      "evidence": "gate embeds sub.output in the decision reason; emit_for_model() is unused"
+    },
+    {
+      "id": "SG-HARD-021",
+      "severity": "CRITICAL",
+      "title": "Delegated execution is not sandboxed",
+      "files": [
+        "stop_guessing/delegate.py"
+      ],
+      "status": "PRESENT",
+      "evidence": "isolation is an env allowlist plus proxy variables; no OS capability boundary"
+    },
+    {
+      "id": "SG-HARD-022",
+      "severity": "CRITICAL",
+      "title": "State read, decision and append are not atomic",
+      "files": [
+        "stop_guessing/cli/gate.py"
+      ],
+      "status": "DYNAMIC",
+      "evidence": "no static predicate; requires a live adversarial test"
+    },
+    {
+      "id": "SG-HARD-023",
+      "severity": "CRITICAL",
+      "title": "Ledger integrity failure falls back to mutable cache",
+      "files": [
+        "stop_guessing/cli/gate.py"
+      ],
+      "status": "PRESENT",
+      "evidence": "state_for() catches Exception broadly, so wrong key / broken chain / unreadable ledger all degrade to the agent-writable cache"
+    },
+    {
+      "id": "SG-HARD-024",
+      "severity": "HIGH",
+      "title": "Gap-recording and decision-recording failures can be silent",
+      "files": [
+        "stop_guessing/cli/hook_gate.py"
+      ],
+      "status": "PRESENT",
+      "evidence": "_record_gap() uses from_env() only; against an installed keyed ledger it refuses"
+    },
+    {
+      "id": "SG-HARD-025",
+      "severity": "CRITICAL",
+      "title": "Ledger replay is not equivalent to live custody state",
+      "files": [
+        "stop_guessing/taint/state.py"
+      ],
+      "status": "DYNAMIC",
+      "evidence": "no static predicate; requires a live adversarial test"
+    },
+    {
+      "id": "SG-HARD-026",
+      "severity": "CRITICAL",
+      "title": "The bytes read into model context are not bound",
+      "files": [
+        "stop_guessing/cli/gate.py",
+        "stop_guessing/cli/hook_post.py"
+      ],
+      "status": "DYNAMIC",
+      "evidence": "no static predicate; requires a live adversarial test"
+    },
+    {
+      "id": "SG-HARD-027",
+      "severity": "HIGH",
+      "title": "Only one 'worst' candidate is evaluated per call",
+      "files": [
+        "stop_guessing/cli/gate.py"
+      ],
+      "status": "DYNAMIC",
+      "evidence": "no static predicate; requires a live adversarial test"
+    },
+    {
+      "id": "SG-HARD-028",
+      "severity": "HIGH",
+      "title": "Shell path and egress heuristics are bypassable",
+      "files": [
+        "stop_guessing/artifacts/classify.py"
+      ],
+      "status": "DYNAMIC",
+      "evidence": "no static predicate; requires a live adversarial test"
+    },
+    {
+      "id": "SG-HARD-029",
+      "severity": "HIGH",
+      "title": "Session-state cache filenames can collide",
+      "files": [
+        "stop_guessing/taint/persist.py"
+      ],
+      "status": "PRESENT",
+      "evidence": "session id is sanitised and truncated to 120 chars; distinct ids can collide"
+    },
+    {
+      "id": "SG-HARD-030",
+      "severity": "HIGH",
+      "title": "Sealing does not archive, rotate or freeze a segment",
+      "files": [
+        "stop_guessing/ledger/segments.py"
+      ],
+      "status": "PRESENT",
+      "evidence": "seal() writes a MAC sidecar only \u2014 no rename/replace/move anywhere in the module, so the active ledger stays appendable after sealing"
+    },
+    {
+      "id": "SG-HARD-031",
+      "severity": "HIGH",
+      "title": "Ledger IO mishandles partial writes and malformed middles",
+      "files": [
+        "stop_guessing/ledger/sink.py"
+      ],
+      "status": "PRESENT",
+      "evidence": "a single os.write() is assumed to write the whole line; no short-write loop"
+    },
+    {
+      "id": "SG-HARD-032",
+      "severity": "HIGH",
+      "title": "Append and daemon design allow exhaustion and downgrade",
+      "files": [
+        "stop_guessing/ledger/sink.py",
+        "stop_guessing/recorder/daemon.py"
+      ],
+      "status": "PRESENT",
+      "evidence": "every append re-reads and re-verifies the whole ledger \u2014 O(n^2) lifetime"
+    },
+    {
+      "id": "SG-HARD-033",
+      "severity": "HIGH",
+      "title": "CLI and hook use different default ledgers and key discovery",
+      "files": [
+        "stop_guessing/cli/cmd_ledger.py",
+        "stop_guessing/cli/gate.py"
+      ],
+      "status": "PRESENT",
+      "evidence": "cmd_ledger defaults to ~/.stop-guessing/ledger.jsonl while the hook writes $CLAUDE_CONFIG_DIR/stop-guessing/ledger/custody.jsonl"
+    },
+    {
+      "id": "SG-HARD-034",
+      "severity": "CRITICAL",
+      "title": "The plugin package is not self-contained",
+      "files": [
+        ".claude-plugin/plugins/stop-guessing/hooks/hooks.json"
+      ],
+      "status": "PRESENT",
+      "evidence": "0 Python files under the plugin subtree; hooks invoke `python3 -m stop_guessing...` resolved from ambient PATH/PYTHONPATH"
+    },
+    {
+      "id": "SG-HARD-035",
+      "severity": "HIGH",
+      "title": "Wheel/sdist packaging omits required runtime assets",
+      "files": [
+        "pyproject.toml"
+      ],
+      "status": "PRESENT",
+      "evidence": "no package-data and no MANIFEST.in; a wheel omits VERSION, policy/, rules/"
+    },
+    {
+      "id": "SG-HARD-036",
+      "severity": "HIGH",
+      "title": "Installer upgrades can leave stale mixed-version code",
+      "files": [
+        "install.sh"
+      ],
+      "status": "DYNAMIC",
+      "evidence": "no static predicate; requires a live adversarial test"
+    },
+    {
+      "id": "SG-HARD-037",
+      "severity": "HIGH",
+      "title": "Installer settings/service changes are non-atomic",
+      "files": [
+        "install.sh"
+      ],
+      "status": "DYNAMIC",
+      "evidence": "no static predicate; requires a live adversarial test"
+    },
+    {
+      "id": "SG-HARD-038",
+      "severity": "HIGH",
+      "title": "Missing vendored hook is silently skipped",
+      "files": [
+        "stop_guessing/cli/hook_gate.py"
+      ],
+      "status": "PRESENT",
+      "evidence": "a missing vendored hook is skipped with `continue`; the dispatcher gets more permissive"
+    },
+    {
+      "id": "SG-HARD-039",
+      "severity": "HIGH",
+      "title": "CLAIM-18's 'CI performs no fetch' assertion is false",
+      "files": [
+        "stop_guessing/prove/procedures.py"
+      ],
+      "status": "PRESENT",
+      "evidence": "the proof equates absence of literal curl/wget with 'no fetch'; CI uses actions/checkout and pip"
+    },
+    {
+      "id": "SG-HARD-040",
+      "severity": "CRITICAL",
+      "title": "CAIQ fill trusts editable YAML without re-deriving",
+      "files": [
+        "stop_guessing/cli/cmd_caiq.py"
+      ],
+      "status": "PRESENT",
+      "evidence": "cmd_fill reads the editable YAML and writes it without re-deriving from the ledger"
+    },
+    {
+      "id": "SG-HARD-041",
+      "severity": "CRITICAL",
+      "title": "CLAIM-21 is circular and spans two evidence epochs",
+      "files": [
+        "stop_guessing/prove/procedures.py",
+        "docs/ai-caiq/stop-guessing.yaml"
+      ],
+      "status": "PRESENT",
+      "evidence": "the carried workbook reports 20/21 against 21 claims: CLAIM-21 fills the questionnaire before its own proof record exists"
+    },
+    {
+      "id": "SG-HARD-042",
+      "severity": "HIGH",
+      "title": "Attestation does not validate CAIQ metadata/mapping",
+      "files": [
+        "stop_guessing/prove/runner.py"
+      ],
+      "status": "DYNAMIC",
+      "evidence": "no static predicate; requires a live adversarial test"
+    },
+    {
+      "id": "SG-HARD-043",
+      "severity": "HIGH",
+      "title": "External CAIQ verification path is machine-specific",
+      "files": [
+        "stop_guessing/caiq/fill.py"
+      ],
+      "status": "PRESENT",
+      "evidence": "fill.py hardcodes an absolute maintainer path to the rich-text verifier"
+    },
+    {
+      "id": "SG-HARD-044",
+      "severity": "HIGH",
+      "title": "Known adequacy objections do not affect the verdict",
+      "files": [
+        "stop_guessing/prove/judge.py",
+        "stop_guessing/prove/runner.py"
+      ],
+      "status": "PRESENT",
+      "evidence": "goal_met excludes the judge panel's deferred disapprovals by construction"
+    },
+    {
+      "id": "SG-HARD-045",
+      "severity": "HIGH",
+      "title": "CLAIM-20 checks presence and permissive exit codes",
+      "files": [
+        "stop_guessing/prove/procedures.py"
+      ],
+      "status": "PRESENT",
+      "evidence": "CLAIM-20 accepts exit code 1 as a successful surface exercise"
+    },
+    {
+      "id": "SG-HARD-046",
+      "severity": "HIGH",
+      "title": "OpenTelemetry export is not valid OTLP JSON",
+      "files": [
+        "stop_guessing/prov/export_otel.py"
+      ],
+      "status": "PRESENT",
+      "evidence": "no resourceSpans/scopeSpans envelope; OTLP JSON requires it and encodes enums as integers"
+    },
+    {
+      "id": "SG-HARD-047",
+      "severity": "HIGH",
+      "title": "Exports accept a truncated ledger prefix",
+      "files": [
+        "stop_guessing/cli/cmd_ops.py"
+      ],
+      "status": "ABSENT",
+      "evidence": "cmd_export checks truncated"
+    },
+    {
+      "id": "SG-HARD-048",
+      "severity": "HIGH",
+      "title": "Lifecycle and batch events are not registered",
+      "files": [
+        ".claude-plugin/plugins/stop-guessing/hooks/hooks.json"
+      ],
+      "status": "PRESENT",
+      "evidence": "2 of 31 documented events registered (PostToolUse, PreToolUse); no session boundary, prompt lineage, compaction, batch or reconciliation evidence"
+    },
+    {
+      "id": "SG-HARD-049",
+      "severity": "HIGH",
+      "title": "Request/result reconciliation is absent at runtime",
+      "files": [
+        "stop_guessing/ledger/reconcile.py"
+      ],
+      "status": "PRESENT",
+      "evidence": "ledger/reconcile.py is imported by no hook or CLI runtime path"
+    },
+    {
+      "id": "SG-HARD-050",
+      "severity": "MEDIUM",
+      "title": "Record ids can collide; disable mode is unaudited",
+      "files": [
+        "stop_guessing/cli/gate.py",
+        "stop_guessing/cli/hook_gate.py"
+      ],
+      "status": "PRESENT",
+      "evidence": "STOP_GUESSING_DISABLE bypasses custody with no recorded disabled-mode event"
+    },
+    {
+      "id": "SG-HARD-051",
+      "severity": "HIGH",
+      "title": "Mixed full/flat records make sufficiency unattainable",
+      "files": [
+        "stop_guessing/verify/sufficiency.py"
+      ],
+      "status": "PRESENT",
+      "evidence": "sufficiency requires every record to populate every regime; flat events make it permanently incomplete"
+    },
+    {
+      "id": "SG-HARD-052",
+      "severity": "HIGH",
+      "title": "Strength labels overstate isolation",
+      "files": [
+        "stop_guessing/ledger/entry.py"
+      ],
+      "status": "PRESENT",
+      "evidence": "strength() promotes to '+isolated' at tier >= 1, which is the same uid"
+    },
+    {
+      "id": "SG-HARD-053",
+      "severity": "HIGH",
+      "title": "Public proof counts include superseded historical refs",
+      "files": [
+        "stop_guessing/cli/cmd_page.py"
+      ],
+      "status": "ABSENT",
+      "evidence": "the page renders current live evidence separately from historical runs"
+    },
+    {
+      "id": "SG-HARD-054",
+      "severity": "HIGH",
+      "title": "Generated artifacts disagree and contain stale statements",
+      "files": [
+        "docs/ai-caiq/stop-guessing.yaml",
+        "docs/index.html"
+      ],
+      "status": "PRESENT",
+      "evidence": "the carried workbook reports 20/21 against 21 claims: CLAIM-21 fills the questionnaire before its own proof record exists"
+    }
+  ]
+}

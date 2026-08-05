@@ -19,17 +19,24 @@ headline is exactly who they matter to.**
 | Carried AI-CAIQ | 11 published controls answered (9 Yes, 2 No), derived from those proofs |
 | Judge panel | 46 deferred disapprovals, recorded not blocking — including `independence` on every claim |
 
-**What this gate does not establish** (independent audit, 2026-08-04, verified against source):
+**What this gate does not establish.** An independent hardening audit on 2026-08-04
+raised 54 findings. Each was re-verified against source rather than accepted; the current state,
+generated from [`docs/audit-status.json`](docs/audit-status.json) at commit `b9b90cf`, is
+**38 confirmed outstanding, 6 fixed, 10 unverified** (no static
+predicate — those need a live adversarial test and are not counted as passing).
 
-- a claim's declared `surface:` is never validated — a claim naming `hook:PreCompact` passes while
-  no such hook is registered (SG-HARD-001)
-- deleting a proof procedure does not un-prove its claim (SG-HARD-002)
-- a proof binds only its own function source, not the implementation, policy or build it exercised
-  (SG-HARD-003)
-- a truncated ledger still attests: `check()` reads `chain.intact` and ignores `truncated`
-  (SG-HARD-004)
-- 2 of the 31 available hook events are registered, so custody is complete per tool call and
-  incomplete per session (SG-HARD-048)
+Outstanding CRITICAL findings:
+
+- Proof staleness binds only the procedure, not the implementation (SG-HARD-003)
+- --isolated cannot start a separate-UID recorder (SG-HARD-006)
+- Tier 1 and the default keyfile do not separate key from agent (SG-HARD-007)
+- PostToolUse bypasses cocd and can lose records silently (SG-HARD-008)
+- Failed tool executions are not covered (PostToolUseFailure) (SG-HARD-009)
+- The recorder authenticates ordering, not event truth (SG-HARD-010)
+- …and 11 more — see the `hardening-audit` label.
+
+Re-derive any of it with `scripts/audit_verify.py --id <id>`; the predicate reports only whether
+the defect is still present.
 
 A **proof** is a record in this toolchain's own ledger, produced by a procedure that exercises the
 real surface — not a passing test. `proofs:` in [`docs/claims.yaml`](docs/claims.yaml) is written

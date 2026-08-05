@@ -434,6 +434,54 @@ Not hand-written.</p>
 """
 
 
+AUDIT_STATUS = "docs/audit-status.json"
+
+
+def _audit_limits(top: int = 6) -> str:
+    """The gate's own outstanding limits, rendered from the verifier rather than typed.
+
+    This block was hand-written for one commit and was stale by the next: it listed three findings
+    as outstanding that had already been fixed. A section whose whole purpose is honesty cannot be
+    the one part of the README that rots, so it is generated from `docs/audit-status.json`, which
+    `scripts/audit_verify.py --json` produces. Fixed findings leave the list by themselves.
+    """
+    import json as _json
+
+    p = repo_root() / AUDIT_STATUS
+    try:
+        doc = _json.loads(p.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return ("**What this gate does not establish**: `docs/audit-status.json` is missing, so "
+                "this cannot be stated. Run `scripts/audit_verify.py --json > docs/audit-status.json`.")
+
+    rows = doc.get("findings") or []
+    present = [r for r in rows if r["status"] == "PRESENT"]
+    dynamic = [r for r in rows if r["status"] == "DYNAMIC"]
+    fixed = [r for r in rows if r["status"] == "ABSENT"]
+    crit = [r for r in present if r["severity"] == "CRITICAL"]
+
+    shown = (crit or present)[:top]
+    bullets = "\n".join(
+        f"- {r['title']} ({r['id']})" for r in shown
+    ) or "- none outstanding"
+    more = len(crit or present) - len(shown)
+
+    return f"""**What this gate does not establish.** An independent hardening audit on 2026-08-04
+raised 54 findings. Each was re-verified against source rather than accepted; the current state,
+generated from [`{AUDIT_STATUS}`]({AUDIT_STATUS}) at commit `{doc.get('commit', '?')}`, is
+**{len(present)} confirmed outstanding, {len(fixed)} fixed, {len(dynamic)} unverified** (no static
+predicate — those need a live adversarial test and are not counted as passing).
+
+{'Outstanding CRITICAL findings' if crit else 'Outstanding findings'}:
+
+{bullets}
+{f"- …and {more} more — see the `hardening-audit` label." if more > 0 else ""}
+
+Re-derive any of it with `scripts/audit_verify.py --id <id>`; the predicate reports only whether
+the defect is still present.
+"""
+
+
 def readme_status(attest: dict, claims: dict, caiq: dict | None) -> str:
     """The README's status block, generated for the same reason the page is.
 
@@ -490,18 +538,7 @@ headline is exactly who they matter to.**
 | Carried AI-CAIQ | {len(published)} published controls answered ({yes} Yes, {no} No), derived from those proofs |
 | Judge panel | {(attest.get("judge") or {}).get("deferred_disapprovals", "?")} deferred disapprovals, recorded not blocking — including `independence` on every claim |
 
-**What this gate does not establish** (independent audit, 2026-08-04, verified against source):
-
-- a claim's declared `surface:` is never validated — a claim naming `hook:PreCompact` passes while
-  no such hook is registered (SG-HARD-001)
-- deleting a proof procedure does not un-prove its claim (SG-HARD-002)
-- a proof binds only its own function source, not the implementation, policy or build it exercised
-  (SG-HARD-003)
-- a truncated ledger still attests: `check()` reads `chain.intact` and ignores `truncated`
-  (SG-HARD-004)
-- 2 of the 31 available hook events are registered, so custody is complete per tool call and
-  incomplete per session (SG-HARD-048)
-
+{_audit_limits()}
 A **proof** is a record in this toolchain's own ledger, produced by a procedure that exercises the
 real surface — not a passing test. `proofs:` in [`docs/claims.yaml`](docs/claims.yaml) is written
 only by `stop-guessing prove`. A claim with no surviving proof is a **failed** claim, not an
