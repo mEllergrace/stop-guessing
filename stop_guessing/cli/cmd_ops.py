@@ -249,6 +249,11 @@ def cmd_export(args) -> int:
     # CASE/UCO and OTel all carry an authority the source no longer has once part of it is missing,
     # and a downstream validator has no way to tell a complete graph from a prefix of one. Same
     # rule as the chain break: refuse rather than launder.
+    if loaded.corrupt:
+        where = loaded.malformed_at or loaded.decode_error_at
+        print(f"REFUSED: the ledger is corrupted at line {where} — damage an interrupted write "
+              "cannot explain. Exporting it would render tampered input as evidence.")
+        return 1
     if loaded.truncated:
         print("REFUSED: the ledger's final record is partial, so this is a prefix, not a ledger.")
         print("         The prefix verifies, which is exactly why exporting it is dangerous: the "

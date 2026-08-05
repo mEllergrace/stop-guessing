@@ -1,5 +1,5 @@
 {
-  "commit": "dfa8bec",
+  "commit": "8a83e0d",
   "findings": [
     {
       "id": "SG-HARD-001",
@@ -296,8 +296,8 @@
       "files": [
         "stop_guessing/taint/persist.py"
       ],
-      "status": "PRESENT",
-      "evidence": "session id is sanitised and truncated to 120 chars; distinct ids can collide"
+      "status": "ABSENT",
+      "evidence": "the cache filename is a digest of the full session id"
     },
     {
       "id": "SG-HARD-030",
@@ -316,8 +316,8 @@
       "files": [
         "stop_guessing/ledger/sink.py"
       ],
-      "status": "PRESENT",
-      "evidence": "a single os.write() is assumed to write the whole line; no short-write loop"
+      "status": "ABSENT",
+      "evidence": "writes are looped/length-checked"
     },
     {
       "id": "SG-HARD-032",
@@ -388,8 +388,8 @@
       "files": [
         "stop_guessing/cli/hook_gate.py"
       ],
-      "status": "PRESENT",
-      "evidence": "a missing vendored hook is skipped with `continue`; the dispatcher gets more permissive"
+      "status": "ABSENT",
+      "evidence": "a missing required rule fails closed"
     },
     {
       "id": "SG-HARD-039",
@@ -439,8 +439,8 @@
       "files": [
         "stop_guessing/caiq/fill.py"
       ],
-      "status": "PRESENT",
-      "evidence": "fill.py hardcodes an absolute maintainer path to the rich-text verifier"
+      "status": "ABSENT",
+      "evidence": "the verifier is resolved portably"
     },
     {
       "id": "SG-HARD-044",
@@ -511,8 +511,8 @@
         "stop_guessing/cli/gate.py",
         "stop_guessing/cli/hook_gate.py"
       ],
-      "status": "PRESENT",
-      "evidence": "STOP_GUESSING_DISABLE bypasses custody with no recorded disabled-mode event"
+      "status": "ABSENT",
+      "evidence": "the disable switch records a transition"
     },
     {
       "id": "SG-HARD-051",

@@ -159,16 +159,43 @@ def verify_with_rich_text(template: str | Path, filled: str | Path) -> tuple[boo
     Deliberately an external check: our own verifier agreeing with our own filler proves only
     that we are self-consistent.
     """
+    import os
     import subprocess
     import sys
     from glob import glob
 
-    matches = sorted(glob(
-        "/Users/isme/.claude/plugins/cache/rich-text/rich-text/*/skills/rich-text/scripts/"
-        "verify_ai_caiq_workbook.py"
-    ))
+    # #76 (SG-HARD-043): this hardcoded one maintainer's absolute plugin-cache path, so the
+    # "unmodified third-party verifier" that CLAIM-15 and CLAIM-21 lean on was discoverable on
+    # exactly one machine. Same defect as the hardcoded AI-CAIQ template, in the same subsystem,
+    # missed when that one was fixed. Searched in order, most explicit first.
+    candidates = [
+        os.environ.get("STOP_GUESSING_CAIQ_VERIFIER"),
+        # The plugin cache under whichever config dir is active, not a fixed home.
+        str(Path(os.environ.get("CLAUDE_CONFIG_DIR") or Path.home() / ".claude")
+            / "plugins/cache/rich-text/rich-text/*/skills/rich-text/scripts"
+            / "verify_ai_caiq_workbook.py"),
+        str(Path.home()
+            / ".claude/plugins/cache/rich-text/rich-text/*/skills/rich-text/scripts"
+            / "verify_ai_caiq_workbook.py"),
+        str(Path.home() / "Software/rich-text/skills/rich-text/scripts"
+            / "verify_ai_caiq_workbook.py"),
+    ]
+    matches: list[str] = []
+    tried: list[str] = []
+    for cand in candidates:
+        if not cand:
+            continue
+        tried.append(cand)
+        hits = sorted(glob(cand))
+        if hits:
+            matches = hits
+            break
     if not matches:
-        return False, "rich-text's verify_ai_caiq_workbook.py is not present on this machine"
+        return False, (
+            "rich-text's verify_ai_caiq_workbook.py was not found. It is a third-party verifier "
+            "and is deliberately not vendored here — set $STOP_GUESSING_CAIQ_VERIFIER to its path, "
+            "or install the rich-text plugin. Searched:\n  " + "\n  ".join(tried)
+        )
     res = subprocess.run(  # noqa: S603
         [sys.executable, matches[-1], "--template", str(template), "--filled", str(filled)],
         capture_output=True, timeout=180,

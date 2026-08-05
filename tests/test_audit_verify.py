@@ -49,6 +49,12 @@ FIXED = {
     "SG-HARD-052": "same-uid tier 1 reports plain 'chain-keyed'",
     "SG-HARD-020": "the gate routes handler output through emit_for_model(); bar gets handle+summary",
     "SG-HARD-039": "the CI no-fetch sub-claim is withdrawn and what CI fetches is enumerated",
+    # Evidence-integrity batch, 2026-08-05.
+    "SG-HARD-029": "cache filename is a sha256 of the full session id; stored id is verified on load",
+    "SG-HARD-031": "write-all loop; torn tail distinguished from corrupted middle and bad UTF-8",
+    "SG-HARD-038": "a missing vendored rule records a critical selfcheck instead of continuing",
+    "SG-HARD-043": "the rich-text verifier is resolved via $STOP_GUESSING_CAIQ_VERIFIER and a search path",
+    "SG-HARD-050": "STOP_GUESSING_DISABLE records a critical disabled-mode transition once per day",
 }
 
 

@@ -242,7 +242,9 @@ def check(key: ChainKey | None, ledger: Path = DEFAULT_LEDGER) -> dict:
     # `chain.intact`, so appending one partial line after the final proof left every earlier proof
     # live and still produced a full verdict — while the sink itself refused to write another
     # record. The gate now agrees with the sink about what a usable ledger is.
-    chain_ok = loaded.chain.intact and not loaded.truncated
+    # #64 adds corruption alongside truncation: an unparseable middle line or invalid UTF-8 is
+    # damage a crash cannot explain, and must invalidate at least as strongly as a torn tail.
+    chain_ok = loaded.usable
 
     # Evidence is CURRENT, not cumulative. Every prove run appended another ref, so a control
     # ended up citing 60 records where 59 were superseded re-runs of the same procedure — and the
@@ -315,9 +317,17 @@ def check(key: ChainKey | None, ledger: Path = DEFAULT_LEDGER) -> dict:
         "chain_intact": chain_ok,
         "chain_verified": loaded.chain.intact,
         "chain_truncated": loaded.truncated,
-        "chain_reason": (loaded.chain.reason if not loaded.chain.intact
-                         else ("the final record is partial; the ledger is a prefix, not a ledger"
-                               if loaded.truncated else None)),
+        "chain_corrupt": loaded.corrupt,
+        "chain_malformed_at": loaded.malformed_at,
+        "chain_decode_error_at": loaded.decode_error_at,
+        "chain_reason": (
+            loaded.chain.reason if not loaded.chain.intact
+            else f"line {loaded.malformed_at} is unparseable and is not the final line — "
+                 "corruption, not an interrupted write" if loaded.malformed_at
+            else f"line {loaded.decode_error_at} is not valid UTF-8 — corruption"
+                 if loaded.decode_error_at
+            else "the final record is partial; the ledger is a prefix, not a ledger"
+                 if loaded.truncated else None),
         "chain_keyed": loaded.chain.verified_keyed,
         "ledger": str(ledger),
         "total": len(rows),

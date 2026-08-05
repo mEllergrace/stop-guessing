@@ -41,6 +41,27 @@ class LoadedLog:
     truncated: bool
     """True when the last line was partial — a write interrupted by a crash. The intact prefix
     is still returned, because everything before the tear is still evidence."""
+    malformed_at: int | None = None
+    """1-indexed line number of an unparseable record that is NOT the final line.
+
+    #64 (SG-HARD-031). This used to be folded into `truncated`, which said "a crash interrupted a
+    write" about a condition that cannot be produced by a crash: an interrupted append can only
+    damage the LAST line. Unparseable content in the middle means something edited the file, and
+    calling that a torn tail is the log describing tampering in the vocabulary of an accident.
+    """
+    decode_error_at: int | None = None
+    """1-indexed line that is not valid UTF-8. Previously this raised out of load() entirely, so a
+    single bad byte made the whole ledger unreadable rather than reporting one damaged record."""
+
+    @property
+    def corrupt(self) -> bool:
+        """Damage that a crash cannot explain."""
+        return self.malformed_at is not None or self.decode_error_at is not None
+
+    @property
+    def usable(self) -> bool:
+        """Complete and verified. A prefix is not a ledger; a corrupted file is not a ledger."""
+        return self.chain.intact and not self.truncated and not self.corrupt
 
 
 def load(path: str | Path, key: ChainKey | None = None) -> LoadedLog:
@@ -49,20 +70,41 @@ def load(path: str | Path, key: ChainKey | None = None) -> LoadedLog:
         # A first run is not an error. Reporting one would train people to ignore the log.
         return LoadedLog([], ChainVerdict(intact=True), False)
 
+    # Bytes, not text (#64): p.read_text() raises on one invalid byte anywhere in the file, which
+    # turned a single damaged record into a total read failure — and a ledger that cannot be read
+    # at all reports nothing about what happened to it.
+    raw = p.read_bytes()
+    ends_with_newline = raw.endswith(b"\n")
+    raw_lines = raw.split(b"\n")
+    if raw_lines and raw_lines[-1] == b"":
+        raw_lines.pop()
+
     entries: list[dict] = []
     truncated = False
-    for line in p.read_text(encoding="utf-8").splitlines():
-        if not line.strip():
+    malformed_at: int | None = None
+    decode_error_at: int | None = None
+
+    for idx, blob in enumerate(raw_lines, 1):
+        if not blob.strip():
             continue
+        is_final = idx == len(raw_lines)
+        try:
+            line = blob.decode("utf-8")
+        except UnicodeDecodeError:
+            decode_error_at = idx
+            break
         try:
             entries.append(json.loads(line))
         except json.JSONDecodeError:
-            # Only a torn FINAL line is recoverable. A malformed line in the middle means
-            # something other than a crash happened, and that is the chain's finding to report,
-            # not ours to paper over.
-            truncated = True
+            # A torn tail is the only damage an interrupted append can cause, and only on the
+            # final line of a file that does not end in a newline. Anything else is corruption.
+            if is_final and not ends_with_newline:
+                truncated = True
+            else:
+                malformed_at = idx
             break
-    return LoadedLog(entries, verify(entries, key), truncated)
+
+    return LoadedLog(entries, verify(entries, key), truncated, malformed_at, decode_error_at)
 
 
 @contextlib.contextmanager
@@ -165,17 +207,53 @@ def _record_locked(p: Path, event: dict, key: ChainKey | None) -> dict:
             "so a new entry would chain onto an incomplete predecessor. Repair or archive it "
             "first."
         )
+    # #64: corruption is a stronger finding than truncation and must not inherit its wording. A
+    # crash cannot produce an unparseable line in the middle of a file, or invalid UTF-8 anywhere.
+    if loaded.malformed_at is not None:
+        raise LedgerError(
+            f"refusing to append to a CORRUPTED ledger at {p}: line {loaded.malformed_at} is "
+            "unparseable and is not the final line, so this was not an interrupted write. "
+            "Something modified the file. Preserve it and investigate before recording further."
+        )
+    if loaded.decode_error_at is not None:
+        raise LedgerError(
+            f"refusing to append to a CORRUPTED ledger at {p}: line {loaded.decode_error_at} is "
+            "not valid UTF-8. Every record this tool writes is UTF-8 JSON, so this content did "
+            "not come from the recorder. Preserve it and investigate."
+        )
 
     written = append(loaded.entries, event, key)[-1]
     p.parent.mkdir(parents=True, exist_ok=True)
     line = (json.dumps(written, sort_keys=True, separators=(",", ":"), ensure_ascii=False) + "\n")
+    _write_all(p, line.encode("utf-8"))
+    return written
+
+
+def _write_all(p: Path, blob: bytes) -> None:
+    """Write every byte, or raise.
+
+    #64 (SG-HARD-031). `os.write()` is permitted to write fewer bytes than it was given — that is
+    its documented contract, not an edge case — and a single unchecked call therefore produces
+    exactly the torn line the loader has to detect later. In an append-only evidence log a short
+    write is a silently damaged record, so the write is looped and the total is checked.
+
+    O_APPEND makes each write atomic with respect to other appenders, so looping cannot interleave
+    with a concurrent writer's line.
+    """
     fd = os.open(p, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
     try:
-        os.write(fd, line.encode("utf-8"))
+        view = memoryview(blob)
+        while view:
+            n = os.write(fd, view)
+            if n <= 0:
+                raise LedgerError(
+                    f"short write to {p}: os.write returned {n} with {len(view)} byte(s) left. "
+                    "The record is incomplete and the ledger must be treated as torn."
+                )
+            view = view[n:]
         os.fsync(fd)
     finally:
         os.close(fd)
-    return written
 
 
 def record_many(path: str | Path, events: list[dict], key: ChainKey | None = None) -> list[dict]:

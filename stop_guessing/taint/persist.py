@@ -35,8 +35,22 @@ def state_dir() -> Path:
 
 
 def _path(session_id: str) -> Path:
-    safe = "".join(c if c.isalnum() or c in "-_" else "_" for c in session_id)[:120]
-    return state_dir() / f"{safe}.json"
+    """One file per session, with no way for two sessions to land on the same one.
+
+    #62 (SG-HARD-029). This sanitised every non-alphanumeric character to ``_`` and then truncated
+    to 120 characters, so ``a/b`` and ``a:b`` mapped to the same file, as did any two ids sharing a
+    120-character prefix. Two sessions sharing a state file mix their taint — and taint is what
+    denies an egress, so a collision is a security-relevant outcome reached by a filename rule.
+
+    A digest of the FULL id cannot collide by construction. A short readable prefix is kept in
+    front of it so the directory is still greppable by eye, and `save()` writes the original id
+    inside the file so a mismatch is detectable rather than assumed.
+    """
+    import hashlib
+
+    digest = hashlib.sha256(session_id.encode("utf-8")).hexdigest()[:32]
+    readable = "".join(c if c.isalnum() or c in "-_" else "_" for c in session_id)[:40]
+    return state_dir() / f"{readable}.{digest}.json"
 
 
 def save(state: SessionCustodyState) -> Path:
@@ -78,6 +92,12 @@ def load(session_id: str) -> SessionCustodyState:
     except (json.JSONDecodeError, OSError):
         return SessionCustodyState(session_id)
     if body.get("_version") != STATE_VERSION:
+        return SessionCustodyState(session_id)
+    # #62: the file stores the id it was written for. If it disagrees with the id being loaded,
+    # this is another session's state and using it would import that session's taint. Start clean
+    # rather than merge — a wrong answer here silently changes what gets allowed to egress.
+    stored = body.get("session_id")
+    if stored is not None and stored != session_id:
         return SessionCustodyState(session_id)
 
     state = SessionCustodyState(

@@ -53,9 +53,16 @@ def run_vendored(
     CLAIM-17's proof failing.
     """
     d = hooks_dir or vendored_dir()
+    missing: list[str] = []
     for name in VENDORED_ORDER:
         hook = d / name
         if not hook.is_file():
+            # #71 (SG-HARD-038): this used to `continue` in silence, so deleting a vendored rule
+            # made the dispatcher strictly more permissive with no signal anywhere. The whole
+            # supersession claim is that these rules keep running; a missing one falsifies it.
+            # It cannot fail closed — that would let a packaging slip block every tool call — so
+            # it is recorded as a critical finding and surfaced.
+            missing.append(name)
             continue
         res = subprocess.run(  # noqa: S603
             ["bash", str(hook)], input=payload, capture_output=True, timeout=30,
@@ -63,7 +70,76 @@ def run_vendored(
         )
         if res.returncode != 0:
             return res.returncode, res.stdout.decode("utf-8", "replace"), name
+    if missing:
+        _record_missing_rules(missing, d)
     return None
+
+
+def _record_missing_rules(missing: list[str], hooks_dir: Path) -> None:
+    """A vendored rule that is not on disk is a critical configuration finding, not a no-op."""
+    try:
+        from stop_guessing.attest.keys import discover
+        from stop_guessing.ledger.sink import record
+        from stop_guessing.recorder.daemon import ledger_path
+
+        cfg = Path(os.environ.get("CLAUDE_CONFIG_DIR") or os.path.expanduser("~/.claude"))
+        got = discover(config_dir=cfg)
+        record(ledger_path(cfg), {
+            "op": "recorder.selfcheck",
+            "actor": "stop-guessing/hook_gate",
+            "severity": "critical",
+            "at": _iso_now(),
+            "detail": (f"{len(missing)} vendored rule(s) absent from {hooks_dir}: "
+                       f"{', '.join(missing)}. The dispatcher is more permissive than the "
+                       f"supersession claim states."),
+            "known_gaps": [f"vendored rule missing: {n}" for n in missing],
+            "alterations": [],
+        }, got[0] if got else None)
+    except Exception:  # noqa: BLE001 - never let recording a finding break the tool call
+        print(f"STOP-GUESSING: vendored rule(s) missing and unrecordable: {', '.join(missing)}",
+              file=sys.stderr)
+
+
+def _iso_now() -> str:
+    from datetime import UTC, datetime
+
+    return datetime.now(UTC).isoformat(timespec="milliseconds").replace("+00:00", "Z")
+
+
+def _record_disabled_once() -> None:
+    """Record that custody recording was switched off, exactly once per profile-day.
+
+    Deliberately not once per call: a disabled session makes thousands of tool calls and a
+    record per call would bury its own finding. A marker file bounds it without needing state
+    the disabled path is meant to avoid touching.
+    """
+    try:
+        cfg = Path(os.environ.get("CLAUDE_CONFIG_DIR") or os.path.expanduser("~/.claude"))
+        stamp = cfg / "stop-guessing" / f"disabled-{_iso_now()[:10]}.marker"
+        if stamp.exists():
+            return
+        stamp.parent.mkdir(parents=True, exist_ok=True)
+
+        from stop_guessing.attest.keys import discover
+        from stop_guessing.ledger.sink import record
+        from stop_guessing.recorder.daemon import ledger_path
+
+        got = discover(config_dir=cfg)
+        record(ledger_path(cfg), {
+            "op": "recorder.selfcheck",
+            "actor": "stop-guessing/hook_gate",
+            "severity": "critical",
+            "at": _iso_now(),
+            "detail": ("custody recording DISABLED via $STOP_GUESSING_DISABLE=1. Tool calls from "
+                       "this point are not recorded. Absence of records after this entry means "
+                       "recording was off, not that nothing happened."),
+            "known_gaps": ["custody recording disabled by environment variable"],
+            "alterations": [],
+        }, got[0] if got else None)
+        stamp.write_text(_iso_now(), encoding="utf-8")
+    except Exception:  # noqa: BLE001 - the disable path must never break the tool call
+        print("STOP-GUESSING: custody recording is DISABLED via $STOP_GUESSING_DISABLE",
+              file=sys.stderr)
 
 
 def emit_deny(reason: str) -> None:
@@ -159,6 +235,12 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if os.environ.get("STOP_GUESSING_DISABLE") == "1":
+        # #83 (SG-HARD-050): this returned silently, so custody could be switched off for a whole
+        # session with nothing in the ledger saying it had been. "No records" then reads as "no
+        # activity" rather than "recording was disabled", which is the more dangerous of the two
+        # and is indistinguishable after the fact. Record the transition on the way through — once
+        # per session, so a disabled session leaves one clear marker rather than a flood.
+        _record_disabled_once()
         return 0
 
     try:
