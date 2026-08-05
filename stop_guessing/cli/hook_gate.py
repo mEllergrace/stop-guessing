@@ -199,10 +199,15 @@ def resolve_posture(cwd: str | None) -> str:
 def _record_gap(payload: dict, exc: BaseException) -> None:
     """Append a critical selfcheck record so a crashed gate is visible, never silent."""
     try:
-        from stop_guessing.attest.keys import from_env
+        # #61 (SG-HARD-024). This used from_env(), but a normal installation keeps its key in a
+        # mode-600 keyfile that install.sh writes. Against a keyed ledger an unkeyed append is
+        # REFUSED — so the one path whose entire job is to record that something went wrong was
+        # itself failing, and the exception was swallowed. Gaps were silent precisely when they
+        # mattered. Use the same discovery every other caller uses.
+        from stop_guessing.attest.keys import discover
         from stop_guessing.ledger.sink import record
 
-        got = from_env()
+        got = discover(config_dir=os.environ.get("CLAUDE_CONFIG_DIR"))
         cfg = os.environ.get("CLAUDE_CONFIG_DIR") or os.path.expanduser("~/.claude")
         ledger = Path(cfg) / "stop-guessing" / "ledger" / "custody.jsonl"
         record(ledger, {

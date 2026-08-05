@@ -47,6 +47,22 @@ def policies():
     return _POLICIES
 
 
+def _unsafe_state(session_id: str, why: str) -> tuple[SessionCustodyState, bool]:
+    """The state to use when the authoritative record cannot be verified.
+
+    NOT the cache. The cache is writable by the recorded party, so trusting it after an integrity
+    failure hands the agent exactly the capability the ledger exists to deny it: delete or corrupt
+    the ledger, and enforcement resets to untainted.
+
+    A maximally-tainted state is returned instead, so an unverifiable ledger fails toward denying
+    egress rather than permitting it, and the reason travels with it as a disagreement the caller
+    records.
+    """
+    st = SessionCustodyState(session_id, labels=frozenset({"restricted"}))
+    st.unverifiable_reason = why  # type: ignore[attr-defined]
+    return st, False
+
+
 def state_for(session_id: str) -> tuple[SessionCustodyState, bool]:
     """Ledger-authoritative state, with the JSON file as a cache only.
 
@@ -69,13 +85,24 @@ def state_for(session_id: str) -> tuple[SessionCustodyState, bool]:
         cached = persist.load(session_id)
         return _state_from(remote, session_id), cached.digest == remote["digest"]
 
-    try:
-        records = load_ledger(ledger_path(), chain_key()).entries
-    except Exception:  # noqa: BLE001 - no ledger yet is normal on a first run
-        records = []
-    if not records:
+    # #59 (SG-HARD-023). This caught Exception broadly and fell through to `records = []`, so a
+    # wrong key, an unreadable file, a broken chain and a truncated ledger all became "no records"
+    # — indistinguishable from a first run — and the agent-WRITABLE cache was then restored as
+    # authority. An integrity failure must never be read as an empty history.
+    #
+    # ABSENT and UNVERIFIABLE are different states. Absent is normal. Unverifiable is unsafe.
+    led = ledger_path()
+    if not led.exists():
         return persist.load(session_id), True
-    return persist.reconcile_with_ledger(session_id, records)
+    try:
+        loaded = load_ledger(led, chain_key())
+    except Exception as exc:  # noqa: BLE001
+        return _unsafe_state(session_id, f"the ledger could not be read: {exc}")
+    if not loaded.usable:
+        return _unsafe_state(session_id, loaded.chain.reason or "the ledger does not verify")
+    if not loaded.entries:
+        return persist.load(session_id), True
+    return persist.reconcile_with_ledger(session_id, loaded.entries)
 
 
 def _state_from(remote: dict, session_id: str) -> SessionCustodyState:
@@ -192,22 +219,45 @@ def decide(payload: dict, posture: str = "observe") -> dict | None:
     # through: the handler runs, the model receives its output, and the file's contents never
     # enter context. No handler means no substitution and the call proceeds as it would have —
     # a missing handler must never become a refusal.
+    #
+    # #50 (SG-HARD-017). This used to RUN the handler — and its unsigned paired pytest — against
+    # the classified artifact BEFORE policy was evaluated. A project-controlled handlers/index.yaml
+    # could therefore execute project code on the file under `bar`, read it and write it anywhere,
+    # and only then would the policy decision deny the original read. The denial arrived after the
+    # data had already been handled.
+    #
+    # Discovery and execution are now separated. `find()` only reads the index, which is enough to
+    # tell the policy that a handler EXISTS; nothing runs until the policy has authorised it.
+    handler = None
     substitution = None
     if worst is not None and tool in ("Read", "NotebookRead") and c is not None:
         try:
             from stop_guessing import handlers
 
-            substitution = handlers.substitute(
-                ident.canonical_path, frozenset(c.labels), payload.get("cwd"))
-        except Exception:  # noqa: BLE001 - a broken handler must not take the call down
-            substitution = None
-        if substitution is not None and substitution.usable:
-            call["delegated_script"] = {"signed": False, "test_passed": True,
-                                        "id": substitution.handler_id}
+            handler = handlers.find(ident.canonical_path, frozenset(c.labels), payload.get("cwd"))
+        except Exception:  # noqa: BLE001 - a broken index must not take the call down
+            handler = None
+        if handler is not None:
+            call["delegated_script"] = {"signed": False, "test_passed": None,
+                                        "id": handler.id}
             artifact["has_handler"] = True
 
     ctx = state.context(posture=posture, call=call, artifact=artifact)
     d = ps.evaluate(_op_for(tool, call), ctx)
+
+    # Authorised — NOW the handler may touch the artifact. A `forbid` means the handler never
+    # runs at all, which is the difference between a control and a description of one.
+    if handler is not None and d.outcome != "deny":
+        try:
+            from stop_guessing import handlers
+
+            substitution = handlers.run(handler, ident.canonical_path)
+        except Exception:  # noqa: BLE001 - a broken handler must not take the call down
+            substitution = None
+        if substitution is not None:
+            call["delegated_script"]["test_passed"] = substitution.test_passed
+            if not substitution.usable:
+                artifact["has_handler"] = False
 
     # An `ask` under bypassPermissions overrides a decision the user has ALREADY made. The whole
     # meaning of that mode is "do not interrupt me", so re-prompting is not a control, it is a
@@ -292,6 +342,14 @@ def _record_decision(payload, tool, d, artifact, ident, state, call, posture, ca
         })
 
     gaps = [] if cache_agreed else ["state cache disagreed with the ledger; ledger won"]
+    # #59: an unverifiable ledger is a critical condition, not a cache disagreement. Saying so in
+    # the record is the difference between "we noticed" and "we assumed it was a first run".
+    unverifiable = getattr(state, "unverifiable_reason", None)
+    if unverifiable:
+        gaps.append(
+            f"AUTHORITATIVE LEDGER UNVERIFIABLE: {unverifiable}. Session state was NOT taken from "
+            "the agent-writable cache; a maximally-tainted state was assumed instead."
+        )
     for alias in artifact.get("aliases") or []:
         # An alias that only became classified once resolved is a finding in its own right: it is
         # the shape of an attempt to read a protected artifact under an unprotected name.

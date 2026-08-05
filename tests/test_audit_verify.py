@@ -68,6 +68,9 @@ FIXED = {
     "SG-HARD-015": "both the supplied spelling and its canonical target are classified and joined",
     "SG-HARD-010": "the daemon reads and records peer credentials and admits by uid",
     "SG-HARD-011": "op_append validates and refuses before sequencing",
+    "SG-HARD-017": "policy authorises before any handler or its test executes",
+    "SG-HARD-023": "an unverifiable ledger never falls back to the agent-writable cache",
+    "SG-HARD-024": "_record_gap uses key discovery, so gaps record against a keyed ledger",
 }
 
 

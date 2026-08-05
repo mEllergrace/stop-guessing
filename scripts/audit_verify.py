@@ -342,12 +342,18 @@ def c_cache_fallback_on_integrity_failure():
     src = _code("stop_guessing/cli/gate.py")
     m = re.search(r"def state_for.*?(?=\ndef )", src, re.S)
     body = m.group(0) if m else ""
-    broad = re.search(r"except Exception", body)
-    distinguishes = re.search(r"unverifiable|integrity_failure", body)
-    if broad and not distinguishes:
+    # A broad `except` is fine as long as it does not land on the cache. What decides the finding
+    # is whether an unverifiable ledger is distinguished from an absent one and kept off the
+    # agent-writable cache — not whether the word "Exception" appears.
+    distinguishes = re.search(r"_unsafe_state|unverifiable", body)
+    checks_usable = re.search(r"\.usable\b", body)
+    if distinguishes and checks_usable:
+        return ABSENT, ("state_for() separates an ABSENT ledger from an UNVERIFIABLE one and "
+                        "refuses to fall back to the cache for the latter")
+    if re.search(r"except Exception", body):
         return PRESENT, ("state_for() catches Exception broadly, so wrong key / broken chain / "
                          "unreadable ledger all degrade to the agent-writable cache")
-    return ABSENT, "absent and unverifiable ledgers are distinguished"
+    return PRESENT, "state_for() does not distinguish an unverifiable ledger from an empty one"
 
 
 def c_gap_recording_env_only():

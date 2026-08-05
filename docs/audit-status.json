@@ -1,5 +1,5 @@
 {
-  "commit": "3a7bd18",
+  "commit": "0e1b898",
   "findings": [
     {
       "id": "SG-HARD-001",
@@ -174,8 +174,8 @@
         "stop_guessing/cli/gate.py",
         "stop_guessing/handlers.py"
       ],
-      "status": "PRESENT",
-      "evidence": "handlers.substitute() at char 5404 precedes policy evaluate() at 5899"
+      "status": "ABSENT",
+      "evidence": "policy authorises before any handler executes"
     },
     {
       "id": "SG-HARD-018",
@@ -235,8 +235,8 @@
       "files": [
         "stop_guessing/cli/gate.py"
       ],
-      "status": "PRESENT",
-      "evidence": "state_for() catches Exception broadly, so wrong key / broken chain / unreadable ledger all degrade to the agent-writable cache"
+      "status": "ABSENT",
+      "evidence": "state_for() separates an ABSENT ledger from an UNVERIFIABLE one and refuses to fall back to the cache for the latter"
     },
     {
       "id": "SG-HARD-024",
@@ -245,8 +245,8 @@
       "files": [
         "stop_guessing/cli/hook_gate.py"
       ],
-      "status": "PRESENT",
-      "evidence": "_record_gap() uses from_env() only; against an installed keyed ledger it refuses"
+      "status": "ABSENT",
+      "evidence": "_record_gap uses normal key discovery"
     },
     {
       "id": "SG-HARD-025",

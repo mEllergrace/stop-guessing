@@ -19,8 +19,8 @@ headline is exactly who they matter to.**
 
 **What this gate does not establish.** An independent hardening audit on 2026-08-04
 raised 54 findings. Each was re-verified against source rather than accepted; the current state,
-generated from [`docs/audit-status.json`](docs/audit-status.json) at commit `3a7bd18`, is
-**20 confirmed outstanding, 24 fixed, 10 unverified** (no static
+generated from [`docs/audit-status.json`](docs/audit-status.json) at commit `0e1b898`, is
+**17 confirmed outstanding, 27 fixed, 10 unverified** (no static
 predicate — those need a live adversarial test and are not counted as passing).
 
 Outstanding CRITICAL findings:
@@ -30,8 +30,8 @@ Outstanding CRITICAL findings:
 - PostToolUse bypasses cocd and can lose records silently (SG-HARD-008)
 - Project-writable config can downgrade enforcement (SG-HARD-013)
 - Rules/policies/handlers are untrusted mutable inputs (SG-HARD-014)
-- Project handler executes on classified data before policy (SG-HARD-017)
-- …and 4 more — see the `hardening-audit` label.
+- Delegated execution is not sandboxed (SG-HARD-021)
+- …and 2 more — see the `hardening-audit` label.
 
 Re-derive any of it with `scripts/audit_verify.py --id <id>`; the predicate reports only whether
 the defect is still present.
