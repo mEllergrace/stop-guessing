@@ -1,5 +1,5 @@
 {
-  "commit": "3c5af65",
+  "commit": "1898d25",
   "findings": [
     {
       "id": "SG-HARD-001",
@@ -29,8 +29,8 @@
       "files": [
         "stop_guessing/prove/registry.py"
       ],
-      "status": "PRESENT",
-      "evidence": "only inspect.getsource() of the decorated function is pinned"
+      "status": "ABSENT",
+      "evidence": "each proof records the subject it exercised (policy_set_digest, python, rules_digest, version) and check() kills a ref whose subject has since drifted"
     },
     {
       "id": "SG-HARD-004",

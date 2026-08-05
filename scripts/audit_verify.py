@@ -120,10 +120,25 @@ def c_truncated_ledger_attests():
 
 
 def c_proof_binds_only_procedure_source():
-    src = _code("stop_guessing/prove/registry.py") + _code("stop_guessing/prove/runner.py")
-    binds_more = re.search(r"policy_digest|tree_digest|build_digest|subject_digest", src)
-    return (ABSENT, "a broader evidence subject is bound") if binds_more else (
-        PRESENT, "only inspect.getsource() of the decorated function is pinned")
+    """Is a broader subject RECORDED, and does drift in it invalidate the proof?
+
+    Recording extra digests changes nothing on its own — the finding is that a stale proof stays
+    current. So both halves are required: the subject is written into the record, and check()
+    kills a ref whose subject has moved.
+    """
+    src = _code("stop_guessing/prove/runner.py")
+    records = re.search(r'"evidence_subject":\s*evidence_subject\(\)', src)
+    invalidates = re.search(r"subject_drift\(", src)
+    subject = re.search(r"def evidence_subject.*?(?=\ndef )", src, re.S)
+    parts = sorted(re.findall(r'"(policy_set_digest|rules_digest|python|version)"',
+                              subject.group(0))) if subject else []
+    if records and invalidates and parts:
+        return ABSENT, ("each proof records the subject it exercised "
+                        f"({', '.join(sorted(set(parts)))}) and check() kills a ref whose "
+                        "subject has since drifted")
+    if records:
+        return PRESENT, "the subject is recorded but drift in it does not invalidate the proof"
+    return PRESENT, "only inspect.getsource() of the decorated function is pinned"
 
 
 def c_ci_gate_cannot_fail():

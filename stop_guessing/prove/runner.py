@@ -78,6 +78,52 @@ class RunOutcome:
     detail: str
 
 
+def evidence_subject() -> dict:
+    """What a proof was actually exercised AGAINST — the thing it is current for.
+
+    #36 (SG-HARD-003). A proof pinned `inspect.getsource()` of the decorated procedure and nothing
+    else, so production behaviour could change materially while the proof stayed "current": edit a
+    policy rule, a classification rule or an implementation helper, leave the proof function
+    untouched, and the claim still read as proven. The procedure is the *instrument*; it is not
+    the subject.
+
+    Bound here: the policy set, the classification rules, and the interpreter. Deliberately NOT the
+    whole source tree — a digest over every file would invalidate every proof on a comment change,
+    which trains people to stop re-proving. These are the inputs that change what the system
+    DECIDES.
+    """
+    from stop_guessing.artifacts.digest import bytes_digest, file_digest
+    from stop_guessing.version import policy_dir, rules_dir
+
+    def _tree(d) -> str:
+        parts = []
+        for f in sorted(Path(d).rglob("*.yaml")) if Path(d).is_dir() else []:
+            parts.append(f"{f.name}:{file_digest(f)}")
+        return bytes_digest("|".join(parts).encode())[:32] if parts else ""
+
+    import sys as _sys
+
+    return {
+        "policy_set_digest": _tree(policy_dir()),
+        "rules_digest": _tree(rules_dir()),
+        "python": f"{_sys.version_info.major}.{_sys.version_info.minor}",
+        "version": __version__,
+    }
+
+
+def subject_drift(recorded: dict | None) -> list[str]:
+    """Which parts of the evidence subject have moved since the proof was recorded."""
+    if not recorded:
+        return []          # proofs predating the subject block are handled by the witness rules
+    now = evidence_subject()
+    out = []
+    for k, was in recorded.items():
+        is_ = now.get(k)
+        if was and is_ and was != is_:
+            out.append(f"{k} changed since this proof ({was[:12]} -> {str(is_)[:12]})")
+    return out
+
+
 def run_one(
     claim_id: str,
     key: ChainKey | None,
@@ -118,6 +164,7 @@ def run_one(
             "proof_kind": proc.kind,
             "procedure": proc.fn.__name__,
             "procedure_digest": proc.source_digest(),
+            "evidence_subject": evidence_subject(),
             "witness": wit.to_dict(),
             "judge": _judge_panel(claim_id, proc, wit, result).to_dict(),
             "summary": proc.summary,
@@ -270,8 +317,12 @@ def check(key: ChainKey | None, ledger: Path = DEFAULT_LEDGER) -> dict:
                 dead.append(f"{ref} was recorded against {e.get('claim')}")
             else:
                 proc = procs.get(c["id"])
+                drift = subject_drift(e.get("evidence_subject"))
                 if proc and e.get("procedure_digest") not in (proc.source_digest(), "unavailable"):
                     dead.append(f"{ref} was produced by a since-modified procedure")
+                elif drift:
+                    # #36: the procedure is unchanged but what it exercised is not.
+                    dead.append(f"{ref}: {drift[0]}")
                 else:
                     wf = _witness.check(
                         e.get("witness"), _must_touch(c["id"]),

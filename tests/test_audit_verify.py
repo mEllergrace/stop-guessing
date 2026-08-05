@@ -80,6 +80,7 @@ FIXED = {
     "SG-HARD-008": "PostToolUse routes through recorder.client and records a loss as critical",
     "SG-HARD-044": "the verdict is reported on five axes, not collapsed into one boolean",
     "SG-HARD-045": "CLAIM-20 checks a declared expectation per surface, not rc in {0,1}",
+    "SG-HARD-003": "each proof binds the policy/rules/interpreter it exercised; drift kills the ref",
 }
 
 

@@ -164,12 +164,13 @@ def prove_segments_seal_and_chain() -> ProofResult:
         s0, s1 = Path(td) / "seg0.jsonl", Path(td) / "seg1.jsonl"
         for i in range(30):
             record(s0, _event(i), PROOF_KEY)
-        seal0 = segments.seal(s0, at="2026-08-03T11:00:00Z", key=PROOF_KEY, index=0)
+        seal0 = segments.seal(s0, at="2026-08-03T11:00:00Z", key=PROOF_KEY, index=0,
+                              rotate=False)
         r.observe(f"sealed seg-000000: {seal0.records} records, head {seal0.head_hash[:16]}…")
 
         for i in range(10):
             record(s1, _event(i), PROOF_KEY)
-        seal1 = segments.seal(s1, at="2026-08-03T11:01:00Z", key=PROOF_KEY,
+        seal1 = segments.seal(s1, at="2026-08-03T11:01:00Z", key=PROOF_KEY, rotate=False,
                               prev_seal_digest=seal0.digest(), index=1)
         if seal1.prev_seal_digest != seal0.digest():
             return r.fail("segment 1 does not chain to segment 0's seal digest")
@@ -188,7 +189,7 @@ def prove_segments_seal_and_chain() -> ProofResult:
         r.observe(f"modifying the sealed segment -> caught: {after['findings'][0][:90]}")
 
         try:
-            segments.seal(s0, at="t", key=PROOF_KEY, index=0)
+            segments.seal(s0, at="t", key=PROOF_KEY, index=0, rotate=False)
             return r.fail("sealed a broken chain")
         except LedgerError:
             r.observe("re-sealing the broken segment -> REFUSED")
@@ -920,7 +921,8 @@ def prove_recorder_isolation() -> ProofResult:
             r.observe(f"daemon up -> tier {tier} ({why}), pid {info['pid']}")
 
             # The caller holds NO key and still gets a keyed record.
-            out = client.append(cfg, {"op": "artifact.read", "at": "t", "actor": "hook"},
+            out = client.append(cfg, {"op": "artifact.read", "at": "t", "actor": "hook",
+                                      "known_gaps": [], "alterations": []},
                                 fallback_key=None)
             if out.ref is None or out.via != "daemon":
                 return r.fail(f"the daemon did not record: {out.to_dict()}")
@@ -934,6 +936,7 @@ def prove_recorder_isolation() -> ProofResult:
 
             # A caller cannot choose its own place in history.
             client.append(cfg, {"op": "artifact.read", "at": "t", "actor": "hook",
+                                "known_gaps": [], "alterations": [],
                                 "seq": 999, "prev_hash": "0" * 64, "hash": "f" * 64,
                                 "hash_alg": "sha256", "keyid": "mine"})
             entries = load(daemon.ledger_path(cfg), dkey).entries

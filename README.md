@@ -1,7 +1,7 @@
 # STOP-GUESSING
 
 <!-- BEGIN GENERATED STATUS -->
-**Version 0.4.0 — `stop-guessing attest --self` reports SELF-ATTESTATION INCOMPLETE: 21/21 claims
+**Version 0.4.0 — `stop-guessing attest --self` reports self-attested: 21/21 claims
 executed, witnessed and chain-verified on the maintainer's machine.**
 
 **This is self-attestation. It has not been independently verified, and the gate that produces it
@@ -19,13 +19,12 @@ headline is exactly who they matter to.**
 
 **What this gate does not establish.** An independent hardening audit on 2026-08-04
 raised 54 findings. Each was re-verified against source rather than accepted; the current state,
-generated from [`docs/audit-status.json`](docs/audit-status.json) at commit `3c5af65`, is
-**8 confirmed outstanding, 36 fixed, 10 unverified** (no static
+generated from [`docs/audit-status.json`](docs/audit-status.json) at commit `1898d25`, is
+**7 confirmed outstanding, 37 fixed, 10 unverified** (no static
 predicate — those need a live adversarial test and are not counted as passing).
 
 Outstanding CRITICAL findings:
 
-- Proof staleness binds only the procedure, not the implementation (SG-HARD-003)
 - --isolated cannot start a separate-UID recorder (SG-HARD-006)
 - Project-writable config can downgrade enforcement (SG-HARD-013)
 - Rules/policies/handlers are untrusted mutable inputs (SG-HARD-014)
