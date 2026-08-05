@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+# STOP-GUESSING plugin launcher — #67 (SG-HARD-034).
+#
+# The plugin used to invoke `python3 -m stop_guessing.cli.hook_gate` directly, so BOTH the
+# interpreter and the package were resolved from whatever PATH and PYTHONPATH happened to hold.
+# That is the substitution class recorder/guard.py exists to eliminate, sitting in the plugin's
+# own hook registration.
+#
+# Resolution order, most-pinned first. Each step is explicit so a failure says which one was used:
+#   1. $STOP_GUESSING_PYTHON        — an operator pin, absolute path
+#   2. ${CLAUDE_PLUGIN_ROOT}/runtime/bin/python  — a runtime bundled with the plugin
+#   3. the venv beside a checkout   — the development case
+#   4. python3 from PATH            — last resort, and it SAYS so on stderr
+set -euo pipefail
+
+event="${1:?usage: sg-hook <module-suffix> [args...]}"
+shift || true
+
+root="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+
+pick_python() {
+  if [ -n "${STOP_GUESSING_PYTHON:-}" ] && [ -x "${STOP_GUESSING_PYTHON}" ]; then
+    echo "${STOP_GUESSING_PYTHON}"; return
+  fi
+  if [ -x "${root}/runtime/bin/python" ]; then
+    echo "${root}/runtime/bin/python"; return
+  fi
+  for cand in "${root}/../../../.venv/bin/python" "${root}/../../../../.venv/bin/python"; do
+    [ -x "$cand" ] && { echo "$cand"; return; }
+  done
+  echo "STOP-GUESSING: falling back to python3 from PATH; the runtime is NOT pinned." >&2
+  command -v python3
+}
+
+py="$(pick_python)"
+
+# Verify the package is importable BEFORE the hook runs, so a broken install produces one clear
+# message instead of a traceback on every tool call.
+if ! "$py" -c "import stop_guessing" >/dev/null 2>&1; then
+  echo "STOP-GUESSING: the runtime is not importable with ${py}." >&2
+  echo "               Install it, or set \$STOP_GUESSING_PYTHON to an interpreter that has it." >&2
+  exit 0     # fail OPEN: a packaging problem must never block every tool call
+fi
+
+exec "$py" -m "stop_guessing.cli.${event}" "$@"

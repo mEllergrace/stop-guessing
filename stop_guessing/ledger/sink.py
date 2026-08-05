@@ -64,7 +64,23 @@ class LoadedLog:
         return self.chain.intact and not self.truncated and not self.corrupt
 
 
-def load(path: str | Path, key: ChainKey | None = None) -> LoadedLog:
+def load(path: str | Path, key: ChainKey | None = None, *,
+         _head_hint: tuple[int, str] | None = None) -> LoadedLog:
+    """Read and verify a ledger.
+
+    ``_head_hint`` is an optimisation for the single writer: ``(prefix_bytes, prefix_digest)``
+    recorded immediately after ITS last append. #45 — without it every append re-verified the
+    entire history, recomputing an HMAC per record, which is O(n^2) over a ledger's lifetime and
+    turns a large ledger into a denial of service against its own recorder.
+
+    Soundness matters more than the saving here, so the check is a DIGEST over the whole verified
+    prefix, not its length and last hash. Length-and-last-hash would let an edit that preserved
+    both — alter one record, compensate in another — pass unexamined. A digest over those exact
+    bytes cannot. When it matches, only the records appended since are verified; when it does not,
+    the hint is discarded and the full chain is checked.
+
+    Private by design: no caller outside this module passes it.
+    """
     p = Path(path)
     if not p.exists():
         # A first run is not an error. Reporting one would train people to ignore the log.
@@ -104,7 +120,25 @@ def load(path: str | Path, key: ChainKey | None = None) -> LoadedLog:
                 malformed_at = idx
             break
 
-    return LoadedLog(entries, verify(entries, key), truncated, malformed_at, decode_error_at)
+    # #45: verify only what has not already been verified, when the prefix provably has not moved.
+    verdict = None
+    if _head_hint and not truncated and malformed_at is None and decode_error_at is None:
+        prefix_len, prefix_digest = _head_hint
+        if len(raw) >= prefix_len and _digest_bytes(raw[:prefix_len]) == prefix_digest:
+            already = sum(1 for _ in raw[:prefix_len].split(b"\n") if _.strip())
+            if already <= len(entries):
+                tail = verify(entries[already:], key) if already < len(entries) else None
+                if tail is None or tail.intact:
+                    verdict = ChainVerdict(intact=True, checked=len(entries))
+    if verdict is None:
+        verdict = verify(entries, key)
+    return LoadedLog(entries, verdict, truncated, malformed_at, decode_error_at)
+
+
+def _digest_bytes(blob: bytes) -> str:
+    import hashlib
+
+    return hashlib.sha256(blob).hexdigest()
 
 
 @contextlib.contextmanager
@@ -187,8 +221,14 @@ def record(path: str | Path, event: dict, key: ChainKey | None = None) -> dict:
         return _record_locked(p, event, key)
 
 
+#: Verified-head cache, keyed by (path, keyid). The single-writer daemon holds the lock for the
+#: whole read-verify-append transaction, so between its own appends nothing else can have touched
+#: the file — and when something has, the guards below catch it. #45 (SG-HARD-032).
+_VERIFIED_HEAD: dict[tuple[str, str | None], tuple[int, str]] = {}
+
+
 def _record_locked(p: Path, event: dict, key: ChainKey | None) -> dict:
-    loaded = load(p, key)
+    loaded = load(p, key, _head_hint=_VERIFIED_HEAD.get((str(p), key.keyid if key else None)))
     _reject_downgrade(loaded, key, p)
     # Before the tamper check: a wrong key FAILS that check, and saying "tampered"
     # when the truth is "wrong key" is the more damaging error of the two.
@@ -226,6 +266,11 @@ def _record_locked(p: Path, event: dict, key: ChainKey | None) -> dict:
     p.parent.mkdir(parents=True, exist_ok=True)
     line = (json.dumps(written, sort_keys=True, separators=(",", ":"), ensure_ascii=False) + "\n")
     _write_all(p, line.encode("utf-8"))
+    try:
+        blob = p.read_bytes()
+        _VERIFIED_HEAD[(str(p), key.keyid if key else None)] = (len(blob), _digest_bytes(blob))
+    except OSError:
+        _VERIFIED_HEAD.pop((str(p), key.keyid if key else None), None)
     return written
 
 

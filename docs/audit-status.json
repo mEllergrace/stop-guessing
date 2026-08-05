@@ -1,5 +1,5 @@
 {
-  "commit": "24028d1",
+  "commit": "334884a",
   "findings": [
     {
       "id": "SG-HARD-001",
@@ -327,8 +327,8 @@
         "stop_guessing/ledger/sink.py",
         "stop_guessing/recorder/daemon.py"
       ],
-      "status": "PRESENT",
-      "evidence": "every append re-reads and re-verifies the whole ledger \u2014 O(n^2) lifetime"
+      "status": "ABSENT",
+      "evidence": "appends verify only records added since a digest-pinned verified prefix, and connections have a read deadline"
     },
     {
       "id": "SG-HARD-033",
@@ -348,8 +348,8 @@
       "files": [
         ".claude-plugin/plugins/stop-guessing/hooks/hooks.json"
       ],
-      "status": "PRESENT",
-      "evidence": "0 Python files under the plugin subtree; hooks invoke `python3 -m stop_guessing...` resolved from ambient PATH/PYTHONPATH"
+      "status": "ABSENT",
+      "evidence": "hooks run ${CLAUDE_PLUGIN_ROOT}/bin/sg-hook, which resolves a pinned interpreter (operator pin, then bundled runtime, then checkout venv, then PATH with a warning) and verifies the package imports first"
     },
     {
       "id": "SG-HARD-035",
@@ -521,8 +521,8 @@
       "files": [
         "stop_guessing/verify/sufficiency.py"
       ],
-      "status": "PRESENT",
-      "evidence": "sufficiency requires every record to populate every regime; flat events make it permanently incomplete"
+      "status": "ABSENT",
+      "evidence": "each regime is assessed over the record kinds it applies to, declared in REGIME_APPLIES_TO, and an empty applicable set is not a pass"
     },
     {
       "id": "SG-HARD-052",

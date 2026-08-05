@@ -60,6 +60,36 @@ class RegimeResult:
         return not self.missing
 
 
+#: Which record kinds each regime can be asked of. Declared rather than inferred: a regime that
+#: silently skipped records it "did not look applicable to" would be a sufficiency check that
+#: excuses whatever it cannot assess. `None` means every record.
+REGIME_APPLIES_TO: dict[str, frozenset[str] | None] = {
+    "resource_touch": frozenset({
+        "artifact.read", "artifact.write", "artifact.derive", "artifact.egress", "tool.result",
+    }),
+    "decision_basis": frozenset({"tool.decision", "artifact.read", "artifact.write",
+                                 "artifact.egress"}),
+    "policy": frozenset({"tool.decision", "artifact.read", "artifact.write", "artifact.egress"}),
+}
+
+
+def _op_of(predicate: dict) -> str:
+    action = predicate.get("action") or {}
+    return action.get("op") or predicate.get("op") or ""
+
+
+def _regime_applies(regime: str, predicate: dict) -> bool:
+    """Is this regime a question one can meaningfully ask of this record?
+
+    A `session.open` has no resources and never will; requiring them of it makes the verdict
+    permanently incomplete for a reason that says nothing about the evidence.
+    """
+    kinds = REGIME_APPLIES_TO.get(regime)
+    if kinds is None:
+        return True
+    return _op_of(predicate) in kinds
+
+
 def assess_record(predicate: dict) -> dict[str, RegimeResult]:
     out: dict[str, RegimeResult] = {}
     for regime, paths in REGIMES.items():
@@ -97,11 +127,22 @@ def assess(records: list[dict]) -> dict:
             "note": "no records — an empty ledger answers nothing",
         }
 
+    # #84 (SG-HARD-051). Every regime was required of EVERY record, and a normal deployed ledger
+    # mixes kinds: full PreToolUse statements, flat PostToolUse results, proof events, recorder
+    # self-checks. A session.open has no `resources.used` and never will, so one legitimate event
+    # made a regime permanently unpopulated and the verdict permanently `incomplete`. Failing safe
+    # is right; being UNABLE to reach the advertised state is not — the tool then has no path to
+    # the thing it tells you to aim for.
+    #
+    # A regime is now assessed over the records for which it is APPLICABLE. Which kinds those are
+    # is declared, not inferred, so "no applicable records" reads as unanswered rather than as
+    # satisfied — an empty set must never be a pass.
     per_regime: dict[str, dict] = {}
     for regime in REGIMES:
+        applicable = [p for p in predicates if _regime_applies(regime, p)]
         complete = 0
         missing_paths: dict[str, int] = {}
-        for p in predicates:
+        for p in applicable:
             res = assess_record(p)[regime]
             if res.complete:
                 complete += 1
@@ -109,8 +150,11 @@ def assess(records: list[dict]) -> dict:
                 missing_paths[m] = missing_paths.get(m, 0) + 1
         per_regime[regime] = {
             "complete_records": complete,
+            "applicable_records": len(applicable),
             "total_records": len(predicates),
-            "fully_populated": complete == len(predicates),
+            "not_applicable": len(predicates) - len(applicable),
+            # An empty applicable set is NOT populated: nothing was assessed, so nothing is known.
+            "fully_populated": bool(applicable) and complete == len(applicable),
             "missing": dict(sorted(missing_paths.items(), key=lambda kv: -kv[1])),
         }
 

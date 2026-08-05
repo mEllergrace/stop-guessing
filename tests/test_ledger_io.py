@@ -134,3 +134,49 @@ def test_a_clean_ledger_is_usable_and_reports_no_damage(ledger):
     loaded = load(ledger, KEY)
     assert loaded.usable and not loaded.corrupt and not loaded.truncated
     assert loaded.malformed_at is None and loaded.decode_error_at is None
+
+
+# ── verified-head fast path — SG-HARD-032 (#45) ──────────────────────────────
+
+
+def test_a_same_length_valid_tamper_is_caught_with_the_cache_warm(tmp_path):
+    """The case a length+last-hash cache would miss.
+
+    Every append used to re-verify the whole ledger, recomputing an HMAC per record — O(n^2) over
+    a lifetime. The cache that avoids that must not become a way to walk past an edit, so it keys
+    on a DIGEST of the verified prefix rather than its length and final hash.
+    """
+    import json as _json
+
+    p = tmp_path / "warm.jsonl"
+    for i in range(5):
+        record(p, {"op": "artifact.read", "actor": "t", "severity": "info",
+                   "at": f"t{i}", "detail": "AAAAAAAA",
+                   "known_gaps": [], "alterations": []}, KEY)
+    assert load(p, KEY).chain.intact
+
+    lines = p.read_text(encoding="utf-8").splitlines()
+    rec = _json.loads(lines[1])
+    rec["detail"] = "BBBBBBBB"                       # same length, still valid JSON
+    lines[1] = _json.dumps(rec, separators=(",", ":"), sort_keys=True)
+    p.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+    loaded = load(p, KEY)
+    assert loaded.chain.intact is False, "a same-length edit walked past the verified-head cache"
+    assert loaded.usable is False
+    with pytest.raises(LedgerError, match="tampered"):
+        record(p, {"op": "artifact.read", "actor": "t", "severity": "info", "at": "t9",
+                   "known_gaps": [], "alterations": []}, KEY)
+
+
+def test_the_chain_still_verifies_across_many_appends(tmp_path):
+    """The fast path must not let the chain drift: verify the whole thing from cold at the end."""
+    p = tmp_path / "many.jsonl"
+    for i in range(120):
+        record(p, {"op": "artifact.read", "actor": "t", "severity": "info", "at": f"t{i}",
+                   "known_gaps": [], "alterations": []}, KEY)
+    import stop_guessing.ledger.sink as sink
+
+    sink._VERIFIED_HEAD.clear()                      # cold: nothing may be taken on trust
+    loaded = load(p, KEY)
+    assert loaded.chain.intact and len(loaded.entries) == 120

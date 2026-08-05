@@ -441,12 +441,29 @@ def c_partial_write():
 
 
 def c_full_reverify_per_append():
-    src = _code("stop_guessing/ledger/sink.py")
-    m = re.search(r"def _record_locked.*?(?=\ndef |\Z)", src, re.S)
-    body = m.group(0) if m else ""
-    if re.search(r"load\(|verify\(", body):
-        return PRESENT, "every append re-reads and re-verifies the whole ledger — O(n^2) lifetime"
-    return ABSENT, "append uses a maintained verified head"
+    """Two halves: a bounded daemon, and an append that does not re-verify all of history.
+
+    The finding covers both availability exhaustion and the O(n^2) cost, so both are required —
+    and the fast path only counts if it is sound, which here means keying on a digest of the
+    verified prefix rather than its length.
+    """
+    sink = _code("stop_guessing/ledger/sink.py")
+    daemon = _code("stop_guessing/recorder/daemon.py")
+    bounded = "REQUEST_TIMEOUT" in daemon and "settimeout" in daemon
+    head = "_VERIFIED_HEAD" in sink and "_head_hint" in sink
+    sound = re.search(r"_digest_bytes\(raw\[:prefix_len\]\)\s*==\s*prefix_digest", sink)
+    if bounded and head and sound:
+        return ABSENT, ("appends verify only records added since a digest-pinned verified prefix, "
+                        "and connections have a read deadline")
+    missing = []
+    if not bounded:
+        missing.append("the daemon has no per-connection read deadline")
+    if not head:
+        missing.append("every append re-reads and re-verifies the whole ledger — O(n^2) lifetime")
+    elif not sound:
+        missing.append("the verified-head cache is not keyed on a prefix digest, so a "
+                       "same-length edit could pass unexamined")
+    return PRESENT, "; ".join(missing)
 
 
 def c_cli_ledger_split_brain():
@@ -461,13 +478,27 @@ def c_cli_ledger_split_brain():
 
 
 def c_plugin_not_self_contained():
-    root = REPO / ".claude-plugin"
-    pys = list(root.rglob("*.py")) if root.is_dir() else []
+    """Does the plugin resolve its interpreter and package from AMBIENT state?
+
+    The defect is the substitution surface, not the file count: `python3 -m stop_guessing` takes
+    both the interpreter and the module from whatever PATH and PYTHONPATH happen to hold, which is
+    exactly what recorder/guard.py says must be eliminated.
+    """
     hooks = _read(".claude-plugin/plugins/stop-guessing/hooks/hooks.json")
-    if not pys and "python3 -m stop_guessing" in hooks:
-        return PRESENT, ("0 Python files under the plugin subtree; hooks invoke "
-                         "`python3 -m stop_guessing...` resolved from ambient PATH/PYTHONPATH")
-    return ABSENT, "the plugin bundles its runtime"
+    launcher = REPO / ".claude-plugin/plugins/stop-guessing/bin/sg-hook"
+    if "python3 -m stop_guessing" in hooks:
+        return PRESENT, ("hooks invoke `python3 -m stop_guessing...`, resolving both the "
+                         "interpreter and the package from ambient PATH/PYTHONPATH")
+    if "${CLAUDE_PLUGIN_ROOT}" in hooks and launcher.is_file():
+        body = launcher.read_text(encoding="utf-8", errors="replace")
+        pinned = "STOP_GUESSING_PYTHON" in body and "runtime/bin/python" in body
+        verifies = "import stop_guessing" in body
+        if pinned and verifies:
+            return ABSENT, ("hooks run ${CLAUDE_PLUGIN_ROOT}/bin/sg-hook, which resolves a pinned "
+                            "interpreter (operator pin, then bundled runtime, then checkout venv, "
+                            "then PATH with a warning) and verifies the package imports first")
+        return PRESENT, "the launcher exists but does not pin the interpreter or verify the runtime"
+    return PRESENT, "the plugin does not route through a launcher in its own root"
 
 
 def c_wheel_missing_data():
@@ -647,10 +678,21 @@ def c_session_cache_collision():
 
 
 def c_sufficiency_over_all_records():
+    """Is a regime assessed only over the records it can meaningfully be asked of?
+
+    And, just as important, does an EMPTY applicable set read as unanswered rather than as
+    satisfied — otherwise "assess only what applies" becomes "excuse whatever you cannot assess".
+    """
     src = _code("stop_guessing/verify/sufficiency.py")
-    if re.search(r"event_type|by_type|typed|joined", src):
-        return ABSENT, "sufficiency evaluates typed/joined event sets"
-    return PRESENT, "sufficiency requires every record to populate every regime; flat events make it permanently incomplete"
+    scoped = re.search(r"_regime_applies\(", src) and "REGIME_APPLIES_TO" in src
+    empty_is_not_pass = re.search(r'"fully_populated":\s*bool\(applicable\)', src)
+    if scoped and empty_is_not_pass:
+        return ABSENT, ("each regime is assessed over the record kinds it applies to, declared in "
+                        "REGIME_APPLIES_TO, and an empty applicable set is not a pass")
+    if scoped:
+        return PRESENT, "regimes are scoped but an empty applicable set counts as populated"
+    return PRESENT, ("sufficiency requires every record to populate every regime; a normal mixed "
+                     "ledger is therefore permanently incomplete")
 
 
 def c_page_counts_superseded():

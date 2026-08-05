@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 -m stop_guessing.cli.hook_gate",
+            "command": "${CLAUDE_PLUGIN_ROOT}/bin/sg-hook hook_gate",
             "statusMessage": "Chain-of-custody gate..."
           }
         ]
@@ -16,7 +16,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 -m stop_guessing.cli.hook_post",
+            "command": "${CLAUDE_PLUGIN_ROOT}/bin/sg-hook hook_post",
             "statusMessage": "Recording custody..."
           }
         ]
@@ -27,7 +27,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 -m stop_guessing.cli.hook_lifecycle SessionStart",
+            "command": "${CLAUDE_PLUGIN_ROOT}/bin/sg-hook hook_lifecycle SessionStart",
             "statusMessage": "Chain-of-custody: opening session..."
           }
         ]
@@ -38,7 +38,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 -m stop_guessing.cli.hook_lifecycle UserPromptSubmit",
+            "command": "${CLAUDE_PLUGIN_ROOT}/bin/sg-hook hook_lifecycle UserPromptSubmit",
             "statusMessage": "Chain-of-custody: recording prompt lineage..."
           }
         ]
@@ -49,7 +49,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 -m stop_guessing.cli.hook_lifecycle PostToolUseFailure",
+            "command": "${CLAUDE_PLUGIN_ROOT}/bin/sg-hook hook_lifecycle PostToolUseFailure",
             "statusMessage": "Chain-of-custody: recording failed call..."
           }
         ]
@@ -60,7 +60,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 -m stop_guessing.cli.hook_lifecycle PreCompact",
+            "command": "${CLAUDE_PLUGIN_ROOT}/bin/sg-hook hook_lifecycle PreCompact",
             "statusMessage": "Chain-of-custody: checkpointing custody state..."
           }
         ]
@@ -71,7 +71,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 -m stop_guessing.cli.hook_lifecycle SubagentStop",
+            "command": "${CLAUDE_PLUGIN_ROOT}/bin/sg-hook hook_lifecycle SubagentStop",
             "statusMessage": "Chain-of-custody: merging subagent taint..."
           }
         ]
@@ -82,7 +82,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 -m stop_guessing.cli.hook_lifecycle Stop",
+            "command": "${CLAUDE_PLUGIN_ROOT}/bin/sg-hook hook_lifecycle Stop",
             "statusMessage": "Chain-of-custody: reconciling the turn..."
           }
         ]
@@ -93,7 +93,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 -m stop_guessing.cli.hook_lifecycle SessionEnd",
+            "command": "${CLAUDE_PLUGIN_ROOT}/bin/sg-hook hook_lifecycle SessionEnd",
             "statusMessage": "Chain-of-custody: closing session..."
           }
         ]

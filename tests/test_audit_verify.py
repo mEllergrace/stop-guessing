@@ -83,6 +83,9 @@ FIXED = {
     "SG-HARD-003": "each proof binds the policy/rules/interpreter it exercised; drift kills the ref",
     "SG-HARD-013": "managed.json floors the posture and ledger protection outside project reach",
     "SG-HARD-014": "the loaded policy set is checked against a managed expected digest",
+    "SG-HARD-032": "digest-pinned verified prefix plus a per-connection read deadline",
+    "SG-HARD-034": "hooks run a launcher in the plugin root that pins the interpreter",
+    "SG-HARD-051": "regimes are assessed over applicable record kinds; empty is not a pass",
 }
 
 
