@@ -134,26 +134,48 @@ def tool_failed(payload: dict) -> str | None:
             "tool": tool,
             "success": False,
             "tool_use_id": payload.get("tool_use_id"),
-            "error_shape": type(payload.get("tool_error")).__name__,
-            "error_chars": len(str(payload.get("tool_error") or "")),
+            # R2-020: Claude Code supplies the failure as top-level `error`. Reading `tool_error`
+            # meant error_shape was always NoneType and error_chars always 0 — the failure was
+            # registered with its shape evidence silently blank. `tool_error` is still consulted
+            # so nothing that already sent it breaks.
+            "error_shape": type(payload.get("error", payload.get("tool_error"))).__name__,
+            "error_chars": len(str(payload.get("error") or payload.get("tool_error") or "")),
+            "is_interrupt": bool(payload.get("is_interrupt")),
         }, sort_keys=True),
     })
 
 
 def pre_compact(payload: dict) -> str | None:
     """Checkpoint custody state before the context that produced it is discarded."""
+    # R2-017. This checkpointed `persist.load()` — the agent-writable CACHE — while the claim and
+    # this module's own docstring say custody state is rebuilt from the ledger and never depends on
+    # cache state. A stale, deleted or modified cache was therefore what got checkpointed, and the
+    # comparison after compaction would then be against a value the recorded party could choose.
+    #
+    # The authoritative digest is recorded, and any disagreement with the cache travels with it.
+    from stop_guessing.cli.gate import state_for
     from stop_guessing.taint import persist
 
     sid = _session(payload)
-    state = persist.load(sid)
+    cached = persist.load(sid)
+    authoritative, agreed = state_for(sid)
+    gaps = []
+    if not agreed:
+        gaps.append(f"cache digest {cached.digest[:16]} disagrees with the authoritative "
+                    f"{authoritative.digest[:16]}; the ledger value is the one checkpointed")
     return _emit({
         "op": "custody.checkpoint",
         "session_id": sid,
+        "severity": "critical" if gaps else "info",
+        "known_gaps": gaps,
         "detail": json.dumps({
-            "session_custody_digest": state.digest,
-            "labels": sorted(state.labels),
-            "touched": state.touched,
-            "compaction_generation": state.compaction_generation,
+            "session_custody_digest": authoritative.digest,
+            "source": "ledger-authoritative",
+            "cache_digest": cached.digest,
+            "cache_agreed": agreed,
+            "labels": sorted(authoritative.labels),
+            "touched": authoritative.touched,
+            "compaction_generation": authoritative.compaction_generation,
         }, sort_keys=True),
     })
 
@@ -162,16 +184,40 @@ def subagent_stop(payload: dict) -> str | None:
     """Join a child agent's taint back into the parent. Labels only ever accumulate."""
     from stop_guessing.taint import persist
 
+    # R2-019. This recorded the word "merge" and merged nothing: it loaded the PARENT, read the
+    # child's id, and wrote the parent's unchanged labels back out. A subagent that read a
+    # classified artifact left the parent untainted, so the parent could then egress freely — the
+    # exact accumulation bypass this tool exists to close, reachable by delegating the read.
+    #
+    # The child's persisted state is now joined into the parent, monotonically, and saved.
     sid = _session(payload)
     child = payload.get("agent_id") or payload.get("subagent_id") or "unknown-child"
-    state = persist.load(sid)
+    parent = persist.load(sid)
+    before = parent.digest
+
+    child_state = persist.load(child)
+    merged_sources = 0
+    for aid, ref in (child_state.sources or {}).items():
+        if aid not in parent.sources:
+            parent.touch(ref)
+            merged_sources += 1
+    for edge in getattr(child_state, "edges", []) or []:
+        if edge not in parent.edges:
+            parent.edges.append(edge)
+    if merged_sources or parent.digest != before:
+        persist.save(parent)
+
     return _emit({
         "op": "agent.merge",
         "session_id": sid,
         "detail": json.dumps({
             "child_agent": child,
-            "parent_labels_after": sorted(state.labels),
-            "parent_digest": state.digest,
+            "child_labels": sorted(child_state.labels),
+            "merged_sources": merged_sources,
+            "parent_digest_before": before,
+            "parent_labels_after": sorted(parent.labels),
+            "parent_digest_after": parent.digest,
+            "changed": parent.digest != before,
         }, sort_keys=True),
     })
 
@@ -192,37 +238,65 @@ def turn_stop(payload: dict) -> str | None:
     got = discover(config_dir=cfg)
     led = ledger_path(cfg)
     if not led.is_file():
-        return None
+        # Silence here would be the same defect as reconciling an empty set and calling it clean:
+        # "no ledger" is a fact about the recorder, and a turn that could not be reconciled must
+        # say so rather than leave nothing behind.
+        return _emit({
+            "op": "tool.reconcile",
+            "session_id": sid,
+            "severity": "warning",
+            "detail": json.dumps({"dispatched": 0, "reported": 0, "action_instances": 0,
+                                  "unclosed": [], "examined_anything": False,
+                                  "reason": "no ledger present; nothing could be reconciled"},
+                                 sort_keys=True),
+            "known_gaps": ["Stop ran with no ledger to reconcile against"],
+        })
 
     entries = load(led, got[0] if got else None).entries
+    # R2-015. This matched `op == "tool.decision"` and parsed `detail` for a nonce — a schema
+    # NOTHING emits. The gate writes the real operation (artifact.read, artifact.egress, ...) and
+    # the post hook writes artifact.write/derive/tool.result, so every reconciliation ran over an
+    # empty set and reported clean. Worse, the test asserted only that a record was written, so a
+    # mechanism that never examined anything passed as proof that it ran.
+    #
+    # Both phases now emit `action_instance`, and this reads that.
     dispatches, results = [], []
+    seen_ids = set()
     for e in entries:
         if e.get("session_id") != sid:
             continue
-        try:
-            detail = json.loads(e.get("detail") or "{}")
-        except (ValueError, TypeError):
-            detail = {}
-        tuid = detail.get("tool_use_id")
-        if not tuid:
+        inst = e.get("action_instance") or {}
+        iid = inst.get("id")
+        if not iid:
             continue
-        if e.get("op") == "tool.decision":
-            dispatches.append(Dispatch(instance_id=tuid, seq=e.get("seq", 0),
-                                       action=detail.get("tool", "?"), nonce=detail.get("nonce")))
-        elif e.get("op") == "tool.result":
-            results.append(Reported(instance_id=tuid, action=detail.get("tool", "?"),
-                                    nonce=detail.get("nonce")))
+        seen_ids.add(iid)
+        if inst.get("phase") == "dispatch":
+            dispatches.append(Dispatch(seq=e.get("seq", 0),
+                                       actor=e.get("actor", "unknown"),
+                                       action=inst.get("tool", "?"),
+                                       nonce=iid))
+        elif inst.get("phase") == "result":
+            results.append(Reported(seq=e.get("seq", 0),
+                                    actor=e.get("actor", "unknown"),
+                                    action=inst.get("tool", "?"),
+                                    nonce=iid))
 
     rec = reconcile(dispatches, results)
     findings = rec.findings if hasattr(rec, "findings") else []
     return _emit({
         "op": "tool.reconcile",
         "session_id": sid,
-        "severity": "critical" if findings else "info",
+        "severity": ("critical" if findings else
+                     "info" if (dispatches or results) else "warning"),
         "detail": json.dumps({
             "dispatched": len(dispatches), "reported": len(results),
+            "action_instances": len(seen_ids),
+            "unclosed": sorted({d.nonce for d in dispatches} - {r.nonce for r in results}),
             "verified": getattr(rec, "verified", None),
             "findings": [str(f) for f in findings],
+            # R2-015/R2-016: an empty reconciliation is NOT a clean one. Saying so here means a
+            # Stop that examined nothing cannot be read as a Stop that found nothing wrong.
+            "examined_anything": bool(dispatches or results),
         }, sort_keys=True),
         "known_gaps": [str(f) for f in findings],
     })

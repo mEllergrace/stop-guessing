@@ -88,10 +88,20 @@ def record_result(payload: dict) -> dict | None:
         "severity": "info" if success else "warn",
         "session_id": session_id,
         "runtime_action_id": payload.get("tool_use_id"),
+        # R2-015: the closing half of the pair the gate opened.
+        "action_instance": {
+            "id": payload.get("tool_use_id"),
+            "phase": "result",
+            "tool": tool,
+            "success": success,
+        },
         "tool": {"name": tool},
         "executed": True,
         "success": success,
         "result_bytes": len(json.dumps(result)) if result else 0,
+        # R2-031: this helper was written and never called, so the caveat it carries described a
+        # binding the record did not contain. Wired in, with its scope stated in the value itself.
+        "content": _content_binding(used),
         "resources": {"used": used, "generated": generated, "derived_from": edges},
         "basis": {"taint": sorted(state.labels), "taint_depth": state.depth,
                   "custody_digest": state.digest, "cache_agreed": cache_agreed},

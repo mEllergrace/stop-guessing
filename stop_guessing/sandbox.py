@@ -15,12 +15,18 @@ there.
 
 Mechanisms, most-preferred first:
 
-    seatbelt   macOS `sandbox-exec` with a generated profile — deny by default, allow the
-               interpreter's own reads and the named artifacts, no network at all
-    bubblewrap Linux `bwrap` — unshare net, read-only bind of the runtime, tmpfs elsewhere
+    seatbelt   macOS `sandbox-exec` with a generated DENY-LIST profile: no network of any family,
+               no writes outside the declared outputs, no reads of the custody directory. It is
+               NOT deny-by-default and it does NOT confine reads to the declared artifacts —
+               R2-028 caught the detail string claiming otherwise. A deny-by-default profile could
+               not start CPython here (the interpreter is a venv symlink that dlopens from several
+               trees), and rather than ship a profile that blocks everything and self-tests as a
+               pass, the scope is stated.
+    bubblewrap Linux `bwrap` — unshare net/ipc/pid, read-only runtime bind, tmpfs elsewhere. This
+               one DOES bound reads, because the bind list is the filesystem the child sees.
 
-Neither is a container. Both stop the specific things the audit named: raw sockets, DNS, execing
-another binary out of the sandbox, and reading files outside the declared set.
+Neither is a container, and on macOS a delegated script can still read this user's files. What
+both stop is the network, writes outside the declared outputs, and reads of the key and ledger.
 """
 
 from __future__ import annotations
@@ -70,8 +76,12 @@ def available() -> str:
 
 
 def _seatbelt_profile(reads: list[str], writes: list[str]) -> str:
-    """Deny by default. Allow the interpreter to start, read the named artifacts, write nowhere
-    but the declared outputs, and reach no network at all."""
+    """Generate the profile.
+
+    `reads` is recorded for provenance and does NOT restrict reads (R2-028). Saying otherwise —
+    which the previous detail string did — described a capability boundary this profile does not
+    implement. The honest scope is stated in the Sandbox detail.
+    """
     # The interpreter is usually a venv SYMLINK to a real binary elsewhere (here, a pyenv build).
     # Allowing only `sys.executable` let sandbox-exec deny the exec of the resolved target, and
     # the whole process died before running anything — which made every probe "blocked" and the
@@ -123,8 +133,12 @@ def wrap(argv: list[str], *, reads: list[str], writes: list[str],
         profile.write_text(_seatbelt_profile(reads, writes), encoding="utf-8")
         return (["sandbox-exec", "-f", str(profile), *argv],
                 Sandbox("seatbelt", "deny",
-                        f"macOS sandbox-exec, deny-by-default, network denied, "
-                        f"{len(reads)} artifact read path(s), {len(writes)} write path(s)"))
+                        "macOS sandbox-exec, DENY-LIST (not deny-by-default): network denied "
+                        "entirely, writes confined to the declared outputs, reads of the custody "
+                        "directory refused. Reads elsewhere on this user's filesystem are NOT "
+                        f"restricted — the {len(reads)} declared read path(s) are recorded for "
+                        "provenance and do not bound access. A deny-by-default profile could not "
+                        "start CPython here; a container is the stronger control."))
 
     if mech == "bubblewrap":
         cmd = ["bwrap", "--unshare-net", "--unshare-ipc", "--unshare-pid", "--die-with-parent",

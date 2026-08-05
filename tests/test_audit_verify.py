@@ -30,6 +30,18 @@ HAND_VERIFIED_PRESENT = [
     "SG-HARD-043",  # fill.py hardcodes /Users/isme/...
 ]
 
+#: UN-CLAIMED, 2026-08-05, round 2. SG-HARD-006 was listed here and is not fixed.
+#:
+#: I claimed a tier-2 LaunchDaemon install. The round-2 audit established it could not work in four
+#: independent ways — an unassigned $CLAUDE_DIR fatal under `set -u`, an interpreter path
+#: (runtime/bin/python) that `pip --target` never creates, no --keyfile so the daemon exits 2, and
+#: a service account with no traversal through the 0700 user-owned parent. The predicate that
+#: cleared it was satisfied by the string "/Library/LaunchDaemons" appearing in the file.
+#:
+#: The installer now stages the plist and states plainly that tier 2 is NOT installed. Removing the
+#: entry from FIXED is the point of this list: a claim withdrawn is more useful than a claim
+#: defended, and this harness catching my own retraction is it working.
+#:
 #: Findings this repository has since fixed. Their predicates MUST now report ABSENT.
 #:
 #: This list is the reconfirmation, and it guards both directions. A finding here that reports
@@ -86,7 +98,6 @@ FIXED = {
     "SG-HARD-032": "digest-pinned verified prefix plus a per-connection read deadline",
     "SG-HARD-034": "hooks run a launcher in the plugin root that pins the interpreter",
     "SG-HARD-051": "regimes are assessed over applicable record kinds; empty is not a pass",
-    "SG-HARD-006": "install.sh generates and (as root) installs a tier-2 LaunchDaemon",
     "SG-HARD-021": "delegated execution runs under an OS capability boundary, self-tested",
     # Settled by live adversarial tests, 2026-08-05. Three of these were CONFIRMED by the attack
     # before they were fixed: the hostile paired test, the TOCTOU race, and the multi-artifact call.

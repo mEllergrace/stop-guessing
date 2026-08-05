@@ -30,6 +30,21 @@ def profile(tmp_path, monkeypatch):
     return cfg
 
 
+
+def _append(cfg, event):
+    """Append through the recorder WITH the profile's key.
+
+    Omitting fallback_key writes an unkeyed entry, and the next keyed append then correctly
+    refuses to splice a keyed chain onto it. That refusal is the ledger working; a test that
+    triggers it is a test that set up the wrong ledger.
+    """
+    from stop_guessing.attest.keys import discover
+    from stop_guessing.recorder import client
+
+    got = discover(config_dir=cfg)
+    return client.append(cfg, event, fallback_key=got[0] if got else None)
+
+
 def _records(cfg):
     p = cfg / "stop-guessing" / "ledger" / "custody.jsonl"
     if not p.is_file():
@@ -168,3 +183,85 @@ def test_the_claims_that_named_missing_hooks_can_now_resolve_them():
     from stop_guessing.prove.runner import registered_hook_events
 
     assert {"PreCompact", "Stop", "SessionStart"} <= registered_hook_events()
+
+
+# ── R2-015/017/019/020: behaviour, not labels ────────────────────────────────
+#
+# The round-2 audit was right that these tests asserted record LABELS. `test_stop_reconciles_...`
+# passed against zero dispatches, so a Stop that examined nothing read as a Stop that found
+# nothing wrong. These assert the state transition instead.
+
+
+def test_stop_reports_when_it_examined_nothing(profile):
+    """An empty reconciliation is not a clean one."""
+    ref = hook_lifecycle.turn_stop({"session_id": "s-empty"})
+    rec = _records(profile)[-1]
+    detail = json.loads(rec["detail"])
+    assert ref is not None
+    assert detail["examined_anything"] is False
+    assert rec["severity"] == "warning", "examining nothing must not read as info/clean"
+
+
+def test_stop_pairs_a_real_dispatch_with_its_result(profile):
+    for phase, extra in (("dispatch", {}), ("result", {"success": True})):
+        _append(profile, {
+            "op": "artifact.read", "actor": "test", "severity": "info",
+            "at": "2026-08-05T10:00:00.000Z", "session_id": "s-pair",
+            "known_gaps": [], "alterations": [],
+            "action_instance": {"id": "toolu_1", "phase": phase, "tool": "Read", **extra},
+        })
+    hook_lifecycle.turn_stop({"session_id": "s-pair"})
+    detail = json.loads(_records(profile)[-1]["detail"])
+    assert detail["examined_anything"] is True
+    assert detail["dispatched"] == 1 and detail["reported"] == 1
+    assert detail["unclosed"] == [], "a dispatch with a matching result is not unclosed"
+
+
+def test_stop_reports_a_dispatch_with_no_result_as_unclosed(profile):
+    _append(profile, {
+        "op": "artifact.read", "actor": "test", "severity": "info",
+        "at": "2026-08-05T10:00:00.000Z", "session_id": "s-open",
+        "known_gaps": [], "alterations": [],
+        "action_instance": {"id": "toolu_9", "phase": "dispatch", "tool": "Read"},
+    })
+    hook_lifecycle.turn_stop({"session_id": "s-open"})
+    detail = json.loads(_records(profile)[-1]["detail"])
+    assert detail["unclosed"] == ["toolu_9"], "an unanswered dispatch must be named"
+
+
+def test_failure_reads_the_official_error_field(profile):
+    hook_lifecycle.tool_failed({"session_id": "s1", "tool_name": "Bash",
+                                "tool_use_id": "t", "error": "exit 127", "is_interrupt": False})
+    detail = json.loads(_records(profile)[-1]["detail"])
+    assert detail["error_shape"] == "str", "the official `error` field was not read"
+    assert detail["error_chars"] == len("exit 127")
+
+
+def test_precompact_checkpoints_the_authoritative_digest_not_the_cache(profile):
+    hook_lifecycle.pre_compact({"session_id": "s-auth"})
+    detail = json.loads(_records(profile)[-1]["detail"])
+    assert detail["source"] == "ledger-authoritative"
+    assert "cache_digest" in detail and "cache_agreed" in detail
+
+
+def test_subagent_merge_actually_changes_the_parent(profile):
+    """The old hook recorded 'merge' and merged nothing, so a child's taint never reached the
+    parent — and the parent could then egress freely."""
+    from stop_guessing.taint import persist
+    from stop_guessing.taint.state import ArtifactRef, SessionCustodyState
+
+    child = SessionCustodyState("child-1")
+    child.touch(ArtifactRef("art_x", "/work/CSA/roster.csv", "sha256:x",
+                            frozenset({"restricted", "pii"})))
+    persist.save(child)
+
+    parent_before = persist.load("s-parent")
+    assert "restricted" not in parent_before.labels
+
+    hook_lifecycle.subagent_stop({"session_id": "s-parent", "agent_id": "child-1"})
+
+    parent_after = persist.load("s-parent")
+    assert "restricted" in parent_after.labels, "the child's taint did not reach the parent"
+    assert parent_after.digest != parent_before.digest
+    detail = json.loads(_records(profile)[-1]["detail"])
+    assert detail["changed"] is True and detail["merged_sources"] >= 1

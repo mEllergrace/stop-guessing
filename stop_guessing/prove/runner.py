@@ -484,7 +484,15 @@ def attest_self(
     result["judge"] = _sum(list(latest.values()))
 
     # Deliberately NOT part of goal_met. Deferred means recorded and surfaced, not blocking.
-    result["goal_met"] = bool(
+    # R2-004. `goal_met` required only the internal claim count, a keyed chain, and a self-derived
+    # CAIQ — so it could be true while surface_validated, control_backed AND
+    # independently_reproduced were all false. A single word that can be "met" while three named
+    # axes say assurance is absent is not a verdict, it is a headline.
+    #
+    # It is now the narrow thing it actually measured, under a name that says so, and the release
+    # verdict requires the axes. `goal_met` is kept as an alias because external callers and the
+    # page consume it — but it now tracks the honest value rather than the flattering one.
+    result["self_attestation_complete"] = bool(
         result["ok"] and result["chain_keyed"] and result["caiq"]["filled_from_proofs"]
     )
 
@@ -521,6 +529,16 @@ def attest_self(
             "honest answer."
         ),
     }
+    axes = result["assurance"]
+    # A release-assured verdict requires the axes that describe assurance, not just execution.
+    result["release_assured"] = bool(
+        result["self_attestation_complete"]
+        and axes["surface_validated"]
+        and axes["control_backed"]
+    )
+    # Kept for compatibility, and deliberately NOT the flattering value: anything consuming
+    # `goal_met` — including the generated page — now reads the assured verdict.
+    result["goal_met"] = result["release_assured"]
     return result
 
 

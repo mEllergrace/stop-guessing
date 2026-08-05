@@ -549,6 +549,18 @@ def _record_decision(payload, tool, d, artifact, ident, state, call, posture, ca
                               # to answer the common questions.
                               "session_id": session_id,
                               "outcome": d.outcome,
+                              # R2-015. Stop looked for op == "tool.decision", which NOTHING
+                              # emitted — the gate writes the real operation (artifact.read,
+                              # artifact.egress, ...). Reconciliation therefore ran over an empty
+                              # set every time and reported clean. One explicit action-instance
+                              # field, written by both phases, is what lets Stop pair them.
+                              "action_instance": {
+                                  "id": (payload.get("tool_use_id")
+                                         or f"sg:{session_id}:{op}"),
+                                  "phase": "dispatch",
+                                  "tool": tool,
+                                  "outcome": d.outcome,
+                              },
                               "resources": {"used": used}},
                         fallback_key=chain_key())
     return out.ref

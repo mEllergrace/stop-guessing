@@ -90,6 +90,18 @@ settings = os.path.join(claude_dir, "settings.json")
 
 # RESOLVED ABSOLUTE paths. Never a literal ~ — it expands at hook-execution time.
 hooks_root = os.path.join(os.path.realpath(claude_dir), "hooks")
+# R2-026: one list, covering every event the plugin registers, so both supported install paths
+# produce the same evidence.
+LIFECYCLE = {
+    "SessionStart": ("coc_session_start.sh", "Opening session..."),
+    "UserPromptSubmit": ("coc_prompt.sh", "Recording prompt lineage..."),
+    "PostToolUseFailure": ("coc_tool_failed.sh", "Recording failed call..."),
+    "PreCompact": ("coc_precompact.sh", "Checkpointing custody..."),
+    "SubagentStop": ("coc_subagent.sh", "Merging subagent taint..."),
+    "Stop": ("coc_stop.sh", "Reconciling the turn..."),
+    "SessionEnd": ("coc_session_end.sh", "Closing session..."),
+}
+
 ENTRIES = {
     "PreToolUse": {"type": "command",
                    "command": f"bash {os.path.join(hooks_root, 'coc_gate.sh')}",
@@ -100,6 +112,10 @@ ENTRIES = {
                     "command": f"bash {os.path.join(hooks_root, 'coc_post.sh')}",
                     "statusMessage": "Recording custody..."},
 }
+for _event, (_script, _msg) in LIFECYCLE.items():
+    ENTRIES[_event] = {"type": "command",
+                       "command": f"bash {os.path.join(hooks_root, _script)}",
+                       "statusMessage": _msg}
 
 data = {}
 if os.path.exists(settings):
@@ -115,7 +131,7 @@ hooks = data.setdefault("hooks", {})
 
 # no-noodles hook basenames whose STANDALONE registrations the dispatcher replaces.
 SUPERSEDED = ("no_noodle.sh", "check_before_build.sh", "risk_gate.sh", "check_credentials.sh")
-OURS = ("coc_gate.sh", "coc_post.sh")
+OURS = ("coc_gate.sh", "coc_post.sh", *(s for s, _ in LIFECYCLE.values()))
 
 removed, added = [], []
 for event, entry in ENTRIES.items():
@@ -228,8 +244,20 @@ install_profile() {
     mv "$staging" "$runtime"
     echo "  swapped in the new runtime (previous kept at $runtime.prev)"
 
+    # R2-026. The marketplace plugin registers nine events; this path registered two, so the
+    # installation advertised for superseding no-noodles silently omitted SessionStart,
+    # UserPromptSubmit, PostToolUseFailure, PreCompact, SubagentStop, Stop and SessionEnd — the
+    # very hooks CLAIM-11/13/14 name. Two supported install paths with different evidence is two
+    # different products.
     for pair in "coc_gate.sh:hook_gate:Chain-of-custody gate" \
-                "coc_post.sh:hook_post:Recording custody"; do
+                "coc_post.sh:hook_post:Recording custody" \
+                "coc_session_start.sh:hook_lifecycle SessionStart:Opening session" \
+                "coc_prompt.sh:hook_lifecycle UserPromptSubmit:Recording prompt lineage" \
+                "coc_tool_failed.sh:hook_lifecycle PostToolUseFailure:Recording failed call" \
+                "coc_precompact.sh:hook_lifecycle PreCompact:Checkpointing custody" \
+                "coc_subagent.sh:hook_lifecycle SubagentStop:Merging subagent taint" \
+                "coc_stop.sh:hook_lifecycle Stop:Reconciling the turn" \
+                "coc_session_end.sh:hook_lifecycle SessionEnd:Closing session"; do
       local script="${pair%%:*}"; local rest="${pair#*:}"
       local mod="${rest%%:*}"
       cat > "$hooks_dir/$script" <<EOF
@@ -277,30 +305,43 @@ EOF
 SERVICE_USER="_stopguessing"
 
 write_daemon_plist() {
-  # The tier-2 plist. UserName is the whole point: launchd starts the recorder under an account
-  # the recorded agent cannot write as, which is what makes the ledger unreachable to it.
-  local out="$1" user="$2" runtime="$3"
+  # The tier-2 plist. Staged only — see the --isolated branch for why it is not installed yet.
+  #
+  # R2-007: every path is passed in. The previous version expanded $CLAUDE_DIR, which this script
+  #   never assigns, so `set -u` aborted the installer on the first expansion.
+  # R2-008: `pip install --target` creates a PACKAGE directory, not a virtual environment, so
+  #   runtime/bin/python never existed. A real interpreter is resolved and pinned by path, with
+  #   the runtime on PYTHONPATH — and that interpreter is an ambient dependency, recorded as one.
+  # R2-009: --keyfile is passed. Without it recorder.daemon.main() exits 2 immediately.
+  local out="$1" user="$2" runtime="$3" profile="$4" keyfile="$5"
+  local interp
+  interp="$(command -v python3)"
   mkdir -p "$(dirname "$out")"
   cat > "$out" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-  <key>Label</key><string>com.mellergrace.stop-guessing.cocd</string>
+  <key>Label</key><string>com.mellergrace.stop-guessing.cocd.$(basename "$profile")</string>
   <key>UserName</key><string>${user}</string>
   <key>RunAtLoad</key><true/>
   <key>KeepAlive</key><true/>
   <key>ProgramArguments</key>
   <array>
-    <string>${runtime}/bin/python</string>
+    <string>${interp}</string>
     <string>-m</string>
     <string>stop_guessing.recorder.daemon</string>
     <string>--config-dir</string>
-    <string>${CLAUDE_DIR}</string>
+    <string>${profile}</string>
+    <string>--keyfile</string>
+    <string>${keyfile}</string>
   </array>
   <key>EnvironmentVariables</key>
-  <dict><key>CLAUDE_CONFIG_DIR</key><string>${CLAUDE_DIR}</string></dict>
-  <key>StandardErrorPath</key><string>${CLAUDE_DIR}/stop-guessing/cocd.err</string>
+  <dict>
+    <key>CLAUDE_CONFIG_DIR</key><string>${profile}</string>
+    <key>PYTHONPATH</key><string>${runtime}</string>
+  </dict>
+  <key>StandardErrorPath</key><string>${profile}/stop-guessing/cocd.err</string>
 </dict>
 </plist>
 PLIST
@@ -348,40 +389,40 @@ PYKEY
       # That plist is now generated. Writing it requires root, which the installer does not
       # assume: with root it installs and bootstraps; without, it writes the plist somewhere
       # readable and prints the two commands, and installs tier 1 in the meantime — honestly.
-      local daemon_plist="/Library/LaunchDaemons/com.mellergrace.stop-guessing.cocd.plist"
-      local staged="$CLAUDE_DIR/stop-guessing/com.mellergrace.stop-guessing.cocd.plist"
-      write_daemon_plist "$staged" "$SERVICE_USER" "$runtime"
-
-      if [ "$(id -u)" -eq 0 ]; then
-        install -m 0644 -o root -g wheel "$staged" "$daemon_plist"
-        # The ledger and key must belong to the service account, not the agent.
-        chown -R "$SERVICE_USER" "$CLAUDE_DIR/stop-guessing/ledger" 2>/dev/null || true
-        chown "$SERVICE_USER" "$keyfile" 2>/dev/null || true
-        chmod 0600 "$keyfile" 2>/dev/null || true
-        launchctl bootout system "$daemon_plist" 2>/dev/null || true
-        launchctl bootstrap system "$daemon_plist"
-        tier=2
-        echo "  installed TIER 2: LaunchDaemon running as $SERVICE_USER (uid $target_uid);"
-        echo "  the ledger and chain key are owned by that account and are not writable by you."
-      else
-        tier=1
-        cat <<EOF
-  service account $SERVICE_USER exists (uid $target_uid), and the tier-2 LaunchDaemon plist has
-  been written to:
+      # R2-007..R2-014. The previous version of this branch could not work, and said it did:
+      #   - it expanded $CLAUDE_DIR, which this script never assigns, under `set -u` (aborts);
+      #   - the plist invoked runtime/bin/python, which `pip --target` never creates;
+      #   - the plist passed no --keyfile, so the daemon exits 2;
+      #   - the service account could not traverse the 0700 user-owned parent;
+      #   - a tier-1 LaunchAgent was written afterwards under the SAME launchd label;
+      #   - tier=2 was reported with no health check of any kind.
+      #
+      # Reporting a tier that does not run writes a false isolation_tier into every record, which
+      # is worse than not offering the tier. Until the service architecture is built AND black-box
+      # health-checked, this stages the artifacts, states precisely what is missing, and installs
+      # tier 1 truthfully.
+      local staged="$claude_dir/stop-guessing/com.mellergrace.stop-guessing.cocd.plist"
+      write_daemon_plist "$staged" "$SERVICE_USER" "$runtime" "$claude_dir" "$keyfile"
+      tier=1
+      cat <<EOF
+  service account $SERVICE_USER exists (uid $target_uid), and a candidate tier-2 LaunchDaemon
+  plist has been staged at:
 
     $staged
 
-  Installing it requires root, because a LaunchAgent runs as the logged-in user no matter what
-  and only /Library/LaunchDaemons can run the recorder under another account:
+  TIER 2 IS NOT INSTALLED, and this installer will not claim it. Reporting a tier that does not
+  run would put a false isolation_tier into every record written. Outstanding work, tracked:
 
-    sudo install -m 0644 -o root -g wheel "$staged" $daemon_plist
-    sudo chown -R $SERVICE_USER "$CLAUDE_DIR/stop-guessing/ledger" "$keyfile"
-    sudo launchctl bootstrap system $daemon_plist
+    - a real interpreter for the service (pip --target creates a package directory, not a venv)
+    - service-owned paths separate from the 0700 user profile tree, so the account can traverse
+    - a shared socket directory and group both identities can reach
+    - an admitted-client uid so the daemon accepts the ordinary user's hook
+    - per-profile launchd labels, so multiple profiles do not overwrite each other
+    - a black-box health check (ping reports a different uid, keyed=true, append round-trips)
 
-  Installing TIER 1 for now and saying so. Reporting tier 2 here would put a false
-  isolation_tier into every record written.
+  Installing TIER 1: a separate recorder process with the key out of the environment, on your own
+  uid — so you can still stop it. That is what tier 1 means and it is what you are getting.
 EOF
-      fi
     else
       cat <<EOF
   --isolated requested but the service account does not exist, so tier 2 is NOT installed.
