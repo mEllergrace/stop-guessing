@@ -3,6 +3,53 @@
 All notable changes to STOP-GUESSING. Format follows [Keep a Changelog](https://keepachangelog.com/);
 this project uses semantic versioning and bumps `VERSION` on every code-changing push.
 
+## [0.4.0] — 2026-08-04
+
+Repo hygiene, and the tooling to keep it that way.
+
+### Removed from tracking
+- **`build/` is no longer tracked.** 56 files under `build/lib` were committed against 66 real
+  source files, so nearly half the Python on GitHub was a second, drifting copy of every module —
+  eight of them carrying uncommitted modifications of their own. A reviewer reading
+  `build/lib/stop_guessing/prove/runner.py` was reviewing a stale snapshot. `.gitignore` covered
+  `__pycache__`, `.venv` and `*.egg-info` but never `build/`. Files stay on disk; only tracking goes.
+
+### Fixed
+- **The AI-CAIQ template is resolved, not hardcoded.** Three proof procedures pinned one
+  developer's absolute path to CSA's blank workbook, so the proofs that the questionnaire is
+  filled by the toolchain could only ever run on that one machine. They now go through
+  `resolve_template()`, which already handled `--template`, `$STOP_GUESSING_CAIQ_TEMPLATE` and the
+  known locations. This matters more than portability housekeeping: **the blank AI-CAIQ cannot be
+  redistributed**, so it is absent from every repo by design and every operator must supply their
+  own copy. A hardcoded path made that impossible to do.
+- **A specific `forbid` now out-explains a generic one.** Two rules denied a credential egress and
+  the generic one won attribution, because `max()` returns the first maximal element. The outcome
+  was right either way, but the record said "the session held some taint" when what happened was
+  "credential material left the host". Adds `Policy.priority`, which tiebreaks only *within* one
+  effect and never across them — `forbid` > `ask` > `permit` is untouched, and ties still fall back
+  to declaration order, so existing policy sets behave exactly as before.
+- **`test_the_default_posture_is_observe` was not hermetic.** It passed no config dir and so read
+  whichever `stop-guessing.json` the developer had installed; this machine's says `steer`, so the
+  test asserted a default while measuring an opt-in — the same failure already recorded at
+  `prove/runner.py:274`. Now hermetic, with a second test asserting the other direction: an
+  installed config must still select its posture, and the project layer must still override global.
+
+### Added
+- **`scripts/attest_guard.py`** — snapshots the attestation, runs a command, snapshots again, and
+  reports only what got *worse*. Repo work is safe or unsafe on facts nobody holds in their head:
+  14 claims pin module paths in `must_touch`, so a `git mv` silently un-proves them, while deleting
+  a build tree breaks nothing because every evidence ref is a ledger record id. It guards without
+  freezing — a regression is a re-proving list, not a veto, and the output names the commands that
+  re-bind. 9 hermetic tests.
+- **`scripts/stamp_version.py`** — specified in the plan, never written, which is exactly how three
+  manifests came to declare a stale version on the first bump after the plan warned against it.
+  Detection already existed upstream in repo-hygiene; nothing wrote. Covers the nested case that
+  caused the miss: a marketplace manifest declares no version of its own, only one per `plugins[]`
+  entry. 8 tests.
+- **`scripts/hygiene_sweep.py`** — runs the repo-hygiene checks against this one repo. The upstream
+  driver is a fleet tool needing a projectMan database and a scan of an external drive; this
+  imports the same checks unchanged and hands them a path.
+
 ## [0.3.0] — 2026-08-03
 
 Acted on an independent review (18 findings, all accurate) plus two rounds of

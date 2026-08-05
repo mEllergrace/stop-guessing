@@ -31,6 +31,20 @@ PROOF_KEY = ChainKey("proof-procedure-key", b"procedure-local-key-32-bytes!!!!")
 OTHER_KEY = ChainKey("wrong-key", b"a-different-key-32-bytes-long!!!")
 
 
+def _caiq_template() -> Path:
+    """The CSA blank template, resolved through the normal search path.
+
+    Three procedures used to hardcode one developer's absolute path to it. That made the proofs
+    that the AI-CAIQ is filled by the toolchain runnable on exactly one machine — while the whole
+    point is that a CSA staffer can obtain the template from CSA and re-run them. `resolve_template`
+    already handles --template, $STOP_GUESSING_CAIQ_TEMPLATE and the known locations, and reports
+    its search path on failure, so there was never a reason to bypass it.
+    """
+    from stop_guessing.cli.cmd_caiq import resolve_template
+
+    return Path(resolve_template(None))
+
+
 def _event(i: int) -> dict:
     return {"op": "artifact.read", "actor": "agent/main", "detail": f"record {i}",
             "severity": "info", "at": f"2026-08-03T10:00:{i % 60:02d}.000Z"}
@@ -215,9 +229,10 @@ def prove_caiq_version_gate() -> ProofResult:
     pinned = json.loads(
         (repo_root() / "docs" / "ai-caiq" / "reference" / "TEMPLATE.json").read_text()
     )
-    tpl = Path("/Users/isme/Software/rockin-robin/docs/ai-caiq/reference/AI_CAIQv1.1.0.xlsx")
-    if not tpl.is_file():
-        return r.fail(f"the local CSA template is not present at {tpl}")
+    try:
+        tpl = _caiq_template()  # resolved, never hardcoded — see the helper
+    except FileNotFoundError as exc:
+        return r.fail(str(exc))
 
     before = file_digest(tpl)
     before_mtime = tpl.stat().st_mtime_ns
@@ -1054,9 +1069,10 @@ def prove_fill_never_touches_the_template() -> ProofResult:
     from stop_guessing.caiq.fill import FillRefused, fill, verify_with_rich_text
 
     r = ProofResult(passed=True)
-    tpl = Path("/Users/isme/Software/rockin-robin/docs/ai-caiq/reference/AI_CAIQv1.1.0.xlsx")
-    if not tpl.is_file():
-        return r.fail(f"the local CSA template is not present at {tpl}")
+    try:
+        tpl = _caiq_template()  # resolved, never hardcoded — see the helper
+    except FileNotFoundError as exc:
+        return r.fail(str(exc))
 
     before = file_digest(tpl)
     before_mtime = tpl.stat().st_mtime_ns
@@ -1462,9 +1478,10 @@ def prove_caiq_filled_from_proofs() -> ProofResult:
         return r.fail("no chain key — answers derived from an unverifiable ledger are not answers")
     key, _ = got
 
-    tpl = Path("/Users/isme/Software/rockin-robin/docs/ai-caiq/reference/AI_CAIQv1.1.0.xlsx")
-    if not tpl.is_file():
-        return r.fail(f"the local CSA template is not present at {tpl}")
+    try:
+        tpl = _caiq_template()  # resolved, never hardcoded — see the helper
+    except FileNotFoundError as exc:
+        return r.fail(str(exc))
     before = file_digest(tpl)
 
     answers, result = derive(key)

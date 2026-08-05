@@ -15,3 +15,6 @@ docs/ai-caiq/reference/*.xlsx
 
 # build artifacts — a tracked duplicate of the package
 build/
+
+# spindlebox index
+.spi/
