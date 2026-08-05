@@ -88,6 +88,31 @@ def _state_from(remote: dict, session_id: str) -> SessionCustodyState:
     return st
 
 
+def _canonical(path: str) -> str:
+    """Resolve symlinks and `..` without touching the file. Never raises."""
+    from stop_guessing.artifacts.identity import canonical_path
+
+    try:
+        return canonical_path(path)
+    except Exception:  # noqa: BLE001 - an unresolvable path must not take the call down
+        return path
+
+
+def _join_classification(a, b):
+    """Union two classifications of the same artifact. Labels only ever accumulate.
+
+    #56: an alias must never be able to REMOVE a label — that is the whole bypass. Joining is
+    monotone, so whichever spelling carries the classification, the call is classified.
+    """
+    from stop_guessing.artifacts.classify import Classification
+
+    return Classification(
+        labels=frozenset(a.labels) | frozenset(b.labels),
+        matched=tuple(dict.fromkeys((*a.matched, *b.matched))),
+        sources=tuple(dict.fromkeys((*a.sources, *b.sources))),
+    )
+
+
 def decide(payload: dict, posture: str = "observe") -> dict | None:
     """Returns a decision dict, or None when nothing custody-relevant is happening.
 
@@ -105,10 +130,26 @@ def decide(payload: dict, posture: str = "observe") -> dict | None:
     egress = classify_egress(command) if command else None
     is_write = tool in ("Write", "Edit", "NotebookEdit")
 
+    # #56 (SG-HARD-015). Classification ran on the SPELLING the caller supplied and only
+    # canonicalised afterwards for identity, so a benignly named symlink — /tmp/public.txt
+    # pointing at ~/.ssh/id_rsa — classified as public and its contents entered model context.
+    # PostToolUse canonicalises, which is after the bytes have already been read.
+    #
+    # Both forms are classified now and the labels are joined, so an alias can only ever ADD
+    # labels. Neither spelling can be used to shed the other's classification, and the aliasing
+    # itself is recorded rather than resolved away silently.
     candidates = paths_in(tool, tool_input)
     worst = None
+    aliases: list[dict] = []
     for p in candidates:
         c = classify_path(p)
+        canon = _canonical(p)
+        if canon != p:
+            c_canon = classify_path(canon)
+            if c_canon.classified and not c.classified:
+                aliases.append({"given": p, "resolves_to": canon,
+                                "labels_gained": sorted(c_canon.labels)})
+            c = _join_classification(c, c_canon)
         if c.classified and (worst is None or len(c.labels) > len(worst[1].labels)):
             worst = (p, c)
 
@@ -126,6 +167,11 @@ def decide(payload: dict, posture: str = "observe") -> dict | None:
                     "has_handler": False,
                     "first_touch": first_touch,
                     "canonical_path": ident.canonical_path,
+                    # #56: an alias that only became classified once resolved is itself the
+                    # finding. Recording it means an auditor sees the attempt, not just the
+                    # eventual correct label.
+                    "aliases": aliases,
+                    "requested_path": path,
                     "is_ledger": "stop-guessing" in ident.canonical_path
                     and "ledger" in ident.canonical_path}
     else:
@@ -237,10 +283,22 @@ def _record_decision(payload, tool, d, artifact, ident, state, call, posture, ca
                 "csa.coc/artifact_id": ident.artifact_id,
                 "csa.coc/classification": artifact.get("labels") or [],
                 "csa.coc/digest_scope": "absent" if ident.content_digest is None else "full",
+                # #56: the spelling the caller used, when it differs from what it resolves to.
+                # Recording only the canonical path would hide that a benign-looking name was the
+                # one presented — an auditor needs to see the alias, not just the right answer.
+                "csa.coc/aliases": artifact.get("aliases") or [],
+                "csa.coc/requested_path": artifact.get("requested_path") or ident.canonical_path,
             },
         })
 
     gaps = [] if cache_agreed else ["state cache disagreed with the ledger; ledger won"]
+    for alias in artifact.get("aliases") or []:
+        # An alias that only became classified once resolved is a finding in its own right: it is
+        # the shape of an attempt to read a protected artifact under an unprotected name.
+        gaps.append(
+            f"path aliasing: {alias['given']} resolves to {alias['resolves_to']} and gained "
+            f"{','.join(alias['labels_gained'])}"
+        )
     if ident is not None and ident.content_digest is None:
         gaps.append("artifact content was not digested at decision time (PreToolUse budget)")
     session_id = str(payload.get("session_id") or "unknown")

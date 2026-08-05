@@ -1,5 +1,5 @@
 {
-  "commit": "5240403",
+  "commit": "f9daf33",
   "findings": [
     {
       "id": "SG-HARD-001",
@@ -153,8 +153,8 @@
       "files": [
         "stop_guessing/cli/gate.py"
       ],
-      "status": "PRESENT",
-      "evidence": "classify_path() runs on the user-supplied spelling at char 2879; canonicalisation via identify() only at 3174"
+      "status": "ABSENT",
+      "evidence": "each candidate is classified under both the supplied spelling and its canonical target, and the labels are joined, so an alias can only add labels \u2014 never shed them"
     },
     {
       "id": "SG-HARD-016",
@@ -175,7 +175,7 @@
         "stop_guessing/handlers.py"
       ],
       "status": "PRESENT",
-      "evidence": "handlers.substitute() at char 4329 precedes policy evaluate() at 4824"
+      "evidence": "handlers.substitute() at char 5404 precedes policy evaluate() at 5899"
     },
     {
       "id": "SG-HARD-018",

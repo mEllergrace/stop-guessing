@@ -65,6 +65,7 @@ FIXED = {
     # and the evidence it cites, so the loop reaches a fixpoint instead of drifting by one.
     "SG-HARD-041": "CLAIM-21 is a release attestation, counted in neither the epoch nor the evidence",
     "SG-HARD-054": "the workbook epoch and the attestation agree and the scope is stated",
+    "SG-HARD-015": "both the supplied spelling and its canonical target are classified and joined",
 }
 
 

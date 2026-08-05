@@ -270,13 +270,28 @@ def c_policy_assets_unanchored():
 
 
 def c_symlink_classification_bypass():
+    """Ask whether the CANONICAL form is classified, not which call appears first.
+
+    The first predicate compared the character offsets of `classify_path(` and `identify(`, which
+    still describes the file after the fix — classification legitimately happens before identity.
+    What decides the bypass is whether the resolved target is classified too, and whether the
+    labels are joined so an alias can only ever add them.
+    """
     src = _code("stop_guessing/cli/gate.py")
-    cls = src.find("classify_path(")
-    ident = src.find("identify(")
-    if cls != -1 and ident != -1 and cls < ident:
-        return PRESENT, ("classify_path() runs on the user-supplied spelling at char "
-                         f"{cls}; canonicalisation via identify() only at {ident}")
-    return ABSENT, "the path is canonicalised before classification"
+    m = re.search(r"for p in candidates:(.*?)(?=\n    if worst is None)", src, re.S)
+    loop = m.group(1) if m else ""
+    if not loop:
+        return DYNAMIC, "could not locate the candidate classification loop"
+    canonicalises = re.search(r"_canonical\(p\)", loop)
+    joins = re.search(r"_join_classification\(", loop)
+    if canonicalises and joins:
+        return ABSENT, ("each candidate is classified under both the supplied spelling and its "
+                        "canonical target, and the labels are joined, so an alias can only add "
+                        "labels — never shed them")
+    if canonicalises:
+        return PRESENT, "the canonical form is resolved but its labels are not joined in"
+    return PRESENT, ("the candidate loop classifies only the user-supplied spelling, so a benign "
+                     "symlink to a classified file is read as benign")
 
 
 def c_artifact_id_inode():
