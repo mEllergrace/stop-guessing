@@ -64,7 +64,7 @@ def test_describe_puts_sensitivity_first():
 
 def test_all_matching_rules_apply_not_just_the_first():
     """no-noodles' engine is first-match-only; dropping a second obligation is a silent gap."""
-    c = classify_path("/Users/isme/work/CSA/roster.csv")
+    c = classify_path("/example/work/CSA/roster.csv")
     assert {"csa-material", "pii"} <= c.labels
     assert len(c.matched) >= 2
 
@@ -83,7 +83,7 @@ def test_plain_source_is_not_classified():
 
 
 def test_classification_records_its_source_rule():
-    c = classify_path("/Users/isme/work/CSA/roster.csv")
+    c = classify_path("/example/work/CSA/roster.csv")
     assert all(s.startswith("rules/classify.yaml#") for s in c.sources)
 
 

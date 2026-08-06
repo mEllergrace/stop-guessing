@@ -3,6 +3,53 @@
 All notable changes to STOP-GUESSING. Format follows [Keep a Changelog](https://keepachangelog.com/);
 this project uses semantic versioning and bumps `VERSION` on every code-changing push.
 
+## [0.5.3] — 2026-08-05
+
+Repo hygiene run properly, and the README rewritten to say what is currently true.
+
+### Fixed — the README was making false claims about its own system
+The Workflow audit section still said *"2 of the 9 planned events exist"* and *"seven of nine
+planned hook events are not registered"*, and listed `reconcile()` as *"built and called by
+nothing"*. All three had been fixed earlier the same day. It also described the chain key as read
+from an environment variable at the *"weakest tier"* with *"keychain support unused"*, while the
+live profile resolves a mode-600 keyfile at tier 2.
+
+A reviewer checking those statements against the code would have found the documentation
+contradicting the implementation — which, for a project whose entire claim is that its documentation
+is derived from verified evidence, is the worst available failure. Every claim in the rewrite was
+checked against the running system first.
+
+The rewrite also leads with **what a proof is here** and **what this does not establish**, rather
+than leaving both to later sections: `independently_reproduced` is false and unsettable from inside
+this repository, five surfaces are structurally validated but not executed, the judge panel is not
+independent, and 31 of 53 ABSENT audit findings rest on structural predicates.
+
+### Fixed — repo hygiene
+`repo-hygiene`'s `hardcoded-paths` check found 169 references. Triaged, and the shipped ones fixed:
+
+- **13 personal absolute paths removed from shipped source.** `/Users/isme/work/CSA/roster.csv`
+  appeared ten times in `stop_guessing/prove/procedures.py` and three times in tests. Classification
+  matches the path as a *string* against `/work/CSA/`, so no file was ever read and behaviour is
+  unchanged — but a reviewer reading it cannot tell that, and a reference implementation that
+  *looks* like it reads a private CSA directory undermines its own proof. Now
+  `/example/work/CSA/roster.csv`, which classifies identically and exists nowhere.
+- **`scripts/hygiene_sweep.py` worked for one person.** Its default repo-hygiene location and its
+  default scan patterns were both absolute paths under one developer's home — so the hardcoded-paths
+  check could only find hardcoded paths belonging to whoever wrote it. Now a search list and
+  home-derived patterns; `--hygiene-root` and `$REPO_HYGIENE_ROOT` are unchanged and still win.
+- **The sweep's output is triaged.** It reported 165 findings against a clean repository, because a
+  census counts strings and cannot know intent. It now separates shipped from untracked from
+  deliberate, and excludes the `# build-ok:` provenance comments that `check_before_build.sh`
+  *requires* — counting one project rule's mandated evidence as another rule's violation made the
+  two contradict each other. Current state: **0 findings in shipped files.**
+
+### Added
+- `scripts/depersonalise_paths.py` + tests — re-runnable, with `--check`. Its load-bearing test
+  asserts the synthetic fixture path classifies identically to the original, so the rewrite cannot
+  silently change what a proof is proving. It refuses to touch `IMPLEMENTATION_PLAN.md`,
+  `CHANGELOG.md` and `IMPLEMENTATION_LOG.md`: those record where each reused asset was found, and
+  rewriting them would falsify the provenance record they exist to keep.
+
 ## [0.5.2] — 2026-08-05
 
 Closing the *class*, not two more instances of it.

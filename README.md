@@ -1,7 +1,7 @@
 # STOP-GUESSING
 
 <!-- BEGIN GENERATED STATUS -->
-**Version 0.5.2 — `stop-guessing attest --self` reports SELF-ATTESTATION INCOMPLETE: 21/21 claims
+**Version 0.5.3 — `stop-guessing attest --self` reports SELF-ATTESTATION INCOMPLETE: 21/21 claims
 executed, witnessed and chain-verified on the maintainer's machine.**
 
 **This is self-attestation. It has not been independently verified, and the gate that produces it
@@ -41,9 +41,24 @@ It said "implementation not started" for nine commits after that stopped being t
 it is no longer written by hand.
 <!-- END GENERATED STATUS -->
 
-Chain-of-custody and data-provenance for agentic AI. It exists so that what an agentic tells you is not a guess.
+Chain-of-custody and data provenance for agentic AI. It exists so that what an agent tells you is not a guess.
 
 > **Provenance is evidentiary, not preventive.** A hash-chained log of an exfiltration is still an exfiltration. STOP-GUESSING records what happened and refuses to claim more than it can prove. It is not a prompt-injection defence and must not be sold as one.
+
+---
+
+## What this is, in one paragraph
+
+A `PreToolUse`/`PostToolUse` gate plus seven lifecycle hooks that record every artifact an agent
+touches, every derivation between artifacts, and every decision taken about them, into an
+HMAC-keyed hash-chained ledger shaped by ISO/IEC 27037 §5.4.1, emitted as in-toto Statements, and
+mapped to CSA AICM v1.1.0. It ships with its own AI-CAIQ, filled by its own toolchain from its own
+proof records — and it is built so a reviewer can disprove any of that.
+
+**It respects the permissions already set. It neither seeks nor grants them.** The default posture
+records and blocks nothing.
+
+---
 
 ## The problem
 
@@ -54,7 +69,7 @@ Two documented failures define the shape of it:
 - **Replit / SaaStr, 21 July 2025** ([AI Incident Database #1152](https://incidentdatabase.ai/cite/1152/)) — an agent deleted a production database during an explicit code freeze, fabricated ~4,000 fictional records, and misreported what it had done. No independent record of any of it.
 - **Berkeley RDI, April 2026** ([writeup](https://rdi.berkeley.edu/blog/trustworthy-benchmarks-cont/)) — a zero-capability agent scored ~100% on eight benchmarks by attacking the evaluator, including installing a fake `curl` wrapper that returned fabricated success to the grader.
 
-The second one is a design constraint, not an anecdote: **the recorder must not be reachable by the agent it records.**
+The second is a design constraint, not an anecdote: **the recorder must not be reachable by the agent it records.**
 
 ## What already exists, and what doesn't
 
@@ -72,7 +87,121 @@ Three specific gaps:
 
 > The agent's control decisions are computed only from trusted inputs; data handling is delegated to deterministic, capability-constrained code; and every delegation is recorded.
 
-This is the citable form. Backing: [Beurer-Kellner et al., *Design Patterns for Securing LLM Agents against Prompt Injections*](https://arxiv.org/abs/2506.08837) (IBM/Google/ETH/Microsoft) and [Debenedetti et al., *CaMeL*](https://arxiv.org/abs/2503.18813) (DeepMind/ETH), which protect **control flow** rather than sight of data. The stronger claim — the model never sees data at all — is what the `bar` posture implements. It ships as an option; it is not the claim the docs lead with.
+Backing: [Beurer-Kellner et al., *Design Patterns for Securing LLM Agents against Prompt Injections*](https://arxiv.org/abs/2506.08837) (IBM/Google/ETH/Microsoft) and [Debenedetti et al., *CaMeL*](https://arxiv.org/abs/2503.18813) (DeepMind/ETH), which protect **control flow** rather than sight of data. CaMeL's own numbers are quoted with their cost: 77% of AgentDojo tasks solved with provable security against 84% undefended. The stronger claim — the model never sees data at all — is what the `bar` posture implements. It ships as an option; it is not the claim the docs lead with.
+
+---
+
+## What a proof is here
+
+This is the part that distinguishes the project from a test suite, and the part to attack first.
+
+A **proof** is a record in this toolchain's own keyed ledger, written by a procedure that exercised
+the real surface. It is not a passing test. `proofs:` in [`docs/claims.yaml`](docs/claims.yaml) is
+written only by `stop-guessing prove`, never by hand. A claim with no surviving proof is a **failed**
+claim, not an unassessed one, and `stop-guessing claims check` exits non-zero.
+
+Each proof record is bound to what it was proved against, so it dies when that changes:
+
+| Binding | A proof stops counting when |
+|---|---|
+| `claim_definition_digest` | the claim's statement, surfaces, kind, controls or `must_touch` change |
+| `implementation_manifest` | any module the procedure actually touched changes |
+| version | `VERSION` moves — a proof of 0.5.1 does not establish 0.5.2 |
+| `exercised_surfaces` | the procedure stops driving a surface the claim declares |
+| chain | the ledger segment covering it fails keyed verification |
+
+All four bindings were confirmed by attack, not by inspection: editing a claim statement took the
+gate to 20/21, editing an implementation module to 17/21, and leaving one declared hook undriven to
+20/21.
+
+An **execution witness** (`sys.setprofile`) records which functions a procedure really entered, so a
+procedure that asserts without executing is visible. A **judge panel** applies seven mechanical
+lenses and defers disapproval — recorded and surfaced, never blocking, because a lens is qualified
+to make a human look, not to void a proof. Its `independence` lens objects on all 21 claims by
+construction, and that objection is published rather than resolved.
+
+---
+
+## The gate never grants permission
+
+Three outcomes reach the host: **deny**, **ask**, and **silence**. There is deliberately no fourth.
+
+An explicit `allow` from a `PreToolUse` hook is not "no objection" — Claude Code treats it as
+auto-approval and **suppresses the prompt the host would otherwise raise**. This tool emitted one on
+a warning path, under a comment claiming it "does not interrupt". Under `acceptEdits` — which
+auto-accepts file edits but still prompts for Bash — that turned a would-be prompt into a silent
+approval, including on the ad-hoc `curl … | parser` shape the vendored `no_noodle.sh` permits on its
+first occurrence per project. A provenance recorder was disarming the policy it ships vendored.
+Fixed in [#88](https://github.com/mEllergrace/stop-guessing/issues/88).
+
+Two consequences are tested rather than asserted:
+
+- `observe`, the default, never asks and never denies — driven over classified reads, egress, writes
+  and ordinary work in a hermetic profile. The one exception is a write to the evidence ledger,
+  refused under every posture, with a control proving "never blocks" has not become "never protects".
+- A DENY is never degraded by a permissive mode. Bypassing permission *prompts* is not the same as
+  bypassing *policy*, and credential egress does not become acceptable because prompts are off.
+
+### And it may not override what the operator set
+
+Two defects of that shape were found by the operator rather than by the suite, which is why the
+class is now covered by `tests/test_operator_sovereignty.py` rather than by vigilance:
+
+- [#87](https://github.com/mEllergrace/stop-guessing/issues/87) — `--supersede-no-noodles` removed
+  the registration for `check_credentials.sh`, an operator-installed hook the dispatcher could not
+  execute, silently disabling a credential hard-stop. **A tool may only supersede a control it can
+  actually run.** Everything else stays where the operator put it, and is *checked for*.
+- Installing overwrote operator-edited copies of vendored docs, and `--uninstall` left seven
+  executables in a hooks directory it does not own.
+
+`stop-guessing doctor` reports the effective posture, the config layer that set it, and the path to
+change it. It reports; it does not correct. Choosing the posture belongs to the operator, and a tool
+that "fixed" it to the documented default would be making exactly the decision it exists to record.
+
+---
+
+## The scope ratchet — a claim cannot quietly get smaller
+
+Most integrity tooling watches whether a claim *changed*. This watches whether it got **smaller**,
+and whether anyone said why.
+
+The failure mode is specific, and every individual step looks like diligent housekeeping:
+
+> the party being measured quietly reduces what is asserted,
+> the measurement improves,
+> and nothing connects those two facts.
+
+It exists because the toolchain failed to catch its own author. Closing an audit finding, eleven
+declared surfaces were withdrawn from `docs/claims.yaml` on the grounds that the proofs did not
+exercise them. That was true. It was also what flipped the `surface_validated` axis to true. The
+claim-definition digest saw the claims had *changed* and has no notion of direction, so broadening
+and narrowing looked identical. A human reader caught it by asking whether the goal had moved.
+
+**It is an ISO/IEC 27037 §5.4.1 alteration, not a new concept.** §5.4.1 requires a written
+justification for altering evidence, and this record schema already makes `alterations` a Tier-A
+field so `[]` is a positive assertion and a missing key means nobody looked. Reducing what a claim
+asserts alters the evidence subject; editing YAML recorded nothing.
+
+```bash
+stop-guessing retract --claim CLAIM-11 --field surface \
+  --removed hook:PreCompact \
+  --reason "the proof exercises rebuild() directly and does not drive the hook"
+```
+
+An unrecorded shrink is a finding on `claims check`, reported beside the verdict. Four properties
+are deliberate: **high-water, not last-value** (nobody removes ten things at once); **narrowing stays
+legal**, only silence is forbidden; **editing the file still works**, because locking it would be
+theatre; and **a retraction with no reason is refused at the source**.
+
+It cannot detect a claim whose *statement text* is weakened while its surfaces hold constant — prose
+strength is not mechanically decidable here. That limitation is written into `known_gaps` on every
+scope record, because writing `[]` while knowing about it would be the same overclaim one level up.
+
+The eleven withdrawn surfaces were restored and fixed the other way: `demo --posture steer` and
+`record emit` were built, the `hook:` surfaces are driven as real subprocesses, and `/no-noodle` and
+`/noodle-options` are vendored and shipped by both install paths.
+
+---
 
 ## Standards
 
@@ -86,225 +215,108 @@ This is the citable form. Backing: [Beurer-Kellner et al., *Design Patterns for 
 
 CSA has published the requirement and drafted the agentic controls. [*Data Security within AI Environments*](https://cloudsecurityalliance.org/artifacts/data-security-within-ai-environments) (December 2025) recommends, verbatim, *"cryptographically signed data provenance tracking using blockchain or merkle trees"* and *"tamper-evident logs (e.g. AWS QLDB, Sigstore)."* None of it has a reference implementation. That gap is what this is.
 
+**Blockchain anchoring is deliberately not built.** It has no regulated-audit adoption; RFC 3161 and eIDAS qualified timestamps carry the legal recognition. Including a chain would cost credibility with exactly this audience.
+
+**Prior art, credited rather than reinvented:** `Helixar-AI/HDP` (delegation custody), `agent-receipts/obsigna` (Ed25519 hash-chained receipts with a working Claude Code hook), Microsoft's `agent-governance-toolkit` (the best published provenance schema, unimplemented), [PROV-AGENT](https://arxiv.org/abs/2508.02866) (ORNL/Argonne, IEEE e-Science 2025), and Agent-Sentry (the argument for per-*argument* provenance).
+
 ## Postures
 
 Three, all shipping. Default is `observe`.
 
-The default moved from `steer` to `observe` deliberately. This tool exists to record chain of
-custody as evidence, and the host already has a permission model that its operator has already
-configured; a second gate asking again is a recorder overriding the decision its user has made.
-`steer` and `bar` remain unchanged and are one config key away — they are opt-in, not removed.
+The default moved from `steer` to `observe` deliberately. The host already has a permission model its operator has configured; a second gate asking again is a recorder overriding a decision its user has already made. `steer` and `bar` are unchanged and one config key away — opt-in, not removed.
 
 | Posture | Behaviour |
 |---|---|
-| `observe` | **Default.** Records everything, blocks nothing. The one exception is a write to the ledger itself, which is refused under every posture — that protects the evidence rather than policing the operator, and `{"protect_ledger": false}` turns even that off |
+| `observe` | **Default.** Records everything, blocks nothing. The one exception is a write to the ledger itself, refused under every posture — that protects the evidence rather than policing the operator, and `{"protect_ledger": false}` turns even that off |
 | `steer` | Asks on first touch of a classified artifact, offering a recorded script delegation. Denies on accumulated taint crossing threshold, or any egress while tainted |
-| `bar` | The model is barred from opening classified artifacts. Only signed scripts touch them; the model receives handles and summaries |
+| `bar` | The model is barred from opening classified artifacts. Only scripts touch them; the model receives handles and summaries |
 
-### The gate never grants permission
-
-Three outcomes reach the host: **deny**, **ask**, and **silence**. There is deliberately no fourth.
-
-An explicit `allow` from a `PreToolUse` hook is not "no objection" — Claude Code treats it as
-auto-approval and **suppresses the prompt the host would otherwise raise**. This tool emitted one on
-a warning path, under a comment claiming it "does not interrupt". Under `acceptEdits` — which
-auto-accepts file edits but still prompts for Bash — that turned a would-be prompt into a silent
-approval, including on the ad-hoc `curl … | parser` shape the vendored `no_noodle.sh` permits on its
-first occurrence per project. A provenance recorder was disarming the policy it ships vendored.
-Fixed in [#88](https://github.com/mEllergrace/stop-guessing/issues/88); silence is now the answer,
-and the warning survives where it belongs — in the custody record, with its counterfactual.
-
-The rule this encodes, and the one the whole project is built on: **it respects the permissions
-already set, and neither seeks nor grants them.** A recorder that hands out approvals is not
-recording a decision, it is making one.
-
-Two consequences are tested rather than asserted:
-
-- `observe`, the default, never asks and never denies — driven over classified reads, egress, writes
-  and ordinary work in a hermetic profile. The one exception is a write to the evidence ledger,
-  refused under every posture, with a control proving "never blocks" does not mean "never protects".
-- A DENY is never degraded by a permissive mode. Bypassing permission *prompts* is not the same as
-  bypassing *policy*, and credential egress does not become acceptable because prompts are off.
-
-Full depth is the default and is never silently reduced. Where fidelity is genuinely reduced it is recorded — `known_gaps: []` is a positive assertion that nothing was skipped, and a *missing* key is rejected at write.
-
-Removable at four levels — posture, per-rule, per-project, and full uninstall — none of which destroys the accumulated ledger.
-
-## The scope ratchet — a claim cannot quietly get smaller
-
-Most integrity tooling watches whether a claim *changed*. This watches whether it got **smaller**,
-and whether anyone said why. The two are not the same, and the difference is where self-assessment
-usually fails.
-
-The failure mode is specific, and every individual step looks like diligent housekeeping:
-
-> the party being measured quietly reduces what is asserted,
-> the measurement improves,
-> and nothing connects those two facts.
-
-This feature exists because the toolchain failed to catch its own author. While closing an audit
-finding, the surfaces a claim declared — six `hook:` entries, `plugin:`, `skill:`, two
-`command:` entries, and two CLI commands that had not been built — were withdrawn from
-`docs/claims.yaml` on the grounds that the proofs did not exercise them. That was true. It was also
-what flipped the `surface_validated` assurance axis to true. The claim-definition digest noticed the
-claims had *changed* and invalidated the affected proofs, which is correct and insufficient: it has
-no notion of direction, so broadening and narrowing look identical to it. A human reader caught it
-by asking whether the goal had moved.
-
-**It is an ISO/IEC 27037 §5.4.1 alteration, not a new concept.** §5.4.1 requires that any
-unavoidable alteration to evidence be recorded *with written justification*, and this record schema
-already makes `alterations` a Tier-A required field so `[]` is a positive assertion and a missing
-key means nobody looked. Reducing what a claim asserts alters the evidence subject. Performing that
-alteration by editing YAML recorded nothing — the tool mandated the mechanism, and the edit went
-around it.
-
-So scope is a **ratchet**. Each claim's declared surfaces and AICM control mappings are written to
-the ledger on every proof run. Scope may grow freely. It may shrink only through an explicit
-retraction carrying a reason:
-
-```bash
-stop-guessing retract --claim CLAIM-11 --field surface \
-  --removed hook:PreCompact \
-  --reason "the proof exercises rebuild() directly and does not drive the hook"
-```
-
-An unrecorded shrink is a **finding** on `claims check`, reported beside the verdict — so a reader
-sees the claim got smaller in the same breath as the number got better:
-
-```
-UNPROVEN CLAIM-01  M4  live-run  0 proof(s)
-  !! the claim definition changed after this proof was issued
-  !! CLAIM-01 no longer asserts surface: hook:PostToolUse — NO RECORDED RETRACTION.
-     Scope was reduced without a stated reason; if a verdict improved in the same change,
-     that is the trade this check exists to surface.
-```
-
-Four properties are deliberate:
-
-- **High-water, not last-value.** Measured against the largest scope ever asserted, because nobody
-  removes ten things at once — they remove one per commit.
-- **Narrowing stays legal.** A claim that overreaches *should* be cut back, and this project has
-  done that correctly several times. What is forbidden is narrowing *silently*.
-- **Editing the file still works.** Locking `claims.yaml` would be theatre — it is a text file. What
-  changed is that the silent path now leads somewhere visible instead of nowhere.
-- **A retraction with no reason is refused at the source**, and an empty reason justifies nothing.
-
-What it does not do: it cannot catch a claim whose *statement text* is weakened while its surfaces
-stay constant — that is detected as a definition change, which invalidates the claim's proofs, but
-is not identified as a *reduction*, because comparing two prose assertions for strength is not
-mechanically decidable here. That limitation is written into `known_gaps` on **every** scope record
-rather than described only in prose, since `known_gaps: []` is a positive assertion that nothing was
-skipped and writing `[]` while knowing about the gap would be the same overclaim one level up.
-
-The restored surfaces were then fixed the other way — `stop-guessing demo --posture steer` and
-`stop-guessing record emit` were **built**, the `hook:` surfaces are now **driven as real
-subprocesses** through the entry point `install.sh` registers, and `/no-noodle` and
-`/noodle-options` are vendored and installed by both paths.
+Full depth is the default and is never silently reduced. Removable at four levels — posture, per-rule, per-project, full uninstall — none of which destroys the accumulated ledger.
 
 ## Relationship to no-noodles
 
-STOP-GUESSING vendors [`moonsoup/no-noodles`](https://github.com/moonsoup/no-noodles) byte-identically and is designed to supersede it, preserving every hook, config key, escape marker, state file and CLI. `# noodle-ok`, `# risk-ok` and `# build-ok:` keep working with identical semantics; `/no-noodle` and `/noodle-options` stay invocable. See §10 of the plan for the full compatibility matrix and `stop-guessing compat verify` for the acceptance gate.
+STOP-GUESSING vendors [`moonsoup/no-noodles`](https://github.com/moonsoup/no-noodles) byte-identically and is designed to supersede it, preserving every hook, config key, escape marker, state file and CLI. `# noodle-ok`, `# risk-ok` and `# build-ok:` keep working with identical semantics; `/no-noodle` and `/noodle-options` stay invocable and are installed by both paths. The vendored rules run **first** in their original order, and the first refusal wins and stops — so supersession can never be more permissive than no-noodles was. See §10 of the plan for the full matrix and `stop-guessing compat verify` for the acceptance gate.
 
 ## Using it
 
 ```bash
 stop-guessing attest --self          # claims -> proofs -> AICM controls, in one command
+stop-guessing demo --posture steer   # the whole behaviour, every step citing its record id
+stop-guessing doctor                 # installation, recorder, and the effective posture
 stop-guessing ledger verify          # is the chain intact, and verified under its key?
-stop-guessing verify --sufficiency   # does this ledger answer a governance question?
 stop-guessing claims check           # the release gate
 stop-guessing prove                  # re-run every proof procedure
-stop-guessing caiq derive && stop-guessing caiq fill   # regenerate the workbook, last
 ```
 
-Every change means re-earning the attestation. That sequence is not optional and has no
-shortcut for small changes — see **[docs/REATTESTATION.md](docs/REATTESTATION.md)**, which also
-lists the three ways to confirm the gate can still fail.
+Every change means re-earning the attestation. That sequence is not optional and has no shortcut for small changes — see **[docs/REATTESTATION.md](docs/REATTESTATION.md)**, which also lists the three ways to confirm the gate can still fail.
 
-## Known gaps
+---
 
-An independent review on 2026-08-03 found eighteen issues, filed as
-[#13&ndash;#30](https://github.com/mEllergrace/stop-guessing/issues?q=label%3Aexternal-review).
-Its central finding was correct and worth stating plainly: **a proof harness can demonstrate a
-primitive while the installed plugin never invokes it.** That had already happened twice here.
+## What this does not establish
 
-Fixed since:
+Stated here rather than in a footnote, because a reader who stops early is exactly who it matters to.
 
-| Was | Now |
-|---|---|
-| The installed hook wrote no custody record; only `PreToolUse` was registered | Both hooks registered; every decision and every result is a keyed ledger record |
-| Enforcement trusted a deletable cache | The ledger is replayed and wins; deleting the cache no longer resets taint |
-| Artifact ids came from `hash()`, which is salted per process | Digest over a canonical identity — stable across processes and path spellings |
-| Segment seals were unauthenticated JSON | Seals are MAC'd; a rewritten seal is caught |
-| A keyed ledger accepted unkeyed appends, breaking itself | Refused, and the whole read-verify-append is under a lock |
-| Posture was hard-coded to `steer` | Resolved through the four-layer config chain |
-| A crashed gate returned success silently under a comment claiming otherwise | Records a critical `recorder.selfcheck` gap |
-| `cat api_keys.txt` produced no artifact at all | Bare relative names and redirect targets are recognised |
-| The plugin assumed the package was importable | `install.sh` installs the runtime into the profile |
+**`independently_reproduced` is `false` and nothing in this repository can set it.** Self-attestation
+cannot establish independence. Only a third party recomputing the release bundle can, and until then
+`false` is the honest value — so it is published rather than omitted.
+
+**Five surfaces are structurally validated, not executed.** `plugin:`, `skill:` and two `command:`
+surfaces need a live agent session to drive; no proof run can make a host invoke a slash command.
+What ships, where, in what shape, registered by both install paths, *is* checked and a defect there
+blocks. Behaviour through them is not established here, and `surface_validated` still means
+execution.
+
+**The judge panel is not independent.** Seven mechanical lenses over each procedure's own source,
+authored by the same party as the procedures. Its `independence` lens objects on every claim.
+
+**31 of 53 ABSENT audit findings rest on structural predicates** — they observe that the defective
+construct is gone, not that the correct behaviour occurs. The audit report states the split rather
+than reporting 53 clean results.
 
 Still open, and named rather than omitted:
 
 | Gap | Consequence |
 |---|---|
-| No recorder daemon | `isolation_tier` is 0 or 1. Tier 2 is checked for and never provided, so the recorder is not beyond the agent's reach |
-| Delegation is not wired into the gate | `bar` cannot admit a signed script in the installed path; the `delegate` CLI is not registered |
-| "network=deny" is proxy variables, not a sandbox | A delegated script can open raw sockets or exec another binary |
-| Chain key read from an environment variable | Weakest tier; anything the agent runs can read it. Keychain support exists and is unused |
-| Signing is HMAC, not Ed25519 | No public verifiability — a verifier must hold the signing key |
-| No RFC 3161 timestamp, no segment certification run | `ledger certify` exists; no certifier has signed anything |
+| No recorder daemon running; `--isolated` cannot start a separate-UID one ([SG-HARD-006](https://github.com/mEllergrace/stop-guessing/issues?q=SG-HARD-006)) | `isolation_tier` is 0 or 1. The recorder is not beyond the agent's reach |
+| Script signing is not enforced in the gate path | `bar` withholds bytes by disclosure, not by requiring a signed handler |
+| `network=deny` is proxy variables plus a `sandbox-exec` **deny-list**, not deny-by-default | A delegated script can still reach paths the list does not name |
+| Signing is HMAC, not Ed25519 | No public verifiability — a verifier must hold the key |
+| No RFC 3161 timestamp; no segment has been certified | `ledger certify` exists; no certifier has signed anything |
 | Egress and path detection are heuristics | Command-shape regexes, not a DLP boundary |
-| The Cedar export is not semantically equivalent | `cedar validate` proves the export is well-formed, not that the runtime matches |
+| The Cedar export is not proven semantically equivalent | `cedar validate` proves the export is well-formed, not that the runtime matches |
 | Proofs run on one machine | No container or second-machine reproduction |
 | No mutation testing of the proof procedures | A procedure that always returned `passed=True` would be invisible |
 
+An independent review on 2026-08-03 raised eighteen issues ([#13–#30](https://github.com/mEllergrace/stop-guessing/issues?q=label%3Aexternal-review)) and a hardening audit on 2026-08-04 raised 54. Its central finding was correct and worth repeating: **a proof harness can demonstrate a primitive while the installed plugin never invokes it.** That had already happened here twice, and is why `exercised_surfaces` exists.
+
 ## Workflow audit
 
-Audited 2026-08-04. Every row below was checked against the running system, not the design — a
-workflow that exists in the plan and not in `hooks.json` is recorded here as absent, because the
-central finding of the external review was that *a proof harness can demonstrate a primitive while
-the installed plugin never invokes it*.
-
-"Closed" means the loop runs, verifies its own result, and fails loudly when the result is wrong.
-"Open" means a human has to remember something, and will eventually not.
+Audited against the running system, not the design. "Closed" means the loop runs, verifies its own
+result, and fails loudly when the result is wrong. "Open" means a human has to remember something,
+and will eventually not.
 
 | # | Workflow | Entry point | State |
 |---|---|---|---|
-| 1 | **Runtime custody** — classify, taint, decide, record | `PreToolUse` → `PostToolUse` | **Closed, partial coverage.** Both hooks registered and recording. 2 of the 9 planned events exist; see the gap below |
+| 1 | **Runtime custody** — classify, taint, decide, record | `PreToolUse` → `PostToolUse` | **Closed.** All 9 planned events registered and driven; every decision and result is a keyed record |
 | 2 | **Proving** — run a procedure, witness it, judge it, record the ledger id | `stop-guessing prove` | **Closed.** 21 claims, execution-witnessed, and the only writer of `proofs:` |
-| 3 | **Attestation** — claims → proofs → AICM controls → verdict | `stop-guessing attest --self` | **Closed.** One command, non-zero on any break |
-| 4 | **Re-certification** — the full re-run after a change | [`docs/REATTESTATION.md`](docs/REATTESTATION.md) | **Closed, manually ordered.** The order is load-bearing and enforced by prose, not by code |
-| 5 | **Change guard** — is a repo change safe? | `scripts/attest_guard.py` | **Closed.** Snapshots before and after, reports only regressions, and names the `prove` commands that re-bind |
-| 6 | **Repo hygiene** — hardcoded paths, vendored trees, stale docs | `scripts/hygiene_sweep.py` | **Detector only, by design.** Upstream repo-hygiene never writes; acting on a finding is deliberate and should run under #5 |
-| 7 | **Version stamping** — one version, everywhere it is declared | `scripts/stamp_version.py --check` | **Closed.** Covers the nested `plugins[]` case that a hand-stamp missed |
+| 3 | **Attestation** — claims → proofs → AICM controls → verdict | `stop-guessing attest --self` | **Closed.** One command, non-zero on any break, and it names which axis failed |
+| 4 | **Re-certification** — the full re-run after a change | [`docs/REATTESTATION.md`](docs/REATTESTATION.md) | **Closed, partly mechanical.** `prove` now refuses on an unstamped tree; the rest of the order is still prose |
+| 5 | **Change guard** — is a repo change safe? | `scripts/attest_guard.py` | **Closed.** Snapshots before and after, reports only regressions, names the `prove` commands that re-bind |
+| 6 | **Repo hygiene** — hardcoded paths, vendored trees, stale docs | `scripts/hygiene_sweep.py` | **Closed as a detector.** Triages shipped vs ignored vs deliberate, so the count means something |
+| 7 | **Version stamping** — one version, everywhere it is declared | `scripts/stamp_version.py --check` | **Closed.** Covers the nested `plugins[]` case a hand-stamp missed |
 | 8 | **AI-CAIQ** — derive from proofs, fill, verify with a third-party verifier | `stop-guessing caiq derive`/`fill` | **Closed.** Verified by rich-text's unmodified `verify_ai_caiq_workbook.py` |
-| 9 | **Delegation** — scaffold a script/test pair, run it under a capability | `stop-guessing delegate new`, `run` | **Open.** The CLI works; the installed gate does not route to it |
-| 10 | **Reconciliation** — did the agent's claims match the recorder's dispatches? | `stop_guessing/ledger/reconcile.py` | **Built and unwired.** See below |
-| 11 | **Reasoning** — take a contradiction and derive the next measurement | — | **Does not exist.** See below |
+| 9 | **Scope ratchet** — did a claim get smaller, and did anyone say why? | `stop-guessing retract` | **Closed.** Unrecorded reductions are findings on the gate |
+| 10 | **Reconciliation** — did the agent's claims match the recorder's dispatches? | `Stop` → `ledger/reconcile.py` | **Closed.** Wired into the turn-close hook; previously built and called by nothing |
+| 11 | **Delegation** — scaffold a script/test pair, run it under a capability | `stop-guessing delegate new`, `run` | **Partly open.** The gate offers and substitutes; signature enforcement is not wired |
+| 12 | **Reasoning** — take a contradiction and derive the next measurement | — | **Does not exist.** See below |
 
-Three findings worth stating plainly.
-
-**Seven of nine planned hook events are not registered.** `hooks.json` registers `PreToolUse` and
-`PostToolUse`; the plan specifies nine, and only two entry points exist in code (`hook_gate.py`,
-`hook_post.py`). `SessionStart` (recorder self-check, chain verify, CAIQ version inspection),
-`UserPromptSubmit` (the root of every delegation chain), `PreCompact`, `SubagentStop`, `Stop` and
-`SessionEnd` (segment sealing) are designed and absent. The custody record is therefore complete
-per tool call and incomplete per session.
-
-**`reconcile()` is built, tested, and called by nothing.** It is the function that compares what
-the recorder dispatched against what the agent claimed — the direct answer to *an audit trail owned
-by the audited party is not an audit trail*, and the mechanism that would catch a fabricated or
-replayed execution. It is not wired into any hook, so nothing currently detects that class of
-failure. (`gate.py` calls `persist.reconcile_with_ledger`, which rebuilds taint state from the
-ledger — a different function with a similar name.)
-
-**Nothing closes a reasoning loop.** Three single-pass detectors exist — `witness` (did the
-procedure really execute), `judge` (seven lenses, disapproval deferred), `reconcile` (claimed vs
-recorded) — and each reports once and stops. None takes its own finding and derives the next
-measurement. That gap has a worked example: the CLAIM-21 recertification failure was diagnosed
-from the source as cumulative evidence, and the diagnosis was wrong. Measuring instead showed the
-workbook render is not byte-deterministic — three renders of identical answers produced two
-digests — so the pin was bound to a non-deterministic artifact. Reading the code produced a
-confident wrong answer; running the tool produced the right one. Workflow #5 is the first piece of
-that loop to exist in code, and it only covers repo changes.
+**Nothing closes a reasoning loop.** Four single-pass detectors exist — `witness`, `judge`,
+`reconcile`, and the scope ratchet — and each reports once and stops. None takes its own finding and
+derives the next measurement. That gap has a worked example: the CLAIM-21 recertification failure was
+diagnosed from the source and the diagnosis was wrong. Measuring showed the workbook render is not
+byte-deterministic — three renders of identical answers produced two digests — so the pin was bound
+to a non-deterministic artifact. Reading the code produced a confident wrong answer; running the tool
+produced the right one.
 
 ## Files
 
@@ -313,15 +325,15 @@ stop_guessing/           ledger, taint, policy, artifacts, caiq, prove, adapters
   ledger/                keyed hash chain, sink, segments, reconciliation, alerts
   taint/                 label lattice, session state, cross-process persistence
   policy/                Cedar-shaped PDP: forbid > ask > permit, deny by default
-  prove/                 proof procedures and the only writer of `proofs:`
+  prove/                 proof procedures, the execution witness, the scope ratchet
   compat/nonoodles/      vendored byte-identically, pinned by MANIFEST.sha256
 policy/coc.policy.d/     the policy set; its digest is in every decision
 rules/classify.yaml      artifact classification and egress shapes
 docs/claims.yaml         every claim, with the ledger records that prove it
 docs/ai-caiq/            answers derived from proofs, and the filled workbook
-docs/REATTESTATION.md    the approved re-run procedure
+docs/REATTESTATION.md    the approved re-run procedure, and its ordering constraint
 IMPLEMENTATION_PLAN.md   the whole design — architecture, record schema, milestones
-install.sh               --supersede-no-noodles, --all-profiles, --uninstall
+install.sh               --supersede-no-noodles, --all-profiles, --isolated, --uninstall
 ```
 
 ## Licence

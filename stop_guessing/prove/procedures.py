@@ -509,7 +509,7 @@ def prove_steer_asks_on_first_touch() -> ProofResult:
     r = ProofResult(passed=True)
     ps = _policy_set()
     state = SessionCustodyState("proof-session")
-    path = "/Users/isme/work/CSA/roster.csv"
+    path = "/example/work/CSA/roster.csv"
     art, c = _artifact_ctx(path, first_touch=True)
     if not c.classified:
         return r.fail(f"{path} did not classify as sensitive: {sorted(c.labels)}")
@@ -610,8 +610,8 @@ def prove_accumulation_denies_egress() -> ProofResult:
     r.observe(f"turn 1, clean session  -> ALLOW via {early.determining_policy}")
 
     paths = [
-        "/Users/isme/work/CSA/roster.csv", "/Users/isme/work/CSA/members.csv",
-        "/Users/isme/work/CSA/payroll.csv", "/Users/isme/work/CSA/customer-list.csv",
+        "/example/work/CSA/roster.csv", "/example/work/CSA/members.csv",
+        "/example/work/CSA/payroll.csv", "/example/work/CSA/customer-list.csv",
     ]
     for p in paths:
         art, _ = _artifact_ctx(p, first_touch=True)
@@ -690,7 +690,7 @@ def prove_accumulation_denies_egress() -> ProofResult:
         r.observe("PROCESS 1: clean session, egress -> allowed (no decision emitted)")
 
         for i, f in enumerate(["roster.csv", "payroll.csv", "members.csv", "customer-list.csv"]):
-            got = hook("Read", {"file_path": f"/Users/isme/work/CSA/{f}"})
+            got = hook("Read", {"file_path": f"/example/work/CSA/{f}"})
             if got != "ask":
                 return r.fail(f"process {i + 2}: read of {f} gave {got!r}, expected 'ask'")
         r.observe("PROCESSES 2-5: four classified reads, each a separate process, each -> ask")
@@ -799,9 +799,9 @@ HOOK_PAYLOADS = {
     "UserPromptSubmit": {"session_id": "sg-exercise", "prompt": "summarise the roster",
                          "prompt_id": "prm_exercise"},
     "PreToolUse": {"session_id": "sg-exercise", "tool_name": "Read", "tool_use_id": "toolu_ex",
-                   "tool_input": {"file_path": "/Users/isme/work/CSA/roster.csv"}},
+                   "tool_input": {"file_path": "/example/work/CSA/roster.csv"}},
     "PostToolUse": {"session_id": "sg-exercise", "tool_name": "Read", "tool_use_id": "toolu_ex",
-                    "tool_input": {"file_path": "/Users/isme/work/CSA/roster.csv"},
+                    "tool_input": {"file_path": "/example/work/CSA/roster.csv"},
                     "tool_response": {"content": "name,email\n"}},
     "PostToolUseFailure": {"session_id": "sg-exercise", "tool_name": "Bash",
                            "tool_use_id": "toolu_ex", "tool_input": {"command": "false"},
@@ -891,8 +891,8 @@ def prove_derivation_edges_recorded() -> ProofResult:
 
     r = ProofResult(passed=True)
     state = SessionCustodyState("proof-session")
-    a, _ = _artifact_ctx("/Users/isme/work/CSA/roster.csv", True)
-    b, _ = _artifact_ctx("/Users/isme/work/CSA/payroll.csv", True)
+    a, _ = _artifact_ctx("/example/work/CSA/roster.csv", True)
+    b, _ = _artifact_ctx("/example/work/CSA/payroll.csv", True)
     in_a, in_b = _ref_from(a, "/x/roster.csv"), _ref_from(b, "/x/payroll.csv")
     state.touch(in_a)
     state.touch(in_b)
@@ -937,8 +937,8 @@ def prove_state_rebuilds_from_the_ledger() -> ProofResult:
     live = SessionCustodyState("s-rebuild")
     records = []
     refs = []
-    for i, p in enumerate(["/Users/isme/work/CSA/roster.csv",
-                           "/Users/isme/work/CSA/payroll.csv",
+    for i, p in enumerate(["/example/work/CSA/roster.csv",
+                           "/example/work/CSA/payroll.csv",
                            "/tmp/notes.py"]):
         art, _ = _artifact_ctx(p, True)
         ref = ArtifactRef(f"art_{i}", p, f"sha256:{i}", frozenset(art["labels"]))

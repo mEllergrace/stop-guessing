@@ -25,7 +25,7 @@ CLI = [sys.executable, "-m", "stop_guessing.cli.hook_gate"]
 
 CASES = [
     ("a classified read", {"tool_name": "Read",
-                           "tool_input": {"file_path": "/Users/isme/work/CSA/roster.csv"}}),
+                           "tool_input": {"file_path": "/example/work/CSA/roster.csv"}}),
     ("an ordinary read", {"tool_name": "Read", "tool_input": {"file_path": "/etc/hosts"}}),
     ("a benign bash", {"tool_name": "Bash", "tool_input": {"command": "ls -la"}}),
     ("an egress", {"tool_name": "Bash",
