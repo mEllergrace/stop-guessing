@@ -1,7 +1,7 @@
 # STOP-GUESSING
 
 <!-- BEGIN GENERATED STATUS -->
-**Version 0.5.0 — `stop-guessing attest --self` reports SELF-ATTESTATION INCOMPLETE: 21/21 claims
+**Version 0.5.1 — `stop-guessing attest --self` reports SELF-ATTESTATION INCOMPLETE: 21/21 claims
 executed, witnessed and chain-verified on the maintainer's machine.**
 
 **This is self-attestation. It has not been independently verified, and the gate that produces it
@@ -100,6 +100,31 @@ configured; a second gate asking again is a recorder overriding the decision its
 | `observe` | **Default.** Records everything, blocks nothing. The one exception is a write to the ledger itself, which is refused under every posture — that protects the evidence rather than policing the operator, and `{"protect_ledger": false}` turns even that off |
 | `steer` | Asks on first touch of a classified artifact, offering a recorded script delegation. Denies on accumulated taint crossing threshold, or any egress while tainted |
 | `bar` | The model is barred from opening classified artifacts. Only signed scripts touch them; the model receives handles and summaries |
+
+### The gate never grants permission
+
+Three outcomes reach the host: **deny**, **ask**, and **silence**. There is deliberately no fourth.
+
+An explicit `allow` from a `PreToolUse` hook is not "no objection" — Claude Code treats it as
+auto-approval and **suppresses the prompt the host would otherwise raise**. This tool emitted one on
+a warning path, under a comment claiming it "does not interrupt". Under `acceptEdits` — which
+auto-accepts file edits but still prompts for Bash — that turned a would-be prompt into a silent
+approval, including on the ad-hoc `curl … | parser` shape the vendored `no_noodle.sh` permits on its
+first occurrence per project. A provenance recorder was disarming the policy it ships vendored.
+Fixed in [#88](https://github.com/mEllergrace/stop-guessing/issues/88); silence is now the answer,
+and the warning survives where it belongs — in the custody record, with its counterfactual.
+
+The rule this encodes, and the one the whole project is built on: **it respects the permissions
+already set, and neither seeks nor grants them.** A recorder that hands out approvals is not
+recording a decision, it is making one.
+
+Two consequences are tested rather than asserted:
+
+- `observe`, the default, never asks and never denies — driven over classified reads, egress, writes
+  and ordinary work in a hermetic profile. The one exception is a write to the evidence ledger,
+  refused under every posture, with a control proving "never blocks" does not mean "never protects".
+- A DENY is never degraded by a permissive mode. Bypassing permission *prompts* is not the same as
+  bypassing *policy*, and credential egress does not become acceptable because prompts are off.
 
 Full depth is the default and is never silently reduced. Where fidelity is genuinely reduced it is recorded — `known_gaps: []` is a positive assertion that nothing was skipped, and a *missing* key is rejected at write.
 

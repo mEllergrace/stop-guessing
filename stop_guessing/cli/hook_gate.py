@@ -335,13 +335,25 @@ def main(argv: list[str] | None = None) -> int:
     elif decision["outcome"] == "ask":
         emit_ask(decision["reason"])
     elif decision.get("warning"):
-        # Allowed, but the operator should see why it would otherwise have asked. `allow` with a
-        # reason is a warning; it does not interrupt.
-        print(json.dumps({"hookSpecificOutput": {
-            "hookEventName": "PreToolUse",
-            "permissionDecision": "allow",
-            "permissionDecisionReason": decision["reason"],
-        }}))
+        # DELIBERATELY SILENT. This used to emit `permissionDecision: "allow"` under the comment
+        # "`allow` with a reason is a warning; it does not interrupt" — which mistook the semantics.
+        # In Claude Code an explicit `allow` from PreToolUse does not mean "no objection": it
+        # AUTO-APPROVES the call and suppresses the permission prompt the host would otherwise
+        # have raised.
+        #
+        # Under `bypassPermissions` that was merely redundant. Under `acceptEdits` it was a real
+        # grant — that mode auto-accepts file edits but still prompts for Bash, so this turned a
+        # would-be prompt into a silent approval, including on the ad-hoc `curl | python3` shape
+        # that `no_noodle.sh` permits on its first occurrence in a project. A recorder was handing
+        # out permission the operator's own settings would have asked about, which is precisely
+        # what this tool is not for: it respects the permissions already set, and does not seek or
+        # grant them.
+        #
+        # Emitting nothing is "this hook has no opinion", so the host's permission model runs
+        # exactly as configured. Nothing is lost from the evidence: the decision, its reason and
+        # the counterfactual ("would have asked, but permission_mode=… is a standing decision not
+        # to be interrupted") are already in the custody record written by `decide()`.
+        pass
     return 0
 
 

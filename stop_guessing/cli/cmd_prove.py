@@ -207,6 +207,35 @@ def cmd_attest(args) -> int:
         print("  - the proof ledger is not keyed-verified")
     if not caiq["filled_from_proofs"]:
         print("  - the AI-CAIQ has not been filled from those proofs (M10, and strictly last)")
+
+    # The axes, which are what `goal_met` (== release_assured) actually requires. Without these
+    # the command printed "GOAL NOT MET. Outstanding:" followed by nothing at all, because the
+    # three conditions above were satisfied and the failing ones were never listed. A verdict that
+    # states no reason is exactly what this toolchain exists to stop other people shipping.
+    if not a.get("surface_validated"):
+        live = set(a.get("surfaces_requiring_live_session") or [])
+        rest = [s for s in (a.get("unvalidated_surfaces") or []) if s not in live]
+        if live:
+            print(f"  - {len(live)} surface(s) CANNOT be executed from a proof run on this machine: "
+                  "driving them needs a live agent session to invoke the slash command or load the "
+                  "plugin. What ships and where it is registered IS checked (a structural defect is "
+                  "a blocking finding); behaviour through them is NOT established here:")
+            for s in sorted(live):
+                print(f"      {s}")
+        if rest:
+            print(f"  - {len(rest)} declared surface(s) are not validated by this gate; they are "
+                  "UNCHECKED, not passed:")
+            for s in rest:
+                print(f"      {s}")
+    if not a.get("control_backed"):
+        print("  - a judge lens has a deferred objection to a procedure's control case")
+    if a.get("scope_retractions_unjustified"):
+        print(f"  - {a['scope_retractions_unjustified']} claim scope reduction(s) with no recorded "
+              "reason; a claim that got smaller without a justification is a finding")
+    if not a.get("independently_reproduced"):
+        print("  - not independently reproduced. Nothing in this repository can set that axis: "
+              "self-attestation cannot establish independence, and only a third party reproducing "
+              "the release bundle can. It is reported False rather than omitted.")
     return 1
 
 

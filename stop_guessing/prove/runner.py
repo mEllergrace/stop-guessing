@@ -439,6 +439,64 @@ def _exercised_for(claim: dict, by_ref: dict, refs: list[str]) -> set[str]:
     return out
 
 
+#: Surfaces that CANNOT be executed from a proof run on this machine, because driving them requires
+#: a live agent session invoking a slash command or loading a plugin. Naming the category is the
+#: point: "unchecked" conflated "nobody got round to it" with "not decidable here", and only the
+#: first is a to-do. What IS decidable — that the file ships, in the right place, with the right
+#: shape, registered where it must be — is checked, and reported as exactly that and nothing more.
+LIVE_SESSION_KINDS = ("plugin", "skill", "command")
+
+
+def structural_findings(surface: str) -> list[str]:
+    """What can be established about a plugin/skill/command surface WITHOUT a live session.
+
+    Deliberately narrow. This says the artifact ships and is wired up; it says nothing whatever
+    about behaviour. Reporting it as validation of the claim would be the overclaim this whole
+    audit is about, in a new place — so it feeds `structurally_validated`, never
+    `surface_validated`.
+    """
+    root = repo_root()
+    plugin = root / ".claude-plugin" / "plugins" / "stop-guessing"
+    kind, _, rest = str(surface).partition(":")
+    out: list[str] = []
+
+    if kind == "command":
+        name = rest.lstrip("/")
+        # commands/ is what registers a slash command; skills/ alone is written and never loaded
+        # (the 2026-07-29 finding). Both install paths must carry it.
+        if not (plugin / "commands" / f"{name}.md").is_file():
+            out.append(f"{surface}: the plugin ships no commands/{name}.md, so the slash command "
+                       "is not registered by the marketplace install path")
+        installed_by_script = any(
+            "for doc in" in ln and name in ln
+            for ln in (root / "install.sh").read_text(encoding="utf-8").splitlines())
+        if not installed_by_script:
+            out.append(f"{surface}: install.sh does not install {name}.md, so the two supported "
+                       "install paths deliver different products")
+    elif kind == "skill":
+        skill = plugin / "skills" / rest / "SKILL.md"
+        if not skill.is_file():
+            out.append(f"{surface}: no skills/{rest}/SKILL.md — a flat .md is never loaded")
+        elif not skill.read_text(encoding="utf-8").lstrip().startswith("---"):
+            out.append(f"{surface}: SKILL.md has no frontmatter, so it will not register")
+    elif kind == "plugin":
+        manifest = plugin / ".claude-plugin" / "plugin.json"
+        if not manifest.is_file():
+            out.append(f"{surface}: no .claude-plugin/plugin.json")
+        else:
+            try:
+                data = json.loads(manifest.read_text(encoding="utf-8"))
+            except ValueError as exc:
+                out.append(f"{surface}: plugin.json is not valid JSON ({exc})")
+                data = {}
+            if data.get("version") != __version__:
+                out.append(f"{surface}: plugin.json declares {data.get('version')}, "
+                           f"the package is {__version__}")
+        if not (plugin / "hooks" / "hooks.json").is_file():
+            out.append(f"{surface}: the plugin registers no hooks.json")
+    return out
+
+
 def _surface_findings(claim: dict, exercised=None) -> tuple[list[str], list[str]]:
     """Check a claim's declared `surface:` against reality. Returns (findings, unvalidated).
 
@@ -479,9 +537,14 @@ def _surface_findings(claim: dict, exercised=None) -> tuple[list[str], list[str]
         elif kind in ("cli", "daemon"):
             if s not in exercised:
                 findings.append(f"declares {s}, which the proof did not execute")
+        elif kind in LIVE_SESSION_KINDS:
+            # Not executable from a proof run: a slash command needs a live session to invoke it.
+            # Still reported as NOT established here — but what IS decidable gets decided, and a
+            # structural defect (the plugin shipping no commands/no-noodle.md, say) becomes a
+            # blocking finding rather than hiding inside "unchecked".
+            findings.extend(structural_findings(s))
+            unvalidated.append(s)
         else:
-            # plugin/skill/command/daemon: not executable from a proof run. Reported as unchecked
-            # rather than treated as satisfied — the known_gaps rule.
             unvalidated.append(s)
     return findings, unvalidated
 
@@ -740,8 +803,19 @@ def attest_self(
         "scope_retractions_unjustified": len(unjustified_retractions),
         "executed": bool(result["ok"]),
         "chain_verified": bool(result["chain_keyed"] and result["chain_intact"]),
+        # `surface_validated` stays about EXECUTION. It is false while any declared surface was not
+        # driven, including the ones that cannot be driven here — reporting it true because the
+        # files are in the right place would be the overclaim this release exists to prevent.
         "surface_validated": not unvalidated,
         "unvalidated_surfaces": unvalidated,
+        # Separate axis, separate meaning: these ship, in the right place, with the right shape,
+        # registered where they must be. That is a fact about the distribution, not about the
+        # claim's behaviour, and it is reported as such. A structural DEFECT is a blocking finding
+        # (see structural_findings) — this axis only says none was found.
+        "structurally_validated": bool(unvalidated) and not any(
+            f for r in result["rows"] for f in (r.get("surface_findings") or [])),
+        "surfaces_requiring_live_session": [
+            s for s in unvalidated if s.partition(":")[0] in LIVE_SESSION_KINDS],
         # `control_backed` means what it says: every procedure carries a case that must behave the
         # other way. It was defined as "no lens objected AT ALL", which folded in the
         # `independence` lens — and that lens objects on every claim by construction, because the

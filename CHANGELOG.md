@@ -3,6 +3,45 @@
 All notable changes to STOP-GUESSING. Format follows [Keep a Changelog](https://keepachangelog.com/);
 this project uses semantic versioning and bumps `VERSION` on every code-changing push.
 
+## [0.5.1] — 2026-08-05
+
+### Fixed — the gate was granting permission (#88)
+
+Found by the operator, not the suite: *"I think I just learned that the steer functions circumvent
+our no-noodling policy."* Verified and correct.
+
+`hook_gate` emitted `permissionDecision: "allow"` on the warning path, under a comment asserting
+that `allow` "does not interrupt". It mistook the semantics — in Claude Code an explicit `allow`
+from `PreToolUse` **auto-approves the call and suppresses the host's permission prompt**.
+
+The flag is set only when an `ask` is downgraded because `permission_mode` is `bypassPermissions`
+or `acceptEdits`. Redundant under the first; a genuine grant under the second, since `acceptEdits`
+auto-accepts file edits but still prompts for Bash.
+
+The no-noodling interaction is the sharp end: `no_noodle.sh` allows the fetch-pipe-parser shape on
+its **first** occurrence per project by design. On that occurrence the vendored rules exit 0, the
+dispatcher proceeds, and the gate emitted `allow` — removing the single prompt at which the operator
+could have declined. The tool shipped to record decisions was making them, and was disarming the
+policy it vendors.
+
+Now silent on that path: empty stdout with exit 0 is "this hook has no opinion", so the host's
+permission model runs exactly as configured. Nothing is lost — the decision, reason and
+counterfactual were already in the custody record. `deny` and `ask` are untouched, and a DENY is
+still never degraded, because bypassing prompts is not bypassing policy.
+
+### Added
+- `tests/test_gate_never_grants.py` — no `allow` in any permission mode, a source-level assertion
+  that no allow-emission survives anywhere in the module, and a control confirming `deny`/`ask`
+  still work, so "never allow" cannot be satisfied by a gate that says nothing at all.
+- `tests/test_observe_never_prompts.py` — the default posture never asks, never denies and never
+  grants, driven over five payload shapes in a hermetic profile, with the control that a write to
+  the evidence ledger IS still refused.
+- Structural validation for the surfaces a proof run cannot execute. `plugin:`, `skill:` and
+  `command:` need a live agent session to drive, so "unvalidated" was conflating *not decidable
+  here* with *nobody got round to it*. What ships, where, in what shape, registered by BOTH install
+  paths, is now checked and a defect there is blocking. `surface_validated` still means EXECUTION —
+  reporting it true because files are in the right place would be the same overclaim in a new place.
+
 ## [0.5.0] — 2026-08-05
 
 The toolchain caught its own author, and the missing control is now a feature.

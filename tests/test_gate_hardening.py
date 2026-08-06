@@ -136,18 +136,34 @@ def test_cli_surfaces_must_be_executed_and_host_surfaces_read_as_unchecked(monke
     """
     monkeypatch.setattr(runner, "registered_hook_events", lambda root=None: {"PreToolUse"})
 
-    findings, unvalidated = runner._surface_findings(
-        {"id": "CLAIM-01", "surface": ['cli:"stop-guessing attest"', "skill:custody"]},
-        exercised=set())
-    assert findings, "an unexecuted cli surface must block"
-    assert "did not execute" in findings[0]
-    assert unvalidated == ["skill:custody"], "host-loaded surfaces stay unchecked, not passed"
+    # `skill:stop-guessing` — the one that actually ships. The placeholder this test used
+    # (`skill:custody`) names a skill the plugin does not contain, and now correctly produces a
+    # structural finding; using it here made "an executed cli surface passes" fail for a reason
+    # that had nothing to do with the cli surface.
+    REAL = "skill:stop-guessing"
 
     findings, unvalidated = runner._surface_findings(
-        {"id": "CLAIM-01", "surface": ['cli:"stop-guessing attest"', "skill:custody"]},
+        {"id": "CLAIM-01", "surface": ['cli:"stop-guessing attest"', REAL]},
+        exercised=set())
+    assert findings, "an unexecuted cli surface must block"
+    assert any("did not execute" in f for f in findings)
+    assert unvalidated == [REAL], "host-loaded surfaces stay unchecked, not passed"
+
+    findings, unvalidated = runner._surface_findings(
+        {"id": "CLAIM-01", "surface": ['cli:"stop-guessing attest"', REAL]},
         exercised={'cli:"stop-guessing attest"'})
-    assert findings == [], "an executed cli surface passes"
-    assert unvalidated == ["skill:custody"]
+    assert findings == [], f"an executed cli surface passes, got {findings}"
+    assert unvalidated == [REAL]
+
+    # And the strengthening: a host-loaded surface that does NOT ship is no longer merely
+    # "unchecked". It cannot be executed here, but whether it exists at all is decidable, and a
+    # declared skill the plugin does not contain is a defect rather than an open question.
+    findings, unvalidated = runner._surface_findings(
+        {"id": "CLAIM-01", "surface": ["skill:does-not-exist"]},
+        exercised=set())
+    assert findings, "a declared skill that does not ship was reported as merely unchecked"
+    assert unvalidated == ["skill:does-not-exist"], (
+        "it must STILL read as unexecuted — structural soundness is not execution")
 
 
 def test_every_hook_a_claim_declares_is_actually_registered():

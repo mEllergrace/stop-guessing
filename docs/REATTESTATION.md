@@ -48,6 +48,18 @@ written. Do not rely on discipline where the tool already refuses.
 
 Run from the repo root with the chain key available. **Do not skip a step, and do not reorder.**
 
+> **Bump `VERSION` BEFORE step 2, never during or after, and run nothing concurrently.**
+>
+> Every proof record pins the version and the digests of the modules it touched. Stamping a new
+> version after proving invalidates all 21 proofs at once — correctly, since a proof issued against
+> 0.5.0 code does not establish 0.5.1 behaviour — and the gate then reports twenty-one
+> `version changed since this proof` findings that look alarming and mean only "you stamped last".
+>
+> The same applies to running the suite while `prove`, `page build` or `stamp_version.py` is
+> writing: `docs/claims.yaml`, `README.md`, `docs/index.html` and the ledger are all inputs to tests
+> that will read a half-updated tree. Both mistakes were made during the 0.5.x work and produced
+> four failures with nothing wrong underneath. The whole sequence below is serial on purpose.
+
 ```bash
 export STOP_GUESSING_CHAIN_KEY="$(security find-generic-password -s stop-guessing-chain-key -a "$USER" -w)"
 #   or --keyfile /path/to/key (mode 600). An unkeyed ledger cannot produce a proof, and

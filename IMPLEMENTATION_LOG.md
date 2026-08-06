@@ -73,3 +73,32 @@ finding. `~/.claude-ies/settings.json` was found holding exactly one PreToolUse 
 file installed and unregistered. The rule this now encodes: **a tool may only supersede a control it
 can actually execute.** Vendoring the operator's hook into a public distribution would have "fixed"
 it by doing more of what caused it.
+
+## 2026-08-05 — the gate was granting permission (#88)
+
+Found by the operator, not by the suite: *"I think I just learned that the steer functions
+circumvent our no-noodling policy."* Verified and correct.
+
+`hook_gate.main()` emitted `permissionDecision: "allow"` on the warning path, under a comment
+asserting that `allow` "does not interrupt". In Claude Code an explicit `allow` from `PreToolUse`
+**auto-approves the call and suppresses the host's permission prompt**. The warning flag is set only
+when an `ask` is downgraded because `permission_mode in ("bypassPermissions", "acceptEdits")` —
+redundant under the first, a genuine grant under the second, since `acceptEdits` auto-accepts file
+edits but still prompts for `Bash`.
+
+The no-noodling interaction is the sharp end. `no_noodle.sh` allows the fetch-pipe-parser shape on
+its **first** occurrence per project by design. On that occurrence the vendored rules exit 0, the
+dispatcher proceeds, and the gate emitted `allow` — removing the single prompt at which the operator
+could have declined. The tool shipped to record decisions was making them, and specifically was
+disarming the policy it vendors.
+
+Fixed by staying silent on that path: empty stdout with exit 0 is "no opinion", so the host's
+permission model runs exactly as configured. The decision, reason and counterfactual are already in
+the custody record, which is the tool's actual job. `deny` and `ask` are untouched; a DENY is still
+never degraded, because bypassing prompts is not bypassing policy.
+
+**Rule 3 escape used, and recorded as required:** writing `tests/test_gate_never_grants.py` was
+blocked by the vendored `no_noodle.sh`, because the test fixture must contain the literal
+fetch-pipe-parser shape the gate must not auto-approve. `# noodle-ok` was used on that single
+command. The block itself is evidence the credential/no-noodle registrations restored under #87 are
+live in `~/.claude-ies` again — the rule fired on its own author while fixing the rule's bypass.
