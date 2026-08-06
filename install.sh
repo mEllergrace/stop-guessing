@@ -292,11 +292,23 @@ EOF
     # declares both, and neither install path shipped them — a user who supersedes no-noodles and
     # then removes it lost two slash commands the claim said would survive. Vendored byte-identical
     # from upstream and installed the same dual way; never rewritten here.
+    #
+    # NEVER CLOBBERED. These docs are upstream's, not ours, and the operator may have edited their
+    # copy — exactly what happened to check_before_build.sh, where 63 lines of local hardening sat
+    # in the installed file and upstream's own installer silently reverted them. An existing copy
+    # that differs is left alone and reported; only an absent or byte-identical one is written.
     for doc in no-noodle noodle-options; do
-      if [ -f "$PKG_DIR/stop_guessing/compat/nonoodles/$doc.md" ]; then
-        cp "$PKG_DIR/stop_guessing/compat/nonoodles/$doc.md" "$claude_dir/commands/$doc.md"
-        cp "$PKG_DIR/stop_guessing/compat/nonoodles/$doc.md" "$claude_dir/skills/$doc.md"
-      fi
+      src="$PKG_DIR/stop_guessing/compat/nonoodles/$doc.md"
+      [ -f "$src" ] || continue
+      for dest_dir in commands skills; do
+        dest="$claude_dir/$dest_dir/$doc.md"
+        if [ -f "$dest" ] && ! cmp -s "$src" "$dest"; then
+          echo "  PRESERVED (differs from the vendored copy, not overwritten): $dest"
+          echo "    ours: $src"
+          continue
+        fi
+        cp "$src" "$dest"
+      done
     done
 
     printf '%s\n' "$VERSION" > "$state_dir/VERSION"
@@ -498,7 +510,15 @@ uninstall_profile() {
   echo "profile: $claude_dir"
   apply_settings "$claude_dir" "uninstall" "$DRY_RUN" 0
   if [ "$DRY_RUN" -eq 0 ]; then
-    rm -f "$claude_dir/hooks/coc_gate.sh" "$claude_dir/hooks/coc_post.sh"
+    # Every script this installer writes, not just the two it used to name. The seven lifecycle
+    # scripts were left on disk by --uninstall while their registrations were removed, so an
+    # "uninstalled" profile still carried our executables in the operator's hooks directory. The
+    # documented contract is "remove hooks and registrations"; leaving residue behind in a
+    # directory we do not own is the same class of defect as taking something over.
+    for _h in coc_gate.sh coc_post.sh coc_session_start.sh coc_prompt.sh coc_tool_failed.sh \
+              coc_precompact.sh coc_subagent.sh coc_stop.sh coc_session_end.sh; do
+      rm -f "$claude_dir/hooks/$_h"
+    done
     rm -f "$HOME/Library/LaunchAgents/com.mellergrace.stop-guessing.cocd.plist"
     # The chain key is NOT removed with --uninstall: without it the accumulated ledger becomes
     # unverifiable, and destroying the ability to check evidence is not an uninstall.

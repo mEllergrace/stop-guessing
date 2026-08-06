@@ -138,3 +138,57 @@ def test_verify_manifest_separates_changed_from_missing(tmp_path):
     assert result["ok"] == ["kept.txt"]
     assert result["changed"] == ["edited.txt"]
     assert result["missing"] == ["vanished.txt"]
+
+
+# ── the workflow guard: never prove against an unstamped tree ────────────────
+
+
+def test_prove_refuses_when_the_tree_is_not_stamped(tmp_path, monkeypatch):
+    """Twice during 0.5.x the version was stamped AFTER proving.
+
+    Every proof record pins the version, so all twenty-one died at once and the gate reported a
+    wall of `version changed since this proof` findings that looked like a regression and meant
+    only "you stamped last". Two full prove runs discarded. A doc note was not enough; this makes
+    it mechanical.
+    """
+    import subprocess
+    import sys
+
+    from stop_guessing.version import repo_root
+
+    repo = repo_root()
+    version_file = repo / "VERSION"
+    original = version_file.read_text(encoding="utf-8")
+    try:
+        version_file.write_text("9.9.9\n", encoding="utf-8")
+        res = subprocess.run(  # noqa: S603
+            [sys.executable, "-m", "stop_guessing.cli.main", "prove", "--claim", "CLAIM-01"],
+            capture_output=True, text=True, cwd=str(repo), timeout=600,
+            stdin=subprocess.DEVNULL)
+        assert res.returncode == 2, f"prove ran against an unstamped tree: {res.stdout[-400:]}"
+        assert "REFUSED" in res.stdout
+        assert "stamp_version.py" in res.stdout, "the refusal does not say how to fix it"
+    finally:
+        version_file.write_text(original, encoding="utf-8")
+
+
+def test_the_drift_guard_is_quiet_on_a_stamped_tree():
+    """The control. A guard that always refuses would make `prove` unusable."""
+    from stop_guessing.cli.cmd_prove import _version_drift
+
+    assert _version_drift() == [], (
+        "the tree is stamped, yet the guard reports drift; it would refuse every prove run")
+
+
+def test_the_drift_guard_has_a_documented_override():
+    """Never close an option: someone may have a reason, and it must be reachable."""
+    import subprocess
+    import sys
+
+    from stop_guessing.version import repo_root
+
+    res = subprocess.run(  # noqa: S603
+        [sys.executable, "-m", "stop_guessing.cli.main", "prove", "--help"],
+        capture_output=True, text=True, cwd=str(repo_root()), timeout=300,
+        stdin=subprocess.DEVNULL)
+    assert "--allow-version-drift" in res.stdout

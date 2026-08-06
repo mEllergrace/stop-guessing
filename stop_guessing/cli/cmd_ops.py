@@ -68,6 +68,27 @@ def cmd_doctor(args) -> int:
     print(f"profile     : {cfg}")
     rc = 0
 
+    # The effective posture and WHERE it came from. `doctor` reported everything about the
+    # recorder and nothing about how much this tool is allowed to interrupt — so a profile sitting
+    # in `steer` looked identical to one on the shipped default, and the operator had no way to
+    # see the difference short of reading the config chain by hand. That is the same blind spot as
+    # #87 and #88 in a quieter form: a control the operator owns, changed or not, and invisible.
+    #
+    # It REPORTS. It does not change anything: choosing the posture is the operator's, and a tool
+    # that "corrects" it to the documented default would be making exactly the decision it is
+    # supposed to be recording.
+    from stop_guessing.cli.hook_gate import DEFAULT_POSTURE, posture_source
+
+    effective, source, layer = posture_source(str(Path.cwd()))
+    note = "" if effective == DEFAULT_POSTURE else f"  (shipped default is `{DEFAULT_POSTURE}`)"
+    print(f"posture     : {effective}{note}")
+    print(f"              set by: {source}")
+    if effective != DEFAULT_POSTURE:
+        print(f"              `{effective}` ASKS or DENIES on some calls. That is opt-in and this "
+              "is not a finding —")
+        print(f"              but it is the tool interrupting you, so it is stated. Change it in "
+              f"{layer}.")
+
     m = manifest.verify()
     print(f"vendored    : {'intact' if m['intact'] else 'DRIFTED'} ({len(m['ok'])} files)")
     if not m["intact"]:

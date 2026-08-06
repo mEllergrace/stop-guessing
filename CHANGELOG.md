@@ -3,6 +3,53 @@
 All notable changes to STOP-GUESSING. Format follows [Keep a Changelog](https://keepachangelog.com/);
 this project uses semantic versioning and bumps `VERSION` on every code-changing push.
 
+## [0.5.2] — 2026-08-05
+
+Closing the *class*, not two more instances of it.
+
+#87 and #88 were both found by the operator rather than by the suite, and both were the same shape:
+**the tool overriding state it does not own.** Fixing them individually and calling the class an
+"open risk" is not a control, so this release enumerates every way the tool can touch operator-owned
+state and asserts each one is impossible or explicitly preserving
+(`tests/test_operator_sovereignty.py`, 11 tests).
+
+Writing that file found two more instances immediately, which is the argument for having written it.
+
+### Fixed
+- **install.sh clobbered operator-edited docs.** The vendored `no-noodle.md` and `noodle-options.md`
+  were copied over `commands/` and `skills/` unconditionally. These are upstream's files and the
+  operator may have edited their copy — precisely what happened to `check_before_build.sh`, where 63
+  lines of local hardening sat in the installed file and upstream's own installer silently reverted
+  them. An existing copy that differs is now left alone and reported; only an absent or
+  byte-identical one is written.
+- **`--uninstall` left seven executables behind.** It removed `coc_gate.sh` and `coc_post.sh` and
+  none of the seven lifecycle scripts, so an "uninstalled" profile still carried our code in the
+  operator's hooks directory while the registrations were gone. Leaving residue in a directory we
+  do not own is the same class as taking something over.
+- **`prove` could not tell you the tree was unstamped.** Every proof pins the version, so proving
+  before stamping produces proofs the gate immediately invalidates — twenty-one at once, reported as
+  a wall of `version changed since this proof` findings that look like a regression and mean only
+  "you stamped last". It happened twice during 0.5.x, discarding two full runs. `prove` now refuses,
+  names the drifting manifests, and says how to fix it. `--allow-version-drift` overrides it.
+
+### Added
+- **`doctor` reports the effective posture and where it came from.** It described the recorder in
+  detail and said nothing about how much the tool is allowed to interrupt, so a profile sitting in
+  `steer` looked identical to one on the shipped default and the only way to tell was to read the
+  config chain by hand. `posture_source()` returns the value, the layer that set it, and the path to
+  change — including when a managed policy overrode a project or profile setting. It **reports**:
+  choosing the posture belongs to the operator, and a tool that "corrected" it to the documented
+  default would be making exactly the decision it is supposed to be recording.
+- `DEFAULT_POSTURE`, named once, so the docs and the resolver cannot drift apart.
+
+### Verified rather than asserted
+`tests/test_operator_sovereignty.py` covers: nothing is superseded that the dispatcher cannot run
+(#87 generalised); operator-edited files are never clobbered, with the control that "never clobber"
+has not become "never install"; unrelated hooks and settings survive installation; uninstall removes
+every script and registration it added, keeps hooks it did not install, and preserves the ledger and
+observation data; the gate has no grant channel (#88); `PostToolUse` and the lifecycle hooks reach
+the host through no channel at all; and no code path writes an operator posture config.
+
 ## [0.5.1] — 2026-08-05
 
 ### Fixed — the gate was granting permission (#88)

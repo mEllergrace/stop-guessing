@@ -31,7 +31,46 @@ def _ledger(args) -> Path:
     return Path(args.ledger) if getattr(args, "ledger", None) else runner.DEFAULT_LEDGER
 
 
+def _version_drift() -> list[str]:
+    """Manifests whose declared version disagrees with VERSION. Empty means the tree is stamped.
+
+    Every proof record pins the version, so proving against an unstamped tree produces proofs that
+    the gate immediately — and correctly — invalidates as `version changed since this proof`. That
+    happened twice during 0.5.x: the fix was stamped after proving, twenty-one proofs died at once,
+    and the resulting wall of findings looked like a real regression while meaning only "you
+    stamped last". Twenty-five minutes of proving, discarded, twice.
+    """
+    import sys as _sys
+    from pathlib import Path as _P
+
+    scripts = _P(__file__).resolve().parent.parent.parent / "scripts"
+    if not (scripts / "stamp_version.py").is_file():
+        return []              # installed from a wheel: no repo to be out of step with
+    _sys.path.insert(0, str(scripts))
+    try:
+        from stamp_version import stamp
+    except ImportError:
+        return []
+    # `stamp(check_only=True)` is the same comparison `stamp_version.py --check` already makes, so
+    # the guard and the checker cannot disagree. Comparing `declared_versions()` directly looked
+    # equivalent and was not: its README entry is the whole matched string ("**Version 0.5.1"),
+    # never equal to a bare version, so a hand-rolled comparison reported permanent drift and would
+    # have refused EVERY prove run. Caught by the control test, not by reading it.
+    return list(stamp(check_only=True))
+
+
 def cmd_prove(args) -> int:
+    drift = [] if getattr(args, "allow_version_drift", False) else _version_drift()
+    if drift:
+        print("REFUSED: the tree is not stamped. These declare a different version from VERSION:")
+        for d in drift:
+            print(f"    {d}")
+        print("\nEvery proof pins the version, so proving now produces proofs the gate will "
+              "invalidate\nthe moment you stamp — a full run discarded for nothing. Run:")
+        print("    python3 scripts/stamp_version.py")
+        print("\nThen prove. `--allow-version-drift` overrides this if you know why you want it.")
+        return 2
+
     key = _key(args)
     if key is None:
         print("REFUSED: no chain key. A proof recorded in an unkeyed ledger is forgeable by the\n"
@@ -261,6 +300,8 @@ def register(sub) -> None:
     g = p.add_mutually_exclusive_group()
     g.add_argument("--claim")
     g.add_argument("--milestone")
+    p.add_argument("--allow-version-drift", action="store_true",
+                   help="prove even though declared versions disagree with VERSION")
     p.set_defaults(fn=cmd_prove)
 
     c = sub.add_parser("claims", help="claim status")

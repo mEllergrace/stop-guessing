@@ -216,6 +216,52 @@ def _not_weaker_than(requested: str, floor: str | None) -> str:
     return requested if POSTURE_ORDER.index(requested) >= POSTURE_ORDER.index(floor) else floor
 
 
+#: The shipped default, named once so `doctor` and the docs cannot drift from the resolver.
+DEFAULT_POSTURE = "observe"
+
+
+def posture_source(cwd: str | None) -> tuple[str, str, str]:
+    """``(effective_posture, human_description_of_who_set_it, the_path_to_change)``.
+
+    `resolve_posture` answers *what* and discards *where from*, so a profile sitting in `steer`
+    looked identical to one on the shipped default and the operator had no way to see the
+    difference without reading the config chain by hand. Reporting is the whole job here: nothing
+    in this function changes anything, because choosing the posture belongs to the operator.
+    """
+    import json as _json
+
+    cfg = os.environ.get("CLAUDE_CONFIG_DIR") or os.path.expanduser("~/.claude")
+    effective = resolve_posture(cwd)
+    managed = _managed_posture()
+
+    layers = []
+    if cwd:
+        layers.append(("project config", Path(cwd) / ".stop-guessing.json"))
+    layers.append(("profile config", Path(cfg) / "stop-guessing.json"))
+    for label, path in layers:
+        try:
+            v = _json.loads(path.read_text(encoding="utf-8")).get("posture")
+        except (OSError, ValueError):
+            continue
+        if v in ("observe", "steer", "bar"):
+            if managed and v != effective:
+                return effective, (f"managed policy ({Path(cfg) / 'managed.json'}), which "
+                                   f"overrode {label} `{v}`"), str(Path(cfg) / "managed.json")
+            return effective, f"{label}: {path}", str(path)
+
+    legacy = Path(cfg) / "stop-guessing.state"
+    try:
+        if legacy.read_text(encoding="utf-8").strip() in ("observe", "steer", "bar"):
+            return effective, f"legacy state file: {legacy}", str(legacy)
+    except OSError:
+        pass
+    if managed:
+        return effective, f"managed policy: {Path(cfg) / 'managed.json'}", str(
+            Path(cfg) / "managed.json")
+    return effective, "nothing — this is the shipped default", str(
+        Path(cfg) / "stop-guessing.json")
+
+
 def resolve_posture(cwd: str | None) -> str:
     """Resolve the posture through the four-layer chain. **The default is `observe`.**
 
@@ -262,7 +308,7 @@ def resolve_posture(cwd: str | None) -> str:
             return _not_weaker_than(v, managed)
     except OSError:
         pass
-    return managed or "observe"
+    return managed or DEFAULT_POSTURE
 
 
 def _record_gap(payload: dict, exc: BaseException) -> None:
