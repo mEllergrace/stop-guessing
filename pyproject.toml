@@ -47,7 +47,14 @@ include = ["stop_guessing*"]
 # #68 (SG-HARD-035). Without this a wheel shipped no policy set, no classification rules and no
 # VERSION, and an editable install from the checkout hid it completely.
 [tool.setuptools.package-data]
-stop_guessing = ["data/VERSION", "data/policy/coc.policy.d/*.yaml", "data/rules/*.yaml"]
+stop_guessing = [
+    "data/VERSION", "data/policy/coc.policy.d/*.yaml", "data/rules/*.yaml",
+    # The vendored no-noodles tree. Without these the wheel shipped no hooks, no risk rules and no
+    # manifest, so `compat verify` had nothing to replay and `/no-noodle` had nothing to install —
+    # the supersession promise (§10.1) was undeliverable from a wheel while passing from a checkout.
+    "compat/nonoodles/*.sh", "compat/nonoodles/*.json", "compat/nonoodles/*.md",
+    "compat/nonoodles/MANIFEST.sha256", "compat/nonoodles/UPSTREAM_VERSION",
+]
 
 [tool.ruff]
 line-length = 100

@@ -130,7 +130,17 @@ before = json.dumps(data, indent=1, sort_keys=True)
 hooks = data.setdefault("hooks", {})
 
 # no-noodles hook basenames whose STANDALONE registrations the dispatcher replaces.
-SUPERSEDED = ("no_noodle.sh", "check_before_build.sh", "risk_gate.sh", "check_credentials.sh")
+#
+# #87: check_credentials.sh is deliberately NOT in this list. It is listed first in
+# hook_gate.VENDORED_ORDER but has never existed in compat/nonoodles/ — it is an
+# OPERATOR-installed hook, not part of moonsoup/no-noodles, so it was never ours to vendor.
+# Removing its registration while being unable to execute it silently disabled the operator's
+# credential hard-stop and downgraded it to a recorded finding.
+#
+# The rule this encodes: a tool may only take over a control it can actually run. Where it
+# cannot, the operator's registration stays exactly where the operator put it. Vendoring their
+# hook into a public distribution would "fix" the symptom by doing more of what caused it.
+SUPERSEDED = ("no_noodle.sh", "check_before_build.sh", "risk_gate.sh")
 OURS = ("coc_gate.sh", "coc_post.sh", *(s for s, _ in LIFECYCLE.values()))
 
 removed, added = [], []
@@ -275,6 +285,17 @@ EOF
       if [ -f "$PKG_DIR/skills/$doc.md" ]; then
         cp "$PKG_DIR/skills/$doc.md" "$claude_dir/commands/$doc.md"
         cp "$PKG_DIR/skills/$doc.md" "$claude_dir/skills/$doc.md"
+      fi
+    done
+
+    # §10.1: /no-noodle and /noodle-options must keep working after supersession. CLAIM-17
+    # declares both, and neither install path shipped them — a user who supersedes no-noodles and
+    # then removes it lost two slash commands the claim said would survive. Vendored byte-identical
+    # from upstream and installed the same dual way; never rewritten here.
+    for doc in no-noodle noodle-options; do
+      if [ -f "$PKG_DIR/stop_guessing/compat/nonoodles/$doc.md" ]; then
+        cp "$PKG_DIR/stop_guessing/compat/nonoodles/$doc.md" "$claude_dir/commands/$doc.md"
+        cp "$PKG_DIR/stop_guessing/compat/nonoodles/$doc.md" "$claude_dir/skills/$doc.md"
       fi
     done
 

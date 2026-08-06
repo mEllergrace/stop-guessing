@@ -125,6 +125,40 @@ def cmd_claims_check(args) -> int:
     return 0 if result["ok"] else 1
 
 
+def cmd_claims_retract(args) -> int:
+    """Record a reasoned reduction in what a claim asserts — ISO 27037 §5.4.1.
+
+    Reducing a claim's scope alters the evidence subject, so it needs a written justification in
+    the ledger, exactly as any other alteration does. This command exists so that the reduction is
+    a deliberate act with an author and a reason, rather than a YAML edit nobody sees.
+
+    Editing the claims file still works — it is a text file and locking it would be theatre. What
+    changed is that an unjustified reduction is now a FINDING, so the silent path leads somewhere
+    visible instead of nowhere.
+    """
+    from stop_guessing.ledger.sink import record
+    from stop_guessing.prove import scope as _scope
+
+    key = _key(args)
+    if key is None:
+        print("REFUSED: no chain key. A retraction recorded in an unkeyed ledger is forgeable by "
+              "the party whose claim is shrinking.")
+        return 2
+    try:
+        ev = _scope.retraction_event(args.claim, args.field, args.removed, args.reason)
+    except ValueError as exc:
+        print(f"REFUSED: {exc}")
+        return 2
+    ev.update({"actor": f"stop-guessing/{runner.__name__}", "at": runner._now()})
+    entry = record(_ledger(args), ev, key)
+    print(f"recorded: {args.claim} no longer asserts {args.field}: {', '.join(args.removed)}")
+    print(f"  reason : {args.reason}")
+    print(f"  record : {runner.proof_ref(entry)}")
+    print("\nThis is an ISO 27037 alteration. It does not make the reduction invisible — it makes "
+          "it accounted for.")
+    return 0
+
+
 def cmd_attest(args) -> int:
     result = runner.attest_self(_key(args), _ledger(args))
     if args.json:
@@ -181,6 +215,18 @@ def register(sub) -> None:
         sp.add_argument("--keyfile")
         sp.add_argument("--ledger")
         return sp
+
+    r = common(sub.add_parser("retract", help="record a reasoned reduction in a claim's scope"))
+    r.add_argument("--claim", required=True)
+    r.add_argument("--field", required=True, choices=["surface", "aicm"])
+    r.add_argument("--removed", required=True, nargs="+")
+    r.add_argument("--reason", required=True,
+                   help="why this is no longer asserted; a retraction without one is refused")
+    # `fn`, not `func`: main.py dispatches on args.fn. Registered with the wrong key the parser
+    # accepted the command, printed its help, and died with AttributeError on any real invocation —
+    # a surface that exists and does not run, which is the defect this whole release is about. It
+    # was only caught by a test that actually executed it.
+    r.set_defaults(fn=cmd_claims_retract)
 
     p = common(sub.add_parser("prove", help="run proof procedures and record them"))
     g = p.add_mutually_exclusive_group()

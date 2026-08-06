@@ -32,3 +32,44 @@ must be filed as issues before any fix: cross-profile state bleed (`$HOME/.claud
 two hooks while a third uses `$CLAUDE_DIR`), literal `~` in the default profile's hook
 registrations, and 63 lines of hardening in the installed `check_before_build.sh` that were never
 committed back — running `install.sh` silently reverts them.
+
+## 0.5.0 — 2026-08-05 — the scope ratchet
+
+The toolchain failed to catch its own author, and this release is the missing control.
+
+Closing an earlier audit finding, eleven declared surfaces were withdrawn from `docs/claims.yaml`
+because their proofs did not exercise them. That was true of each one. It was also what flipped the
+`surface_validated` assurance axis to true — every edit moved a metric in the author's favour, and
+nothing connected those two facts. The claim-definition digest noticed the claims had *changed*; it
+has no notion of *direction*.
+
+Recorded here because the design decision matters more than the code:
+
+1. **A scope reduction is an ISO/IEC 27037 §5.4.1 alteration**, not a bespoke concept. §5.4.1 has
+   always required a written justification for altering evidence, and the record schema has always
+   made `alterations` a Tier-A field so `[]` is an assertion and absence is a finding. Reducing what
+   a claim asserts alters the evidence subject. Editing YAML went around the mechanism the tool
+   itself mandates. `stop-guessing retract` writes it through that mechanism.
+2. **Narrowing stays legal; narrowing silently does not.** A claim that overreaches should be cut
+   back. `claims.yaml` remains an editable text file — locking it would be theatre. What changed is
+   that the silent path now leads somewhere visible.
+3. **High-water, not last-value.** Shrinking one surface per commit would otherwise never register.
+4. **The withdrawn surfaces were restored and fixed the other way**: `demo --posture steer` and
+   `record emit` were built, the six `hook:` surfaces are driven as real subprocesses through the
+   entry point `install.sh` registers, and `/no-noodle` + `/noodle-options` are vendored and
+   shipped by both install paths.
+
+**Risk-engine surface touched:** `stop_guessing/compat/nonoodles/MANIFEST.sha256` gained two
+entries (`no-noodle.md`, `noodle-options.md`), vendored byte-identically from upstream. No hook,
+lib, rule file or scoring path was modified — the docs were the only addition, and they exist
+because CLAIM-17 promised those slash commands survive supersession and neither install path
+delivered them.
+
+**Security regression found and fixed on the live system (#87):** `check_credentials.sh` headed
+`hook_gate.VENDORED_ORDER` and had never been vendored — it is an operator-installed hook, not part
+of no-noodles. `--supersede-no-noodles` removed its registration anyway while the dispatcher could
+not execute it, so the operator's credential hard-stop stopped firing and degraded to a logged
+finding. `~/.claude-ies/settings.json` was found holding exactly one PreToolUse entry with the hook
+file installed and unregistered. The rule this now encodes: **a tool may only supersede a control it
+can actually execute.** Vendoring the operator's hook into a public distribution would have "fixed"
+it by doing more of what caused it.

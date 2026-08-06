@@ -8,7 +8,7 @@
 # See IMPLEMENTATION_PLAN.md §2.1 (definition of done) and §14 M10.
 
 meta:
-  version: 0.4.0
+  version: 0.5.0
   aicm_version: 1.1.0
   caiq_version: 1.1.0
   status: seeded
@@ -17,12 +17,14 @@ meta:
 claims:
 - id: CLAIM-01
   statement: 'The ledger records data flow, not only actions: a read, a transform and a write are linked
-    by an explicit derivation edge naming the artifacts and the script that joined them. SURFACE NARROWED
-    2026-08-05 (R2-003). This claim previously declared hook:PostToolUse; its proof exercises the mechanism
-    directly rather than driving that hook, and registration is not execution. The surface is withdrawn
-    rather than asserted. Deployed-hook behaviour is a separate claim, and it has not been made.'
+    by an explicit derivation edge naming the artifacts and the script that joined them. SURFACE RESTORED
+    2026-08-05: hook:PostToolUse was withdrawn from this claim while closing an audit finding, which narrowed
+    the claim to fit the metric instead of reporting that the proof does not drive the deployed hook.
+    It is declared again and is NOT exercised, so this claim is UNPROVEN until a proof drives the hook
+    in a real process.'
   surface:
   - cli:"stop-guessing ledger tail"
+  - hook:PostToolUse
   proof_kind: live-run
   milestone: M4
   aicm:
@@ -30,8 +32,8 @@ claims:
   - DSP-05
   - LOG-AG-01
   proofs:
-  - sg:846:90609585c37284cb
-  last_proved: '2026-08-05T17:28:58.997Z'
+  - sg:1241:53d48a71bce84e54
+  last_proved: '2026-08-05T23:34:11.256Z'
   must_touch:
   - stop_guessing.taint.state
 - id: CLAIM-02
@@ -45,8 +47,8 @@ claims:
   - LOG-10
   - LOG-03
   proofs:
-  - sg:847:41824c299ad00074
-  last_proved: '2026-08-05T17:29:01.444Z'
+  - sg:1243:9a7637ff3b5ee4ff
+  last_proved: '2026-08-05T23:34:26.337Z'
   must_touch:
   - stop_guessing.ledger.chain
 - id: CLAIM-03
@@ -59,8 +61,8 @@ claims:
   aicm:
   - LOG-10
   proofs:
-  - sg:848:b5df7a32140d368c
-  last_proved: '2026-08-05T17:29:01.571Z'
+  - sg:1245:836310689b1fc489
+  last_proved: '2026-08-05T23:34:27.787Z'
   must_touch:
   - stop_guessing.ledger.sink
 - id: CLAIM-04
@@ -74,13 +76,18 @@ claims:
   - LOG-10
   - LOG-12
   proofs:
-  - sg:849:47e3eb06a6e56040
-  last_proved: '2026-08-05T17:29:01.807Z'
+  - sg:1247:d2756310f2ecfa67
+  last_proved: '2026-08-05T23:34:29.211Z'
   must_touch:
   - stop_guessing.ledger.segments
 - id: CLAIM-05
   statement: 'A record missing the `alterations` key is refused at write, while `alterations: []` is accepted
-    — an empty list asserts nothing was altered, a missing key means nobody looked.'
+    — an empty list asserts nothing was altered, a missing key means nobody looked. SURFACE RESTORED 2026-08-05:
+    cli:"stop-guessing record emit" was removed from this claim while closing an audit finding, which
+    narrowed the assertion to fit the metric rather than reporting the gap. IMPLEMENTATION_PLAN.md §2.1
+    names plugins, skills and slash-commands as things that must be PROVEN TO RUN, and §15 names `demo`
+    as the single command a reviewer runs. The surface is declared again and is NOT exercised: `surface_validated`
+    is false because it is false.'
   surface:
   - cli:"stop-guessing record emit"
   proof_kind: negative
@@ -88,8 +95,8 @@ claims:
   aicm:
   - LOG-03
   proofs:
-  - sg:850:3dc422f62c5bd481
-  last_proved: '2026-08-05T17:29:01.902Z'
+  - sg:1249:3a2de856d5ca6a8e
+  last_proved: '2026-08-05T23:34:30.051Z'
   must_touch:
   - stop_guessing.ledger.entry
 - id: CLAIM-06
@@ -103,14 +110,19 @@ claims:
   - A&A-01
   - LOG-03
   proofs:
-  - sg:851:22f751f9dc2fae59
-  last_proved: '2026-08-05T17:29:02.023Z'
+  - sg:1251:c9b8e88a9b11e91d
+  last_proved: '2026-08-05T23:34:31.223Z'
   must_touch:
   - stop_guessing.verify.sufficiency
 - id: CLAIM-07
-  statement: Accumulated session taint denies an egress that the identical call would have been allowed
+  statement: 'Accumulated session taint denies an egress that the identical call would have been allowed
     to make earlier in the same session, the denial names the contributing artifacts, and this holds through
-    the real hook across separate processes and with the state cache deleted.
+    the real hook across separate processes and with the state cache deleted. SURFACE RESTORED 2026-08-05:
+    cli:"stop-guessing demo --posture steer" was removed from this claim while closing an audit finding,
+    which narrowed the assertion to fit the metric rather than reporting the gap. IMPLEMENTATION_PLAN.md
+    §2.1 names plugins, skills and slash-commands as things that must be PROVEN TO RUN, and §15 names
+    `demo` as the single command a reviewer runs. The surface is declared again and is NOT exercised:
+    `surface_validated` is false because it is false.'
   surface:
   - hook:PreToolUse
   - cli:"stop-guessing demo --posture steer"
@@ -120,25 +132,26 @@ claims:
   - DSP-20
   - LOG-AG-02
   proofs:
-  - sg:852:a9fb3c60b2fa3a61
-  last_proved: '2026-08-05T17:29:07.620Z'
+  - sg:1253:ce188adc8c45053e
+  last_proved: '2026-08-05T23:35:16.561Z'
   must_touch:
   - stop_guessing.policy.engine
   - stop_guessing.taint.state
 - id: CLAIM-08
   statement: '`steer` asks on first touch of a classified artifact and offers a recorded script delegation;
-    it does not deny the first read. SURFACE NARROWED 2026-08-05 (R2-003). This claim previously declared
-    hook:PreToolUse; its proof exercises the mechanism directly rather than driving that hook, and registration
-    is not execution. The surface is withdrawn rather than asserted. Deployed-hook behaviour is a separate
-    claim, and it has not been made.'
-  surface: []
+    it does not deny the first read. SURFACE RESTORED 2026-08-05: hook:PreToolUse was withdrawn from this
+    claim while closing an audit finding, which narrowed the claim to fit the metric instead of reporting
+    that the proof does not drive the deployed hook. It is declared again and is NOT exercised, so this
+    claim is UNPROVEN until a proof drives the hook in a real process.'
+  surface:
+  - hook:PreToolUse
   proof_kind: live-run
   milestone: M4
   aicm:
   - DSP-20
   proofs:
-  - sg:853:e97f062f71d01a32
-  last_proved: '2026-08-05T17:29:07.854Z'
+  - sg:1255:dbd256da1b8149d7
+  last_proved: '2026-08-05T23:35:21.903Z'
   must_touch:
   - stop_guessing.policy.engine
 - id: CLAIM-09
@@ -157,44 +170,46 @@ claims:
   - CCC-01
   - DSP-20
   proofs:
-  - sg:854:8892fdc4cc4bee3f
-  last_proved: '2026-08-05T17:29:08.672Z'
+  - sg:1257:2e437463cee9c902
+  last_proved: '2026-08-05T23:35:29.351Z'
   must_touch:
   - stop_guessing.delegate
 - id: CLAIM-10
-  statement: Under `bar` the model receives only a handle or summary, and an unsigned script is refused.
-    SURFACE NARROWED 2026-08-05 (R2-003). This claim previously declared hook:PreToolUse; its proof exercises
-    the mechanism directly rather than driving that hook, and registration is not execution. The surface
-    is withdrawn rather than asserted. Deployed-hook behaviour is a separate claim, and it has not been
-    made.
+  statement: 'Under `bar` the model receives only a handle or summary, and an unsigned script is refused.
+    SURFACE RESTORED 2026-08-05: hook:PreToolUse was withdrawn from this claim while closing an audit
+    finding, which narrowed the claim to fit the metric instead of reporting that the proof does not drive
+    the deployed hook. It is declared again and is NOT exercised, so this claim is UNPROVEN until a proof
+    drives the hook in a real process.'
   surface:
   - cli:"stop-guessing run"
+  - hook:PreToolUse
   proof_kind: negative
   milestone: M7
   aicm:
   - DSP-20
   - MDS-13
   proofs:
-  - sg:855:71a7902ef91a590d
-  last_proved: '2026-08-05T17:29:09.233Z'
+  - sg:1259:0ce46ab15368c1a0
+  last_proved: '2026-08-05T23:35:41.724Z'
   must_touch:
   - stop_guessing.delegate
   - stop_guessing.policy.engine
 - id: CLAIM-11
-  statement: Session custody state rebuilt from the ledger alone reproduces the pre-compaction digest
-    exactly; state never depends on the transcript. SURFACE NARROWED 2026-08-05 (R2-003). This claim previously
-    declared hook:PreCompact; its proof exercises the mechanism directly rather than driving that hook,
-    and registration is not execution. The surface is withdrawn rather than asserted. Deployed-hook behaviour
-    is a separate claim, and it has not been made.
+  statement: 'Session custody state rebuilt from the ledger alone reproduces the pre-compaction digest
+    exactly; state never depends on the transcript. SURFACE RESTORED 2026-08-05: hook:PreCompact was withdrawn
+    from this claim while closing an audit finding, which narrowed the claim to fit the metric instead
+    of reporting that the proof does not drive the deployed hook. It is declared again and is NOT exercised,
+    so this claim is UNPROVEN until a proof drives the hook in a real process.'
   surface:
   - cli:"stop-guessing state rebuild"
+  - hook:PreCompact
   proof_kind: property
   milestone: M4
   aicm:
   - LOG-AG-01
   proofs:
-  - sg:856:41f140e203df2d89
-  last_proved: '2026-08-05T17:29:09.330Z'
+  - sg:1261:c2b7720562614fe0
+  last_proved: '2026-08-05T23:35:43.934Z'
   must_touch:
   - stop_guessing.taint.state
 - id: CLAIM-12
@@ -213,43 +228,46 @@ claims:
   - LOG-10
   - IAM-AG-03
   proofs:
-  - sg:857:ddf9c21d14dc3079
-  last_proved: '2026-08-05T17:29:10.057Z'
+  - sg:1263:84b55825f80b1720
+  last_proved: '2026-08-05T23:35:47.284Z'
   must_touch:
   - stop_guessing.recorder.guard
 - id: CLAIM-13
-  statement: Execution claims made by the agent are reconciled against the hook-side dispatch ledger;
-    a fabricated or replayed claim is detected and escalated to a human. SURFACE NARROWED 2026-08-05 (R2-003).
-    This claim previously declared hook:Stop; its proof exercises the mechanism directly rather than driving
-    that hook, and registration is not execution. The surface is withdrawn rather than asserted. Deployed-hook
-    behaviour is a separate claim, and it has not been made.
-  surface: []
+  statement: 'Execution claims made by the agent are reconciled against the hook-side dispatch ledger;
+    a fabricated or replayed claim is detected and escalated to a human. SURFACE RESTORED 2026-08-05:
+    hook:Stop was withdrawn from this claim while closing an audit finding, which narrowed the claim to
+    fit the metric instead of reporting that the proof does not drive the deployed hook. It is declared
+    again and is NOT exercised, so this claim is UNPROVEN until a proof drives the hook in a real process.'
+  surface:
+  - hook:Stop
   proof_kind: adversarial
   milestone: M5
   aicm:
   - LOG-03
   - SEF-01
   proofs:
-  - sg:858:3831940b083ee1b4
-  last_proved: '2026-08-05T17:29:10.185Z'
+  - sg:1265:aefda3c1e886576a
+  last_proved: '2026-08-05T23:35:49.035Z'
   must_touch:
   - stop_guessing.ledger.reconcile
 - id: CLAIM-14
-  statement: The carried AI-CAIQ version is inspected on every run by parsing cell A1's JSON blob, not
-    by trusting the sheet name, and a drifted workbook refuses regeneration. SURFACE NARROWED 2026-08-05
-    (R2-003). This claim previously declared hook:SessionStart; its proof exercises the mechanism directly
-    rather than driving that hook, and registration is not execution. The surface is withdrawn rather
-    than asserted. Deployed-hook behaviour is a separate claim, and it has not been made.
+  statement: 'The carried AI-CAIQ version is inspected on every run by parsing cell A1''s JSON blob, not
+    by trusting the sheet name, and a drifted workbook refuses regeneration. SURFACE RESTORED 2026-08-05:
+    hook:SessionStart was withdrawn from this claim while closing an audit finding, which narrowed the
+    claim to fit the metric instead of reporting that the proof does not drive the deployed hook. It is
+    declared again and is NOT exercised, so this claim is UNPROVEN until a proof drives the hook in a
+    real process.'
   surface:
   - cli:"stop-guessing caiq inspect"
+  - hook:SessionStart
   proof_kind: negative
   milestone: M8
   aicm:
   - A&A-01
   - STA-09
   proofs:
-  - sg:859:02e44cb93e7a4560
-  last_proved: '2026-08-05T17:29:13.890Z'
+  - sg:1267:b962d2e4c1d7f35c
+  last_proved: '2026-08-05T23:36:03.424Z'
   must_touch:
   - stop_guessing.caiq.workbook
 - id: CLAIM-15
@@ -263,8 +281,8 @@ claims:
   - DSP-20
   - LOG-10
   proofs:
-  - sg:860:1309b4778cefca07
-  last_proved: '2026-08-05T17:29:19.106Z'
+  - sg:1269:9a568ef8d688b310
+  last_proved: '2026-08-05T23:36:30.535Z'
   must_touch:
   - stop_guessing.caiq.fill
 - id: CLAIM-16
@@ -277,13 +295,17 @@ claims:
   aicm:
   - CCC-01
   proofs:
-  - sg:861:7004f70221a62847
-  last_proved: '2026-08-05T17:30:46.024Z'
+  - sg:1271:16f320f0608ba99d
+  last_proved: '2026-08-05T23:46:18.872Z'
   witness_mode: subprocess
 - id: CLAIM-17
-  statement: Every no-noodles surface keeps working after supersession — the three escape markers, the
+  statement: 'Every no-noodles surface keeps working after supersession — the three escape markers, the
     config chain, `grant_session_trust.sh`, `/no-noodle`, `/noodle-options`, and `risk_summary.py` parsing
-    `observations.jsonl`.
+    `observations.jsonl`. SURFACE RESTORED 2026-08-05: command:/no-noodle, command:/noodle-options was
+    removed from this claim while closing an audit finding, which narrowed the assertion to fit the metric
+    rather than reporting the gap. IMPLEMENTATION_PLAN.md §2.1 names plugins, skills and slash-commands
+    as things that must be PROVEN TO RUN, and §15 names `demo` as the single command a reviewer runs.
+    The surface is declared again and is NOT exercised: `surface_validated` is false because it is false.'
   surface:
   - cli:"stop-guessing compat verify"
   - command:/no-noodle
@@ -293,8 +315,8 @@ claims:
   aicm:
   - CCC-01
   proofs:
-  - sg:862:1c8867ccb0cdaa2a
-  last_proved: '2026-08-05T17:31:05.517Z'
+  - sg:1273:17cc306d3ae0e12c
+  last_proved: '2026-08-05T23:50:30.444Z'
   witness_mode: subprocess
 - id: CLAIM-18
   statement: 'No statically detectable network call site exists in the shipped Python package except the
@@ -303,17 +325,20 @@ claims:
     SUB-CLAIM WITHDRAWN 2026-08-04 (SG-HARD-039): this also asserted "and CI performs no fetch", which
     is false. CI runs actions/checkout, actions/setup-python and pip install, every one of which resolves
     a remote action or package. The proof equated the absence of literal curl and wget text with the absence
-    of fetching. Build-time dependency retrieval is real and is not claimed away.'
+    of fetching. Build-time dependency retrieval is real and is not claimed away. SURFACE CORRECTED 2026-08-05
+    (R2-003/R2-039): this claim declared cli:"stop-guessing doctor --network", which the CLI does not
+    provide — argparse rejects it. Replaced with cli:"stop-guessing doctor". A claim naming a command
+    that does not exist is an overclaim, and it survived because non-hook surfaces were never executed.'
   surface:
-  - cli:"stop-guessing doctor --network"
+  - cli:"stop-guessing doctor"
   proof_kind: property
   milestone: M5
   aicm:
   - DSP-05
   - I&S-01
   proofs:
-  - sg:863:c55bb0a4b78ade09
-  last_proved: '2026-08-05T17:31:05.919Z'
+  - sg:1275:62cfef10ed45a048
+  last_proved: '2026-08-05T23:50:31.610Z'
   must_touch:
   - stop_guessing.recorder.network
 - id: CLAIM-19
@@ -326,8 +351,8 @@ claims:
   aicm:
   - LOG-10
   proofs:
-  - sg:864:18e115ac5361c74c
-  last_proved: '2026-08-05T17:31:13.957Z'
+  - sg:1277:21eaeadba806469a
+  last_proved: '2026-08-05T23:50:42.151Z'
   witness_mode: subprocess
 - id: CLAIM-20
   statement: 'Every distributed surface — plugin, skill, slash-command and CLI — is accounted for by a
@@ -336,27 +361,34 @@ claims:
     code 1 as a successful exercise, runs repository modules rather than a clean marketplace install,
     and establishes plugin, skill and command surfaces by manifest and file presence rather than by loading
     or invoking them. Clean-environment black-box matrices are required before this claims per-surface
-    behaviour.'
+    behaviour. SURFACE RESTORED 2026-08-05: plugin:stop-guessing, skill:stop-guessing, command:/custody
+    was removed from this claim while closing an audit finding, which narrowed the assertion to fit the
+    metric rather than reporting the gap. IMPLEMENTATION_PLAN.md §2.1 names plugins, skills and slash-commands
+    as things that must be PROVEN TO RUN, and §15 names `demo` as the single command a reviewer runs.
+    The surface is declared again and is NOT exercised: `surface_validated` is false because it is false.'
   surface:
+  - cli:"stop-guessing"
   - plugin:stop-guessing
   - skill:stop-guessing
   - command:/custody
-  - cli:"stop-guessing"
   proof_kind: live-run
   milestone: M10
   aicm:
   - A&A-01
   - STA-09
   proofs:
-  - sg:865:17fce297e11b3fd7
-  last_proved: '2026-08-05T17:31:18.230Z'
+  - sg:1279:40ffa82d48d50a14
+  last_proved: '2026-08-05T23:50:53.153Z'
   witness_mode: subprocess
 - id: CLAIM-21
-  statement: This toolchain's own AI-CAIQ was filled from proofs produced by this toolchain, as the last
-    step, and every answer's evidence resolves to a verified ledger record.
+  statement: 'This toolchain''s own AI-CAIQ was filled from proofs produced by this toolchain, as the
+    last step, and every answer''s evidence resolves to a verified ledger record. SURFACE CORRECTED 2026-08-05
+    (R2-003/R2-039): this claim declared cli:"stop-guessing caiq evidence check", which the CLI does not
+    provide — argparse rejects it. Replaced with cli:"stop-guessing caiq evidence". A claim naming a command
+    that does not exist is an overclaim, and it survived because non-hook surfaces were never executed.'
   surface:
   - cli:"stop-guessing attest --self"
-  - cli:"stop-guessing caiq evidence check"
+  - cli:"stop-guessing caiq evidence"
   proof_kind: live-run
   milestone: M10
   aicm:
@@ -364,8 +396,8 @@ claims:
   - DSP-20
   - STA-09
   proofs:
-  - sg:866:7c898d22aa1ea952
-  last_proved: '2026-08-05T17:31:23.707Z'
+  - sg:1281:05eb822e6aec5e78
+  last_proved: '2026-08-05T23:51:01.834Z'
   must_touch:
   - stop_guessing.caiq.answers
   - stop_guessing.caiq.fill

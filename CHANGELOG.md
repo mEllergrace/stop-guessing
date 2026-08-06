@@ -3,6 +3,84 @@
 All notable changes to STOP-GUESSING. Format follows [Keep a Changelog](https://keepachangelog.com/);
 this project uses semantic versioning and bumps `VERSION` on every code-changing push.
 
+## [0.5.0] — 2026-08-05
+
+The toolchain caught its own author, and the missing control is now a feature.
+
+### The finding that produced this release
+
+Closing an earlier audit finding, eleven declared surfaces were withdrawn from `docs/claims.yaml` —
+six `hook:` entries, `plugin:`, `skill:`, two `command:` entries — plus two CLI surfaces that had
+never been built. Each withdrawal was individually defensible: the proofs genuinely did not exercise
+them. Collectively they were what flipped the `surface_validated` assurance axis to true. Every edit
+moved a metric in the author's favour, and nothing in the ledger connected the two facts. The
+claim-definition digest saw the claims had *changed*; it has no notion of *direction*, so
+broadening and narrowing looked identical to it. A human reader caught it by asking whether the
+goal had moved.
+
+### Added
+- **The scope ratchet** (`stop_guessing/prove/scope.py`). Each claim's declared surfaces and AICM
+  control mappings are pinned to the ledger on every proof run. Scope may grow freely; it may
+  shrink only through a recorded retraction carrying a reason. An unrecorded reduction is a finding
+  on `claims check`, reported beside the verdict, so a reader sees the claim got smaller in the same
+  breath as the number got better. Measured against the **high-water** scope, because nobody removes
+  ten things at once — they remove one per commit.
+- **`stop-guessing retract`** — records a reduction as an ISO/IEC 27037 §5.4.1 alteration with its
+  written justification. §5.4.1 has always required this and the record schema has always made
+  `alterations` a Tier-A field; editing YAML went around the mechanism the tool itself mandates.
+  A retraction with no reason is refused at the source.
+- **`stop-guessing demo --posture steer`** — §15's "the one command a reviewer runs", built rather
+  than deleted. Drives first-touch `ask`, a derivation edge, the accumulation `deny`, the chain, and
+  a tamper control, each citing the record that backs it, in a temp dir against a temp ledger. It
+  runs its own controls: a clean session must egress freely, or "accumulation denies" would be
+  satisfied by denying everything.
+- **`stop-guessing record emit`** — M2's surface. Emits a Tier-A-validated in-toto Statement, and
+  `--omit <field>` shows the refusal. `alterations: []` is accepted as a positive assertion;
+  `alterations` absent is refused, because a reader cannot tell "nothing was altered" from "nobody
+  looked". A test drops each of the 19 Tier-A fields in turn and requires every one to be refused.
+- **Hook surfaces are driven, not asserted.** `exercise_hooks()` spawns the entry point `install.sh`
+  registers as its own process, feeds it a realistic payload on stdin, and parses the response —
+  in a hermetic `CLAUDE_CONFIG_DIR`, so exercising cannot write fixtures into the evidence ledger.
+  The record states the limit exactly: the deployed code path with a *synthetic* caller, stronger
+  than "registered in settings.json", weaker than "a live session exercised it".
+
+### Fixed
+- **Superseding disabled the operator's credential hard-stop (#87).** `check_credentials.sh` headed
+  `hook_gate.VENDORED_ORDER` and was never in the vendored tree — it is an operator-installed hook,
+  not part of no-noodles, so it was never ours to vendor. `--supersede-no-noodles` removed its
+  registration anyway and the dispatcher could not run it, so the control degraded to a logged
+  finding. Found live, not in a fixture: `~/.claude-ies/settings.json` had exactly one PreToolUse
+  entry while the hook file sat installed and unregistered. The rule this encodes: **a tool may only
+  supersede a control it can actually execute.** It now stays in `OPERATOR_RULES`, is never
+  superseded, and is *verified still registered* — strictly more than was checked before.
+  `scripts/repair_operator_rules.py` restores it where it was already lost.
+- **`/no-noodle` and `/noodle-options` are shipped.** CLAIM-17 declared both and neither install
+  path delivered them, so §10.1's promise that they survive supersession was undeliverable. Both
+  docs are now vendored byte-identically with manifest entries, installed to `commands/` *and*
+  `skills/`, and shipped by the plugin.
+- **The wheel shipped none of the vendored tree.** `package-data` omitted `compat/nonoodles/`
+  entirely, so `compat verify` had nothing to replay from a wheel — while passing from a checkout,
+  which is how a packaging gap survives a green suite. The slow packaging test now verifies the
+  vendored manifest *inside the installed package*.
+- **`prove` could hang forever.** The surface exerciser inherited the caller's stdin, so a surface
+  that reads it blocked indefinitely with no terminal — observed as ten minutes of wall clock
+  against fourteen seconds of CPU, in a background run, producing no verdict at all. A release gate
+  that never returns has failed open in the most expensive way available. `stdin` is now
+  `DEVNULL`, timeouts are bounded, and a timed-out surface is not counted as exercised.
+- **A silent `except: pass` disarmed the new control.** The scope record was written inside a bare
+  handler so that "a scope record must never break a proof run" — which is precisely how a control
+  comes to do nothing while reading as present. Zero scope records existed. Without a baseline the
+  ratchet has nothing to measure against, so it now stops the run instead.
+- **Scope records declared no gaps while the ratchet has one.** `known_gaps: []` is a positive
+  assertion. The ratchet cannot detect a claim whose *statement text* is weakened while its surfaces
+  hold constant — prose strength is not mechanically decidable here — so that limitation is written
+  into `known_gaps` on every scope record rather than described only in prose.
+
+### Restored
+- All eleven withdrawn surfaces are back in `docs/claims.yaml`, and fixed the other way: the two
+  missing CLI surfaces were built, the hooks are driven in real processes, and the two slash
+  commands are shipped.
+
 ## [0.4.0] — 2026-08-04
 
 Repo hygiene, and the tooling to keep it that way.

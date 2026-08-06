@@ -26,16 +26,45 @@ import sys
 from pathlib import Path
 
 #: Original registration order from ~/.claude/settings.json. Do not reorder.
+#:
+#: #87: `check_credentials.sh` used to head this list and was never in the vendored tree, because it
+#: is not part of `moonsoup/no-noodles` — it is an OPERATOR-installed hook. Superseding removed its
+#: standalone registration while the dispatcher could not run it, so the operator's credential
+#: hard-stop silently became a logged finding. It now lives in `OPERATOR_RULES` instead: not run
+#: here, not superseded, and CHECKED for.
 VENDORED_ORDER = (
-    "check_credentials.sh",
     "no_noodle.sh",
     "check_before_build.sh",
     "risk_gate.sh",
 )
 
+#: Controls that belong to the operator, which this tool must never take over and never disable.
+#:
+#: The rule: a tool may only supersede a control it can actually execute. For everything else the
+#: operator's own registration stays exactly where they put it — and the dispatcher VERIFIES it is
+#: still wired up, which is strictly more than was checked before. Running the operator's hook from
+#: here in addition would double-execute a blocking rule; confirming it is registered would not.
+OPERATOR_RULES = ("check_credentials.sh",)
+
 
 def vendored_dir() -> Path:
     return Path(__file__).resolve().parent.parent / "compat" / "nonoodles"
+
+
+def operator_rules_intact(settings: Path | None = None) -> list[str]:
+    """Operator-owned controls that are no longer registered. Empty means all still wired.
+
+    A missing entry here is not this tool's doing — but it IS this tool's business to notice, since
+    superseding is the thing most likely to have caused it.
+    """
+    path = settings or (
+        Path(os.environ.get("CLAUDE_CONFIG_DIR") or (Path.home() / ".claude")) / "settings.json")
+    try:
+        data = json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []          # no settings to check is not evidence of removal
+    registered = json.dumps(data.get("hooks") or {})
+    return [r for r in OPERATOR_RULES if r not in registered]
 
 
 def run_vendored(

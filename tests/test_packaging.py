@@ -28,6 +28,14 @@ REQUIRED_DATA = (
     "data/VERSION",
     "data/rules/classify.yaml",
     "data/policy/coc.policy.d/10-base.yaml",
+    # The vendored no-noodles tree. Omitting it made the supersession promise (§10.1) and
+    # CLAIM-17's two slash commands undeliverable from a wheel, while both passed from a checkout —
+    # which is precisely how a packaging gap survives a green suite.
+    "compat/nonoodles/no_noodle.sh",
+    "compat/nonoodles/risk-rules.json",
+    "compat/nonoodles/no-noodle.md",
+    "compat/nonoodles/noodle-options.md",
+    "compat/nonoodles/MANIFEST.sha256",
 )
 
 
@@ -39,6 +47,8 @@ def test_package_data_is_declared():
     assert "[tool.setuptools.package-data]" in body
     assert "data/policy/coc.policy.d/*.yaml" in body
     assert "data/rules/*.yaml" in body
+    assert "compat/nonoodles/*.sh" in body, "the wheel would ship no vendored hooks"
+    assert "compat/nonoodles/*.md" in body, "the wheel would ship no slash-command docs"
 
 
 def test_sdist_manifest_exists():
@@ -108,3 +118,21 @@ def test_a_built_wheel_installs_and_runs_outside_the_repository(tmp_path):
     assert version == (REPO / "VERSION").read_text(encoding="utf-8").strip()
     assert int(n_policies) > 0, "no policies loaded from the installed package"
     assert rules_present == "True"
+
+    # The vendored tree must be present AND intact in the INSTALLED package, not just the wheel:
+    # a manifest that ships without its files is a manifest that verifies nothing.
+    manifest_probe = (
+        "import hashlib, pathlib, stop_guessing;"
+        "d = pathlib.Path(stop_guessing.__file__).parent / 'compat' / 'nonoodles';"
+        "m = (d / 'MANIFEST.sha256').read_text().splitlines();"
+        "bad = [l.split()[-1] for l in m if l.strip() and ("
+        "  not (d / l.split()[-1]).exists()"
+        "  or hashlib.sha256((d / l.split()[-1]).read_bytes()).hexdigest() != l.split()[0])];"
+        "print(len([l for l in m if l.strip()]), bad)"
+    )
+    res2 = subprocess.run([str(py), "-c", manifest_probe], capture_output=True, text=True,
+                          cwd=str(tmp_path), timeout=900)
+    assert res2.returncode == 0, f"the vendored tree is not importable: {res2.stderr[-600:]}"
+    count, bad = res2.stdout.split(" ", 1)
+    assert int(count) > 0, "the installed manifest is empty"
+    assert bad.strip() == "[]", f"vendored files missing or altered in the installed package: {bad}"

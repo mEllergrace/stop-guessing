@@ -161,3 +161,65 @@ def test_each_generated_hook_script_names_its_event(tmp_path, stub_bin):
     assert stop_hook.is_file(), "the Stop hook script was not written"
     body = stop_hook.read_text(encoding="utf-8")
     assert "hook_lifecycle Stop" in body, f"the Stop hook does not dispatch its event:\n{body}"
+
+
+def test_both_install_paths_deliver_every_declared_slash_command(tmp_path, stub_bin):
+    """CLAIM-17 declares /no-noodle and /noodle-options; §10.1 says they survive supersession.
+
+    Neither path shipped them. A user who superseded no-noodles and then removed it lost two slash
+    commands the claim said would keep working — the claim asserted a surface the product did not
+    deliver. Withdrawing the declaration would have cleared the finding by shrinking the claim,
+    which is what `prove/scope.py` now catches, so the docs are vendored and installed instead.
+    """
+    profile = tmp_path / "claude"
+    (profile / "hooks").mkdir(parents=True)
+    (profile / "settings.json").write_text("{}", encoding="utf-8")
+    env = dict(os.environ)
+    env["PATH"] = f"{stub_bin}:{env['PATH']}"
+    res = subprocess.run(["bash", str(INSTALL), "--profile", str(profile)],
+                         capture_output=True, text=True, timeout=1800, env=env, cwd=str(REPO))
+    assert res.returncode == 0, (res.stdout + res.stderr)[-1200:]
+
+    expected = {"custody", "custody-options", "no-noodle", "noodle-options"}
+    for doc in sorted(expected):
+        # commands/ is what registers the slash command; skills/ is what makes it loadable
+        # (the 2026-07-29 finding: a flat .md under skills/ alone is never loaded).
+        assert (profile / "commands" / f"{doc}.md").is_file(), \
+            f"install.sh did not install /{doc} into commands/"
+        assert (profile / "skills" / f"{doc}.md").is_file(), \
+            f"install.sh did not install {doc}.md into skills/"
+
+    plugin_cmds = {p.stem for p in
+                   (REPO / ".claude-plugin/plugins/stop-guessing/commands").glob("*.md")}
+    missing = expected - plugin_cmds
+    assert not missing, f"the plugin ships fewer slash commands than install.sh: {sorted(missing)}"
+
+
+def test_the_vendored_noodle_docs_are_byte_identical_to_upstream():
+    """Vendored means copied. A rewritten doc is a fork wearing upstream's name."""
+    import hashlib
+
+    vendored = REPO / "stop_guessing/compat/nonoodles"
+    manifest = {}
+    for line in (vendored / "MANIFEST.sha256").read_text(encoding="utf-8").splitlines():
+        if line.strip():
+            parts = line.split()
+            manifest[parts[-1]] = parts[0]
+
+    for doc in ("no-noodle.md", "noodle-options.md"):
+        assert doc in manifest, f"{doc} is vendored but not in MANIFEST.sha256"
+        got = hashlib.sha256((vendored / doc).read_bytes()).hexdigest()
+        assert got == manifest[doc], f"{doc} does not match its manifest digest"
+
+
+def test_the_wheel_would_ship_the_vendored_tree():
+    """A wheel that omits compat/ makes the supersession promise undeliverable from a wheel.
+
+    It passed from a checkout, which is exactly how packaging gaps hide.
+    """
+    import tomllib
+
+    pyproject = tomllib.loads((REPO / "pyproject.toml").read_text(encoding="utf-8"))
+    globs = pyproject["tool"]["setuptools"]["package-data"]["stop_guessing"]
+    for need in ("compat/nonoodles/*.sh", "compat/nonoodles/*.md", "compat/nonoodles/*.json"):
+        assert need in globs, f"package-data does not ship {need}"

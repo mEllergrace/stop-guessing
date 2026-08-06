@@ -238,6 +238,60 @@ def run_one(
         result.passed = False
         result.observations.extend(f"WITNESS: {f}" for f in wit_findings)
 
+    # R2-003/R2-039. Each claim's declared `cli:` surfaces are driven as subprocesses against the
+    # packaged CLI as part of the proof run, and what actually executed is recorded.
+    #
+    # The semantics matter and are stated rather than implied: this establishes REACHABILITY — the
+    # surface exists, starts, and is not an argparse error. It does NOT establish that the claim's
+    # behaviour was observed there; that is what the procedure's own assertions are for, and where
+    # a procedure genuinely drives a surface it declares so itself. Conflating the two would be the
+    # overclaim this whole audit is about, in a new place.
+    # Deliberately AFTER the witness verdict. Running it before meant a VACUOUS procedure —
+    # one that executed nothing — still got exercised_surfaces written into its evidence, and
+    # the witness reads evidence when judging whether a proof did any work. My own fix made
+    # empty proofs look substantive, and tests/test_witness.py caught it on three claims.
+    # A surface exercise is a fact about the CLI, never a substitute for the procedure working.
+    surfaces_declared = [str(s) for s in (_claim_surfaces(claim_id) or [])]
+    try:
+        from stop_guessing.prove.procedures import exercise_cli
+
+        declared = [s for s in surfaces_declared if s.startswith("cli:")]
+        reachable = exercise_cli(*declared) if declared else []
+    except Exception:  # noqa: BLE001 - a surface that cannot be driven stays a finding
+        reachable = []
+
+    # The `hook:` half. Six claims declared hooks their procedures never went through, because the
+    # procedure called the underlying function directly — the gate said so, correctly, as
+    # "registration is not execution". Withdrawing those surfaces would have cleared the finding by
+    # shrinking the claim, which is the move scope.py now catches. So the hooks get driven instead:
+    # the installed entry point, as its own process, with a realistic payload on stdin.
+    try:
+        from stop_guessing.prove.procedures import exercise_hooks
+
+        hooks_declared = [s for s in surfaces_declared if s.startswith("hook:")]
+        hooks_run = exercise_hooks(*hooks_declared) if hooks_declared else []
+    except Exception:  # noqa: BLE001 - a hook that cannot be driven stays a finding
+        hooks_run = []
+
+    if (reachable or hooks_run) and result.passed:
+        result.evidence = dict(result.evidence or {})
+        result.evidence["exercised_surfaces"] = sorted(
+            set(result.evidence.get("exercised_surfaces") or []) | set(reachable) | set(hooks_run))
+        scope_notes = []
+        if reachable:
+            scope_notes.append(
+                "cli surfaces were executed as subprocesses: this establishes that each is "
+                "reachable and runs, NOT that the claim's behaviour was observed through it")
+        if hooks_run:
+            scope_notes.append(
+                "hook surfaces were driven as real subprocesses through the entry point install.sh "
+                "registers, with a realistic payload on stdin and the response parsed. That is the "
+                "DEPLOYED code path with a SYNTHETIC caller: stronger than 'registered in "
+                "settings.json', weaker than 'a live Claude Code session exercised it'. The "
+                "difference is stated rather than left to the reader")
+        result.evidence["surface_exercise_scope"] = " | ".join(scope_notes)
+
+
     entry = record(
         ledger,
         {
@@ -264,6 +318,21 @@ def run_one(
         key,
     )
     ref = proof_ref(entry)
+
+    # The scope ratchet's input: what this claim asserted at the moment it was proved. Written on
+    # every run so a later reduction is measurable against the largest scope ever claimed, not just
+    # against yesterday's — shrinking one surface at a time would otherwise never register.
+    from stop_guessing.prove import scope as _scope
+
+    # No try/except here on purpose. The first draft swallowed every failure so that "a scope record
+    # must never break a proof run" — which is exactly how a control comes to do nothing while
+    # reading as present. If the scope cannot be pinned, the ratchet has no baseline and a later
+    # reduction is invisible; that must stop the run, not be absorbed by it.
+    claim_now = next((c for c in load_claims()["claims"] if c["id"] == claim_id), None)
+    if claim_now:
+        ev = _scope.scope_event(claim_now)
+        ev.update({"actor": f"stop-guessing/{__version__}", "at": _now(), "severity": "info"})
+        record(ledger, ev, key)
 
     if write_back and result.passed:
         doc = load_claims()
@@ -303,6 +372,16 @@ def _witness_mode(claim_id: str) -> str:
     return "in-process"
 
 
+def _claim_surfaces(claim_id: str) -> list[str]:
+    try:
+        for c in load_claims()["claims"]:
+            if c["id"] == claim_id:
+                return list(c.get("surface") or [])
+    except Exception:  # noqa: BLE001
+        return []
+    return []
+
+
 def _must_touch(claim_id: str) -> list[str]:
     """Modules a genuine proof of this claim has to enter, from claims.yaml."""
     try:
@@ -331,6 +410,15 @@ def registered_hook_events(root: Path | None = None) -> set[str]:
     except (OSError, ValueError):
         return set()
     return set((doc.get("hooks") or doc).keys())
+
+
+def _scope_retractions(entries: list[dict], claim: dict):
+    from stop_guessing.prove import scope as _scope
+
+    try:
+        return _scope.retractions(entries, claim)
+    except Exception:  # noqa: BLE001
+        return []
 
 
 def _exercised_for(claim: dict, by_ref: dict, refs: list[str]) -> set[str]:
@@ -388,7 +476,12 @@ def _surface_findings(claim: dict, exercised=None) -> tuple[list[str], list[str]
                     f"declares {s}, which IS registered, but the proof did not exercise it — "
                     "registration is not execution"
                 )
+        elif kind in ("cli", "daemon"):
+            if s not in exercised:
+                findings.append(f"declares {s}, which the proof did not execute")
         else:
+            # plugin/skill/command/daemon: not executable from a proof run. Reported as unchecked
+            # rather than treated as satisfied — the known_gaps rule.
             unvalidated.append(s)
     return findings, unvalidated
 
@@ -473,6 +566,13 @@ def check(key: ChainKey | None, ledger: Path = DEFAULT_LEDGER) -> dict:
         # sitting unread beside it. A claim nobody can re-run is not a proven claim.
         kind_ok = has_procedure and proc.kind == c.get("proof_kind")
         surface_findings, unvalidated = _surface_findings(c, _exercised_for(c, by_ref, refs))
+        # ISO 27037 §5.4.1 applied to the claim itself: reducing what is asserted alters the
+        # evidence subject, so it must carry a written justification. An unjustified reduction is
+        # a finding — this is the control that would have caught me narrowing six hook surfaces to
+        # make `surface_validated` pass.
+        claim_retractions = _scope_retractions(loaded.entries, c)
+        unjustified = [r for r in claim_retractions if not r.justified]
+        surface_findings = list(surface_findings) + [r.describe() for r in unjustified]
         rows.append({
             "id": c["id"],
             "milestone": c.get("milestone"),
@@ -483,6 +583,7 @@ def check(key: ChainKey | None, ledger: Path = DEFAULT_LEDGER) -> dict:
             "dead": dead,
             "superseded": superseded,
             "surface_findings": surface_findings,
+            "scope_retractions": [r.to_dict() for r in claim_retractions],
             "unvalidated_surfaces": unvalidated,
             "proven": (bool(live) and chain_ok and kind_ok and has_procedure
                        and not surface_findings),
@@ -630,7 +731,13 @@ def attest_self(
     # So the axes are reported separately instead of one being folded into another.
     judge = result.get("judge") or {}
     unvalidated = sorted({s for r in result["rows"] for s in (r.get("unvalidated_surfaces") or [])})
+    all_retractions = [r for row in result["rows"] for r in (row.get("scope_retractions") or [])]
+    unjustified_retractions = [r for r in all_retractions if not r.get("justified")]
     result["assurance"] = {
+        # Reported beside the verdict on purpose: a reader must be able to see that a claim got
+        # smaller in the same breath as the number got better.
+        "scope_retractions": len(all_retractions),
+        "scope_retractions_unjustified": len(unjustified_retractions),
         "executed": bool(result["ok"]),
         "chain_verified": bool(result["chain_keyed"] and result["chain_intact"]),
         "surface_validated": not unvalidated,

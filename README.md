@@ -1,7 +1,7 @@
 # STOP-GUESSING
 
 <!-- BEGIN GENERATED STATUS -->
-**Version 0.4.0 — `stop-guessing attest --self` reports SELF-ATTESTATION INCOMPLETE: 21/21 claims
+**Version 0.5.0 — `stop-guessing attest --self` reports SELF-ATTESTATION INCOMPLETE: 21/21 claims
 executed, witnessed and chain-verified on the maintainer's machine.**
 
 **This is self-attestation. It has not been independently verified, and the gate that produces it
@@ -19,7 +19,7 @@ headline is exactly who they matter to.**
 
 **What this gate does not establish.** An independent hardening audit on 2026-08-04
 raised 54 findings. Each was re-verified against source rather than accepted; the current state,
-generated from [`docs/audit-status.json`](docs/audit-status.json) at commit `367ba47`, is
+generated from [`docs/audit-status.json`](docs/audit-status.json) at commit `d7a68d8`, is
 **1 confirmed outstanding, 53 fixed, 0 unverified** (no static
 predicate — those need a live adversarial test and are not counted as passing).
 
@@ -104,6 +104,77 @@ configured; a second gate asking again is a recorder overriding the decision its
 Full depth is the default and is never silently reduced. Where fidelity is genuinely reduced it is recorded — `known_gaps: []` is a positive assertion that nothing was skipped, and a *missing* key is rejected at write.
 
 Removable at four levels — posture, per-rule, per-project, and full uninstall — none of which destroys the accumulated ledger.
+
+## The scope ratchet — a claim cannot quietly get smaller
+
+Most integrity tooling watches whether a claim *changed*. This watches whether it got **smaller**,
+and whether anyone said why. The two are not the same, and the difference is where self-assessment
+usually fails.
+
+The failure mode is specific, and every individual step looks like diligent housekeeping:
+
+> the party being measured quietly reduces what is asserted,
+> the measurement improves,
+> and nothing connects those two facts.
+
+This feature exists because the toolchain failed to catch its own author. While closing an audit
+finding, the surfaces a claim declared — six `hook:` entries, `plugin:`, `skill:`, two
+`command:` entries, and two CLI commands that had not been built — were withdrawn from
+`docs/claims.yaml` on the grounds that the proofs did not exercise them. That was true. It was also
+what flipped the `surface_validated` assurance axis to true. The claim-definition digest noticed the
+claims had *changed* and invalidated the affected proofs, which is correct and insufficient: it has
+no notion of direction, so broadening and narrowing look identical to it. A human reader caught it
+by asking whether the goal had moved.
+
+**It is an ISO/IEC 27037 §5.4.1 alteration, not a new concept.** §5.4.1 requires that any
+unavoidable alteration to evidence be recorded *with written justification*, and this record schema
+already makes `alterations` a Tier-A required field so `[]` is a positive assertion and a missing
+key means nobody looked. Reducing what a claim asserts alters the evidence subject. Performing that
+alteration by editing YAML recorded nothing — the tool mandated the mechanism, and the edit went
+around it.
+
+So scope is a **ratchet**. Each claim's declared surfaces and AICM control mappings are written to
+the ledger on every proof run. Scope may grow freely. It may shrink only through an explicit
+retraction carrying a reason:
+
+```bash
+stop-guessing retract --claim CLAIM-11 --field surface \
+  --removed hook:PreCompact \
+  --reason "the proof exercises rebuild() directly and does not drive the hook"
+```
+
+An unrecorded shrink is a **finding** on `claims check`, reported beside the verdict — so a reader
+sees the claim got smaller in the same breath as the number got better:
+
+```
+UNPROVEN CLAIM-01  M4  live-run  0 proof(s)
+  !! the claim definition changed after this proof was issued
+  !! CLAIM-01 no longer asserts surface: hook:PostToolUse — NO RECORDED RETRACTION.
+     Scope was reduced without a stated reason; if a verdict improved in the same change,
+     that is the trade this check exists to surface.
+```
+
+Four properties are deliberate:
+
+- **High-water, not last-value.** Measured against the largest scope ever asserted, because nobody
+  removes ten things at once — they remove one per commit.
+- **Narrowing stays legal.** A claim that overreaches *should* be cut back, and this project has
+  done that correctly several times. What is forbidden is narrowing *silently*.
+- **Editing the file still works.** Locking `claims.yaml` would be theatre — it is a text file. What
+  changed is that the silent path now leads somewhere visible instead of nowhere.
+- **A retraction with no reason is refused at the source**, and an empty reason justifies nothing.
+
+What it does not do: it cannot catch a claim whose *statement text* is weakened while its surfaces
+stay constant — that is detected as a definition change, which invalidates the claim's proofs, but
+is not identified as a *reduction*, because comparing two prose assertions for strength is not
+mechanically decidable here. That limitation is written into `known_gaps` on **every** scope record
+rather than described only in prose, since `known_gaps: []` is a positive assertion that nothing was
+skipped and writing `[]` while knowing about the gap would be the same overclaim one level up.
+
+The restored surfaces were then fixed the other way — `stop-guessing demo --posture steer` and
+`stop-guessing record emit` were **built**, the `hook:` surfaces are now **driven as real
+subprocesses** through the entry point `install.sh` registers, and `/no-noodle` and
+`/noodle-options` are vendored and installed by both paths.
 
 ## Relationship to no-noodles
 

@@ -126,13 +126,28 @@ def test_a_registered_hook_still_fails_unless_the_proof_exercised_it(monkeypatch
     assert unvalidated == []
 
 
-def test_non_hook_surfaces_are_reported_unvalidated_not_passed(monkeypatch):
-    """A surface nobody checked must read as unchecked — the known_gaps rule."""
+def test_cli_surfaces_must_be_executed_and_host_surfaces_read_as_unchecked(monkeypatch):
+    """R2-003/R2-039. `cli:` moved from unvalidated to executed; host-loaded surfaces did not.
+
+    This test previously asserted that a `cli:` surface was merely *reported* unvalidated and did
+    not block — which is the defect: 21 declared commands were never run, and four of them did not
+    exist. A CLI surface is executable from a proof run, so it must be executed. A plugin, skill or
+    slash command is loaded by the HOST and cannot be, so it stays unchecked rather than passed.
+    """
     monkeypatch.setattr(runner, "registered_hook_events", lambda root=None: {"PreToolUse"})
+
     findings, unvalidated = runner._surface_findings(
-        {"id": "CLAIM-01", "surface": ["cli:stop-guessing attest", "skill:custody"]})
-    assert findings == [], "undecidable surfaces must not block"
-    assert set(unvalidated) == {"cli:stop-guessing attest", "skill:custody"}
+        {"id": "CLAIM-01", "surface": ['cli:"stop-guessing attest"', "skill:custody"]},
+        exercised=set())
+    assert findings, "an unexecuted cli surface must block"
+    assert "did not execute" in findings[0]
+    assert unvalidated == ["skill:custody"], "host-loaded surfaces stay unchecked, not passed"
+
+    findings, unvalidated = runner._surface_findings(
+        {"id": "CLAIM-01", "surface": ['cli:"stop-guessing attest"', "skill:custody"]},
+        exercised={'cli:"stop-guessing attest"'})
+    assert findings == [], "an executed cli surface passes"
+    assert unvalidated == ["skill:custody"]
 
 
 def test_every_hook_a_claim_declares_is_actually_registered():

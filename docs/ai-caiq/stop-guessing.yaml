@@ -22,29 +22,34 @@ answers:
   implementation: '`verify --sufficiency` reports `incomplete` and names the unpopulated evidence regime
     rather than claiming sufficiency it cannot back; The carried AI-CAIQ version is inspected on every
     run by parsing cell A1''s JSON blob, not by trusting the sheet name, and a drifted workbook refuses
-    regeneration. SURFACE NARROWED 2026-08-05 (R2-003). This claim previously declared hook:SessionStart;
-    its proof exercises the mechanism directly rather than driving that hook, and registration is not
-    execution. The surface is withdrawn rather than asserted. Deployed-hook behaviour is a separate claim,
-    and it has not been made; Every distributed surface — plugin, skill, slash-command and CLI — is accounted
-    for by a live-run proof recorded in this toolchain''s own ledger. NARROWED 2026-08-04 (SG-HARD-045).
-    "Accounted for" is deliberately weaker than "exercised": CLI surfaces are invoked, but the proof accepts
-    exit code 1 as a successful exercise, runs repository modules rather than a clean marketplace install,
-    and establishes plugin, skill and command surfaces by manifest and file presence rather than by loading
-    or invoking them. Clean-environment black-box matrices are required before this claims per-surface
-    behaviour. Proven by 3 record(s) in this toolchain''s own keyed chain-of-custody ledger (sg:851:22f751f9dc2fae59,
-    sg:859:02e44cb93e7a4560, sg:865:17fce297e11b3fd7), each produced by an executable procedure and re-verified
-    by `stop-guessing claims check`.'
+    regeneration. SURFACE RESTORED 2026-08-05: hook:SessionStart was withdrawn from this claim while closing
+    an audit finding, which narrowed the claim to fit the metric instead of reporting that the proof does
+    not drive the deployed hook. It is declared again and is NOT exercised, so this claim is UNPROVEN
+    until a proof drives the hook in a real process; Every distributed surface — plugin, skill, slash-command
+    and CLI — is accounted for by a live-run proof recorded in this toolchain''s own ledger. NARROWED
+    2026-08-04 (SG-HARD-045). "Accounted for" is deliberately weaker than "exercised": CLI surfaces are
+    invoked, but the proof accepts exit code 1 as a successful exercise, runs repository modules rather
+    than a clean marketplace install, and establishes plugin, skill and command surfaces by manifest and
+    file presence rather than by loading or invoking them. Clean-environment black-box matrices are required
+    before this claims per-surface behaviour. SURFACE RESTORED 2026-08-05: plugin:stop-guessing, skill:stop-guessing,
+    command:/custody was removed from this claim while closing an audit finding, which narrowed the assertion
+    to fit the metric rather than reporting the gap. IMPLEMENTATION_PLAN.md §2.1 names plugins, skills
+    and slash-commands as things that must be PROVEN TO RUN, and §15 names `demo` as the single command
+    a reviewer runs. The surface is declared again and is NOT exercised: `surface_validated` is false
+    because it is false. Proven by 3 record(s) in this toolchain''s own keyed chain-of-custody ledger
+    (sg:1251:c9b8e88a9b11e91d, sg:1267:b962d2e4c1d7f35c, sg:1279:40ffa82d48d50a14), each produced by an
+    executable procedure and re-verified by `stop-guessing claims check`.'
   claims:
   - CLAIM-06
   - CLAIM-14
   - CLAIM-20
   evidence:
   - type: ledger
-    ref: sg:851:22f751f9dc2fae59
+    ref: sg:1251:c9b8e88a9b11e91d
   - type: ledger
-    ref: sg:859:02e44cb93e7a4560
+    ref: sg:1267:b962d2e4c1d7f35c
   - type: ledger
-    ref: sg:865:17fce297e11b3fd7
+    ref: sg:1279:40ffa82d48d50a14
 - control: CCC-01
   answer: 'Yes'
   ssrm: Owned by OSP
@@ -57,74 +62,89 @@ answers:
     every payload in the corpus produces an identical (exit_code, stdout) through the dispatcher as through
     the standalone hooks; Every no-noodles surface keeps working after supersession — the three escape
     markers, the config chain, `grant_session_trust.sh`, `/no-noodle`, `/noodle-options`, and `risk_summary.py`
-    parsing `observations.jsonl`. Proven by 3 record(s) in this toolchain''s own keyed chain-of-custody
-    ledger (sg:854:8892fdc4cc4bee3f, sg:861:7004f70221a62847, sg:862:1c8867ccb0cdaa2a), each produced
-    by an executable procedure and re-verified by `stop-guessing claims check`.'
+    parsing `observations.jsonl`. SURFACE RESTORED 2026-08-05: command:/no-noodle, command:/noodle-options
+    was removed from this claim while closing an audit finding, which narrowed the assertion to fit the
+    metric rather than reporting the gap. IMPLEMENTATION_PLAN.md §2.1 names plugins, skills and slash-commands
+    as things that must be PROVEN TO RUN, and §15 names `demo` as the single command a reviewer runs.
+    The surface is declared again and is NOT exercised: `surface_validated` is false because it is false.
+    Proven by 3 record(s) in this toolchain''s own keyed chain-of-custody ledger (sg:1257:2e437463cee9c902,
+    sg:1271:16f320f0608ba99d, sg:1273:17cc306d3ae0e12c), each produced by an executable procedure and
+    re-verified by `stop-guessing claims check`.'
   claims:
   - CLAIM-09
   - CLAIM-16
   - CLAIM-17
   evidence:
   - type: ledger
-    ref: sg:854:8892fdc4cc4bee3f
+    ref: sg:1257:2e437463cee9c902
   - type: ledger
-    ref: sg:861:7004f70221a62847
+    ref: sg:1271:16f320f0608ba99d
   - type: ledger
-    ref: sg:862:1c8867ccb0cdaa2a
+    ref: sg:1273:17cc306d3ae0e12c
 - control: DSP-05
   answer: 'Yes'
   ssrm: Owned by OSP
   implementation: 'The ledger records data flow, not only actions: a read, a transform and a write are
     linked by an explicit derivation edge naming the artifacts and the script that joined them. SURFACE
-    NARROWED 2026-08-05 (R2-003). This claim previously declared hook:PostToolUse; its proof exercises
-    the mechanism directly rather than driving that hook, and registration is not execution. The surface
-    is withdrawn rather than asserted. Deployed-hook behaviour is a separate claim, and it has not been
-    made; No statically detectable network call site exists in the shipped Python package except the named
-    opt-in anchoring exception. This is a source audit, not a proof of no network activity. It cannot
-    see indirect subprocess calls, shell network programs, dynamic imports or commands assembled at runtime.
-    SUB-CLAIM WITHDRAWN 2026-08-04 (SG-HARD-039): this also asserted "and CI performs no fetch", which
-    is false. CI runs actions/checkout, actions/setup-python and pip install, every one of which resolves
-    a remote action or package. The proof equated the absence of literal curl and wget text with the absence
-    of fetching. Build-time dependency retrieval is real and is not claimed away. Proven by 2 record(s)
-    in this toolchain''s own keyed chain-of-custody ledger (sg:846:90609585c37284cb, sg:863:c55bb0a4b78ade09),
-    each produced by an executable procedure and re-verified by `stop-guessing claims check`.'
+    RESTORED 2026-08-05: hook:PostToolUse was withdrawn from this claim while closing an audit finding,
+    which narrowed the claim to fit the metric instead of reporting that the proof does not drive the
+    deployed hook. It is declared again and is NOT exercised, so this claim is UNPROVEN until a proof
+    drives the hook in a real process; No statically detectable network call site exists in the shipped
+    Python package except the named opt-in anchoring exception. This is a source audit, not a proof of
+    no network activity. It cannot see indirect subprocess calls, shell network programs, dynamic imports
+    or commands assembled at runtime. SUB-CLAIM WITHDRAWN 2026-08-04 (SG-HARD-039): this also asserted
+    "and CI performs no fetch", which is false. CI runs actions/checkout, actions/setup-python and pip
+    install, every one of which resolves a remote action or package. The proof equated the absence of
+    literal curl and wget text with the absence of fetching. Build-time dependency retrieval is real and
+    is not claimed away. SURFACE CORRECTED 2026-08-05 (R2-003/R2-039): this claim declared cli:"stop-guessing
+    doctor --network", which the CLI does not provide — argparse rejects it. Replaced with cli:"stop-guessing
+    doctor". A claim naming a command that does not exist is an overclaim, and it survived because non-hook
+    surfaces were never executed. Proven by 2 record(s) in this toolchain''s own keyed chain-of-custody
+    ledger (sg:1241:53d48a71bce84e54, sg:1275:62cfef10ed45a048), each produced by an executable procedure
+    and re-verified by `stop-guessing claims check`.'
   claims:
   - CLAIM-01
   - CLAIM-18
   evidence:
   - type: ledger
-    ref: sg:846:90609585c37284cb
+    ref: sg:1241:53d48a71bce84e54
   - type: ledger
-    ref: sg:863:c55bb0a4b78ade09
+    ref: sg:1275:62cfef10ed45a048
 - control: DSP-20
   answer: 'Yes'
   ssrm: Owned by OSP
   implementation: 'The ledger records data flow, not only actions: a read, a transform and a write are
     linked by an explicit derivation edge naming the artifacts and the script that joined them. SURFACE
-    NARROWED 2026-08-05 (R2-003). This claim previously declared hook:PostToolUse; its proof exercises
-    the mechanism directly rather than driving that hook, and registration is not execution. The surface
-    is withdrawn rather than asserted. Deployed-hook behaviour is a separate claim, and it has not been
-    made; Accumulated session taint denies an egress that the identical call would have been allowed to
-    make earlier in the same session, the denial names the contributing artifacts, and this holds through
-    the real hook across separate processes and with the state cache deleted; `steer` asks on first touch
-    of a classified artifact and offers a recorded script delegation; it does not deny the first read.
-    SURFACE NARROWED 2026-08-05 (R2-003). This claim previously declared hook:PreToolUse; its proof exercises
-    the mechanism directly rather than driving that hook, and registration is not execution. The surface
-    is withdrawn rather than asserted. Deployed-hook behaviour is a separate claim, and it has not been
-    made; The delegation sequence enforces test-before-live-data, and refuses a script whose digest changed
+    RESTORED 2026-08-05: hook:PostToolUse was withdrawn from this claim while closing an audit finding,
+    which narrowed the claim to fit the metric instead of reporting that the proof does not drive the
+    deployed hook. It is declared again and is NOT exercised, so this claim is UNPROVEN until a proof
+    drives the hook in a real process; Accumulated session taint denies an egress that the identical call
+    would have been allowed to make earlier in the same session, the denial names the contributing artifacts,
+    and this holds through the real hook across separate processes and with the state cache deleted. SURFACE
+    RESTORED 2026-08-05: cli:"stop-guessing demo --posture steer" was removed from this claim while closing
+    an audit finding, which narrowed the assertion to fit the metric rather than reporting the gap. IMPLEMENTATION_PLAN.md
+    §2.1 names plugins, skills and slash-commands as things that must be PROVEN TO RUN, and §15 names
+    `demo` as the single command a reviewer runs. The surface is declared again and is NOT exercised:
+    `surface_validated` is false because it is false; `steer` asks on first touch of a classified artifact
+    and offers a recorded script delegation; it does not deny the first read. SURFACE RESTORED 2026-08-05:
+    hook:PreToolUse was withdrawn from this claim while closing an audit finding, which narrowed the claim
+    to fit the metric instead of reporting that the proof does not drive the deployed hook. It is declared
+    again and is NOT exercised, so this claim is UNPROVEN until a proof drives the hook in a real process;
+    The delegation sequence enforces test-before-live-data, and refuses a script whose digest changed
     after its test passed. NARROWED 2026-08-04 (SG-HARD-018/019). This holds against a cooperative script,
     not an adversarial one. The security subject is a mutable pathname, so a concurrent replacer can swap
     the bytes between the digest check and execution; and the paired test itself runs unsigned and can
     rewrite the script it has just certified. Immutable content-addressed execution is required before
     this is a security property rather than a discipline; Under `bar` the model receives only a handle
-    or summary, and an unsigned script is refused. SURFACE NARROWED 2026-08-05 (R2-003). This claim previously
-    declared hook:PreToolUse; its proof exercises the mechanism directly rather than driving that hook,
-    and registration is not execution. The surface is withdrawn rather than asserted. Deployed-hook behaviour
-    is a separate claim, and it has not been made; The blank AI-CAIQ template is never modified. A fill
-    leaves its digest and mtime unchanged, and an altered template refuses regeneration. Proven by 6 record(s)
-    in this toolchain''s own keyed chain-of-custody ledger (sg:846:90609585c37284cb, sg:852:a9fb3c60b2fa3a61,
-    sg:853:e97f062f71d01a32, sg:854:8892fdc4cc4bee3f, sg:855:71a7902ef91a590d, sg:860:1309b4778cefca07),
-    each produced by an executable procedure and re-verified by `stop-guessing claims check`.'
+    or summary, and an unsigned script is refused. SURFACE RESTORED 2026-08-05: hook:PreToolUse was withdrawn
+    from this claim while closing an audit finding, which narrowed the claim to fit the metric instead
+    of reporting that the proof does not drive the deployed hook. It is declared again and is NOT exercised,
+    so this claim is UNPROVEN until a proof drives the hook in a real process; The blank AI-CAIQ template
+    is never modified. A fill leaves its digest and mtime unchanged, and an altered template refuses regeneration.
+    Proven by 6 record(s) in this toolchain''s own keyed chain-of-custody ledger (sg:1241:53d48a71bce84e54,
+    sg:1253:ce188adc8c45053e, sg:1255:dbd256da1b8149d7, sg:1257:2e437463cee9c902, sg:1259:0ce46ab15368c1a0,
+    sg:1269:9a568ef8d688b310), each produced by an executable procedure and re-verified by `stop-guessing
+    claims check`.'
   claims:
   - CLAIM-01
   - CLAIM-07
@@ -134,17 +154,17 @@ answers:
   - CLAIM-15
   evidence:
   - type: ledger
-    ref: sg:846:90609585c37284cb
+    ref: sg:1241:53d48a71bce84e54
   - type: ledger
-    ref: sg:852:a9fb3c60b2fa3a61
+    ref: sg:1253:ce188adc8c45053e
   - type: ledger
-    ref: sg:853:e97f062f71d01a32
+    ref: sg:1255:dbd256da1b8149d7
   - type: ledger
-    ref: sg:854:8892fdc4cc4bee3f
+    ref: sg:1257:2e437463cee9c902
   - type: ledger
-    ref: sg:855:71a7902ef91a590d
+    ref: sg:1259:0ce46ab15368c1a0
   - type: ledger
-    ref: sg:860:1309b4778cefca07
+    ref: sg:1269:9a568ef8d688b310
 - control: I&S-01
   answer: 'Yes'
   ssrm: Owned by OSP
@@ -154,30 +174,37 @@ answers:
     at runtime. SUB-CLAIM WITHDRAWN 2026-08-04 (SG-HARD-039): this also asserted "and CI performs no fetch",
     which is false. CI runs actions/checkout, actions/setup-python and pip install, every one of which
     resolves a remote action or package. The proof equated the absence of literal curl and wget text with
-    the absence of fetching. Build-time dependency retrieval is real and is not claimed away. Proven by
-    1 record(s) in this toolchain''s own keyed chain-of-custody ledger (sg:863:c55bb0a4b78ade09), each
-    produced by an executable procedure and re-verified by `stop-guessing claims check`.'
+    the absence of fetching. Build-time dependency retrieval is real and is not claimed away. SURFACE
+    CORRECTED 2026-08-05 (R2-003/R2-039): this claim declared cli:"stop-guessing doctor --network", which
+    the CLI does not provide — argparse rejects it. Replaced with cli:"stop-guessing doctor". A claim
+    naming a command that does not exist is an overclaim, and it survived because non-hook surfaces were
+    never executed. Proven by 1 record(s) in this toolchain''s own keyed chain-of-custody ledger (sg:1275:62cfef10ed45a048),
+    each produced by an executable procedure and re-verified by `stop-guessing claims check`.'
   claims:
   - CLAIM-18
   evidence:
   - type: ledger
-    ref: sg:863:c55bb0a4b78ade09
+    ref: sg:1275:62cfef10ed45a048
 - control: LOG-03
   answer: 'Yes'
   ssrm: Owned by OSP
   implementation: 'A keyed chain defeats truncate-and-recompute. Without the session key held in the OS
     keychain, a forged chain that is internally consistent still fails verification; A record missing
     the `alterations` key is refused at write, while `alterations: []` is accepted — an empty list asserts
-    nothing was altered, a missing key means nobody looked; `verify --sufficiency` reports `incomplete`
-    and names the unpopulated evidence regime rather than claiming sufficiency it cannot back; Execution
-    claims made by the agent are reconciled against the hook-side dispatch ledger; a fabricated or replayed
-    claim is detected and escalated to a human. SURFACE NARROWED 2026-08-05 (R2-003). This claim previously
-    declared hook:Stop; its proof exercises the mechanism directly rather than driving that hook, and
-    registration is not execution. The surface is withdrawn rather than asserted. Deployed-hook behaviour
-    is a separate claim, and it has not been made. Proven by 4 record(s) in this toolchain''s own keyed
-    chain-of-custody ledger (sg:847:41824c299ad00074, sg:850:3dc422f62c5bd481, sg:851:22f751f9dc2fae59,
-    sg:858:3831940b083ee1b4), each produced by an executable procedure and re-verified by `stop-guessing
-    claims check`.'
+    nothing was altered, a missing key means nobody looked. SURFACE RESTORED 2026-08-05: cli:"stop-guessing
+    record emit" was removed from this claim while closing an audit finding, which narrowed the assertion
+    to fit the metric rather than reporting the gap. IMPLEMENTATION_PLAN.md §2.1 names plugins, skills
+    and slash-commands as things that must be PROVEN TO RUN, and §15 names `demo` as the single command
+    a reviewer runs. The surface is declared again and is NOT exercised: `surface_validated` is false
+    because it is false; `verify --sufficiency` reports `incomplete` and names the unpopulated evidence
+    regime rather than claiming sufficiency it cannot back; Execution claims made by the agent are reconciled
+    against the hook-side dispatch ledger; a fabricated or replayed claim is detected and escalated to
+    a human. SURFACE RESTORED 2026-08-05: hook:Stop was withdrawn from this claim while closing an audit
+    finding, which narrowed the claim to fit the metric instead of reporting that the proof does not drive
+    the deployed hook. It is declared again and is NOT exercised, so this claim is UNPROVEN until a proof
+    drives the hook in a real process. Proven by 4 record(s) in this toolchain''s own keyed chain-of-custody
+    ledger (sg:1243:9a7637ff3b5ee4ff, sg:1249:3a2de856d5ca6a8e, sg:1251:c9b8e88a9b11e91d, sg:1265:aefda3c1e886576a),
+    each produced by an executable procedure and re-verified by `stop-guessing claims check`.'
   claims:
   - CLAIM-02
   - CLAIM-05
@@ -185,13 +212,13 @@ answers:
   - CLAIM-13
   evidence:
   - type: ledger
-    ref: sg:847:41824c299ad00074
+    ref: sg:1243:9a7637ff3b5ee4ff
   - type: ledger
-    ref: sg:850:3dc422f62c5bd481
+    ref: sg:1249:3a2de856d5ca6a8e
   - type: ledger
-    ref: sg:851:22f751f9dc2fae59
+    ref: sg:1251:c9b8e88a9b11e91d
   - type: ledger
-    ref: sg:858:3831940b083ee1b4
+    ref: sg:1265:aefda3c1e886576a
 - control: LOG-10
   answer: 'Yes'
   ssrm: Owned by OSP
@@ -208,9 +235,9 @@ answers:
     The blank AI-CAIQ template is never modified. A fill leaves its digest and mtime unchanged, and an
     altered template refuses regeneration; A full uninstall removes hooks and registrations while preserving
     the accumulated ledger and observation log. Proven by 6 record(s) in this toolchain's own keyed chain-of-custody
-    ledger (sg:847:41824c299ad00074, sg:848:b5df7a32140d368c, sg:849:47e3eb06a6e56040, sg:857:ddf9c21d14dc3079,
-    sg:860:1309b4778cefca07, sg:864:18e115ac5361c74c), each produced by an executable procedure and re-verified
-    by `stop-guessing claims check`.
+    ledger (sg:1243:9a7637ff3b5ee4ff, sg:1245:836310689b1fc489, sg:1247:d2756310f2ecfa67, sg:1263:84b55825f80b1720,
+    sg:1269:9a568ef8d688b310, sg:1277:21eaeadba806469a), each produced by an executable procedure and
+    re-verified by `stop-guessing claims check`.
   claims:
   - CLAIM-02
   - CLAIM-03
@@ -220,17 +247,17 @@ answers:
   - CLAIM-19
   evidence:
   - type: ledger
-    ref: sg:847:41824c299ad00074
+    ref: sg:1243:9a7637ff3b5ee4ff
   - type: ledger
-    ref: sg:848:b5df7a32140d368c
+    ref: sg:1245:836310689b1fc489
   - type: ledger
-    ref: sg:849:47e3eb06a6e56040
+    ref: sg:1247:d2756310f2ecfa67
   - type: ledger
-    ref: sg:857:ddf9c21d14dc3079
+    ref: sg:1263:84b55825f80b1720
   - type: ledger
-    ref: sg:860:1309b4778cefca07
+    ref: sg:1269:9a568ef8d688b310
   - type: ledger
-    ref: sg:864:18e115ac5361c74c
+    ref: sg:1277:21eaeadba806469a
 - control: LOG-12
   answer: 'No'
   ssrm: Owned by OSP
@@ -241,36 +268,37 @@ answers:
   - CLAIM-04
   evidence:
   - type: ledger
-    ref: sg:849:47e3eb06a6e56040
+    ref: sg:1247:d2756310f2ecfa67
 - control: MDS-13
   answer: 'Yes'
   ssrm: Owned by OSP
-  implementation: Under `bar` the model receives only a handle or summary, and an unsigned script is refused.
-    SURFACE NARROWED 2026-08-05 (R2-003). This claim previously declared hook:PreToolUse; its proof exercises
-    the mechanism directly rather than driving that hook, and registration is not execution. The surface
-    is withdrawn rather than asserted. Deployed-hook behaviour is a separate claim, and it has not been
-    made. Proven by 1 record(s) in this toolchain's own keyed chain-of-custody ledger (sg:855:71a7902ef91a590d),
-    each produced by an executable procedure and re-verified by `stop-guessing claims check`.
+  implementation: 'Under `bar` the model receives only a handle or summary, and an unsigned script is
+    refused. SURFACE RESTORED 2026-08-05: hook:PreToolUse was withdrawn from this claim while closing
+    an audit finding, which narrowed the claim to fit the metric instead of reporting that the proof does
+    not drive the deployed hook. It is declared again and is NOT exercised, so this claim is UNPROVEN
+    until a proof drives the hook in a real process. Proven by 1 record(s) in this toolchain''s own keyed
+    chain-of-custody ledger (sg:1259:0ce46ab15368c1a0), each produced by an executable procedure and re-verified
+    by `stop-guessing claims check`.'
   claims:
   - CLAIM-10
   evidence:
   - type: ledger
-    ref: sg:855:71a7902ef91a590d
+    ref: sg:1259:0ce46ab15368c1a0
 - control: SEF-01
   answer: 'Yes'
   ssrm: Owned by OSP
-  implementation: Execution claims made by the agent are reconciled against the hook-side dispatch ledger;
-    a fabricated or replayed claim is detected and escalated to a human. SURFACE NARROWED 2026-08-05 (R2-003).
-    This claim previously declared hook:Stop; its proof exercises the mechanism directly rather than driving
-    that hook, and registration is not execution. The surface is withdrawn rather than asserted. Deployed-hook
-    behaviour is a separate claim, and it has not been made. Proven by 1 record(s) in this toolchain's
-    own keyed chain-of-custody ledger (sg:858:3831940b083ee1b4), each produced by an executable procedure
-    and re-verified by `stop-guessing claims check`.
+  implementation: 'Execution claims made by the agent are reconciled against the hook-side dispatch ledger;
+    a fabricated or replayed claim is detected and escalated to a human. SURFACE RESTORED 2026-08-05:
+    hook:Stop was withdrawn from this claim while closing an audit finding, which narrowed the claim to
+    fit the metric instead of reporting that the proof does not drive the deployed hook. It is declared
+    again and is NOT exercised, so this claim is UNPROVEN until a proof drives the hook in a real process.
+    Proven by 1 record(s) in this toolchain''s own keyed chain-of-custody ledger (sg:1265:aefda3c1e886576a),
+    each produced by an executable procedure and re-verified by `stop-guessing claims check`.'
   claims:
   - CLAIM-13
   evidence:
   - type: ledger
-    ref: sg:858:3831940b083ee1b4
+    ref: sg:1265:aefda3c1e886576a
 - control: STA-09
   answer: 'No'
   ssrm: Owned by OSP
@@ -282,9 +310,9 @@ answers:
   - CLAIM-20
   evidence:
   - type: ledger
-    ref: sg:859:02e44cb93e7a4560
+    ref: sg:1267:b962d2e4c1d7f35c
   - type: ledger
-    ref: sg:865:17fce297e11b3fd7
+    ref: sg:1279:40ffa82d48d50a14
 proposed_agentic_controls:
   note: 'CSA''s DRAFT agentic controls (labs.cloudsecurityalliance.org). Proposed, not published: they
     do not exist in the AICM v1.1.0 workbook and are NOT written into it. Recorded here because the evidence
@@ -299,46 +327,52 @@ proposed_agentic_controls:
       can actually deliver (0 and 1) the recorder runs under the agent's own uid, the chain key is a mode-600
       file that anything the agent runs can read, and the socket authenticates ordering rather than the
       caller. The four named attacks are refused or detected. An agent that simply reads the key is not
-      among them. Proven by 1 record(s) in this toolchain's own keyed chain-of-custody ledger (sg:857:ddf9c21d14dc3079),
+      among them. Proven by 1 record(s) in this toolchain's own keyed chain-of-custody ledger (sg:1263:84b55825f80b1720),
       each produced by an executable procedure and re-verified by `stop-guessing claims check`.
     claims:
     - CLAIM-12
     evidence:
     - type: ledger
-      ref: sg:857:ddf9c21d14dc3079
+      ref: sg:1263:84b55825f80b1720
   - control: LOG-AG-01
     answer: 'Yes'
     ssrm: Owned by OSP
     implementation: 'The ledger records data flow, not only actions: a read, a transform and a write are
       linked by an explicit derivation edge naming the artifacts and the script that joined them. SURFACE
-      NARROWED 2026-08-05 (R2-003). This claim previously declared hook:PostToolUse; its proof exercises
-      the mechanism directly rather than driving that hook, and registration is not execution. The surface
-      is withdrawn rather than asserted. Deployed-hook behaviour is a separate claim, and it has not been
-      made; Session custody state rebuilt from the ledger alone reproduces the pre-compaction digest exactly;
-      state never depends on the transcript. SURFACE NARROWED 2026-08-05 (R2-003). This claim previously
-      declared hook:PreCompact; its proof exercises the mechanism directly rather than driving that hook,
-      and registration is not execution. The surface is withdrawn rather than asserted. Deployed-hook
-      behaviour is a separate claim, and it has not been made. Proven by 2 record(s) in this toolchain''s
-      own keyed chain-of-custody ledger (sg:846:90609585c37284cb, sg:856:41f140e203df2d89), each produced
-      by an executable procedure and re-verified by `stop-guessing claims check`.'
+      RESTORED 2026-08-05: hook:PostToolUse was withdrawn from this claim while closing an audit finding,
+      which narrowed the claim to fit the metric instead of reporting that the proof does not drive the
+      deployed hook. It is declared again and is NOT exercised, so this claim is UNPROVEN until a proof
+      drives the hook in a real process; Session custody state rebuilt from the ledger alone reproduces
+      the pre-compaction digest exactly; state never depends on the transcript. SURFACE RESTORED 2026-08-05:
+      hook:PreCompact was withdrawn from this claim while closing an audit finding, which narrowed the
+      claim to fit the metric instead of reporting that the proof does not drive the deployed hook. It
+      is declared again and is NOT exercised, so this claim is UNPROVEN until a proof drives the hook
+      in a real process. Proven by 2 record(s) in this toolchain''s own keyed chain-of-custody ledger
+      (sg:1241:53d48a71bce84e54, sg:1261:c2b7720562614fe0), each produced by an executable procedure and
+      re-verified by `stop-guessing claims check`.'
     claims:
     - CLAIM-01
     - CLAIM-11
     evidence:
     - type: ledger
-      ref: sg:846:90609585c37284cb
+      ref: sg:1241:53d48a71bce84e54
     - type: ledger
-      ref: sg:856:41f140e203df2d89
+      ref: sg:1261:c2b7720562614fe0
   - control: LOG-AG-02
     answer: 'Yes'
     ssrm: Owned by OSP
-    implementation: Accumulated session taint denies an egress that the identical call would have been
+    implementation: 'Accumulated session taint denies an egress that the identical call would have been
       allowed to make earlier in the same session, the denial names the contributing artifacts, and this
-      holds through the real hook across separate processes and with the state cache deleted. Proven by
-      1 record(s) in this toolchain's own keyed chain-of-custody ledger (sg:852:a9fb3c60b2fa3a61), each
-      produced by an executable procedure and re-verified by `stop-guessing claims check`.
+      holds through the real hook across separate processes and with the state cache deleted. SURFACE
+      RESTORED 2026-08-05: cli:"stop-guessing demo --posture steer" was removed from this claim while
+      closing an audit finding, which narrowed the assertion to fit the metric rather than reporting the
+      gap. IMPLEMENTATION_PLAN.md §2.1 names plugins, skills and slash-commands as things that must be
+      PROVEN TO RUN, and §15 names `demo` as the single command a reviewer runs. The surface is declared
+      again and is NOT exercised: `surface_validated` is false because it is false. Proven by 1 record(s)
+      in this toolchain''s own keyed chain-of-custody ledger (sg:1253:ce188adc8c45053e), each produced
+      by an executable procedure and re-verified by `stop-guessing claims check`.'
     claims:
     - CLAIM-07
     evidence:
     - type: ledger
-      ref: sg:852:a9fb3c60b2fa3a61
+      ref: sg:1253:ce188adc8c45053e
