@@ -307,6 +307,17 @@ def build(attest: dict, claims: dict, caiq: dict | None) -> str:
   <code>stop-guessing page check</code> refuses to render when it cannot verify. But read the next
   paragraph before reading the numbers.</p>
 
+  <p class="caption"><a href="https://github.com/mEllergrace/stop-guessing">Repository</a> ·
+  <a href="ai-caiq/AI-CAIQ-stop-guessing-v1.1.0.xlsx">Carried AI-CAIQ</a>
+  (<a href="ai-caiq/stop-guessing.yaml">source</a>) ·
+  <a href="claims.yaml">Claims and their proofs</a> ·
+  <a href="#where-the-ledgers-are">Where the ledgers are</a> ·
+  <a href="#reading-them">Reading them</a><br>
+  The AI-CAIQ is rendered from the proof records and never written by hand: a control answers
+  <code>Yes</code> only where a ledger record supports it. The ledger itself is not published here —
+  it is per-install evidence rather than a document, and records the absolute paths of the machine
+  that produced it. Yours is the only one that says anything about your work.</p>
+
   <blockquote><p><strong>This is self-attestation, not independent certification.</strong> The
   claims are proven by procedures in this repository against a ledger on the maintainer's machine.
   Nobody else has verified them, no auditor has sampled them, and CSA has not assessed this tool.
@@ -499,20 +510,84 @@ so a user who has learned what <code>NO-NOODLE:</code> looks like sees the same 
 <code>/no-noodle</code> and <code>/noodle-options</code>. A 73-case corpus replayed through both
 paths is the acceptance gate.</p>
 
-<h2>Install</h2>
+<h2>Install and remove</h2>
 <pre><code>/plugin marketplace add mEllergrace/stop-guessing
 /plugin install stop-guessing@stop-guessing
 
 # or, for the supersession path and tier-2 isolation
 git clone https://github.com/mEllergrace/stop-guessing
-cd stop-guessing &amp;&amp; ./install.sh --all-profiles --supersede-no-noodles</code></pre>
+cd stop-guessing &amp;&amp; ./install.sh --profile ~/.claude
 
-<p>Three postures ship; the default is <code>observe</code> — records everything, asks nothing. The
-host already has a permission model its operator has configured, and a second gate asking again is
-a recorder overriding a decision its user has already made. <code>steer</code> and <code>bar</code>
-do ask, and are one config key away — opt-in, not removed. Full-depth tracking is the default and
-is never silently reduced. Removable at four levels — posture, per-rule, per-project, full
-uninstall — none of which destroys the accumulated ledger.</p>
+./install.sh --dry-run      # print the exact settings.json diff, change nothing
+./install.sh --uninstall    # remove hooks and registrations</code></pre>
+
+<p><code>--all-profiles</code> installs into every <code>~/.claude*</code> holding a
+<code>settings.json</code>; <code>--supersede-no-noodles</code> removes standalone no-noodles
+PreToolUse entries so the dispatcher runs the vendored rules in their original order;
+<code>--isolated</code> runs the recorder under its own uid. Every write backs up
+<code>settings.json</code> beside itself.</p>
+
+<p><strong><code>--uninstall</code> preserves your evidence.</strong> Hooks and registrations go;
+the ledger, state and observations stay exactly where they are. Removing a recorder should not
+destroy what it recorded.</p>
+
+<h2 id="where-the-ledgers-are">Where the ledgers are</h2>
+<p>Two files, keyed independently — one verifying tells you nothing about the other. Both are
+project-local, so evidence sits beside the work it describes and is attributable by construction.</p>
+<pre><code>&lt;project&gt;/.stop-guessing/ledger/custody.jsonl   what the hooks recorded
+&lt;project&gt;/.stop-guessing/proofs.jsonl           the records every claim cites</code></pre>
+
+<p><code>$STOP_GUESSING_HOME</code> overrides that for a deliberately shared store. Installs
+predating 0.6.1 wrote under <code>$CLAUDE_CONFIG_DIR</code>; that location is still read and still
+reported by <code>doctor</code>. Nothing was moved — relocating evidence without recording the move
+is the alteration this project refuses to perform silently.</p>
+
+<h2 id="reading-them">Reading them</h2>
+<pre><code>stop-guessing ledger verify          # intact, and verified under its key?
+stop-guessing ledger tail -n 20      # recent records
+stop-guessing ledger alerts          # what a human should look at, chain first
+stop-guessing doctor                 # install, recorder, posture, and which layer set it
+stop-guessing verify --sufficiency   # does this ledger answer a governance question?
+stop-guessing export prov|case|otel  # W3C PROV, CASE/UCO, or OpenTelemetry</code></pre>
+
+<p>Verifying without the key reports <code>chain-only</code>, never "tamper-proof": the chain shape
+can be checked by anyone, that the records are yours cannot, and the two are reported separately
+rather than blended. <code>export</code> refuses on a ledger that does not verify — rendering
+unverifiable records into an authoritative-looking format is laundering, not exporting.</p>
+
+<h2>Switching recording on and off</h2>
+<p>Three scopes. Prefer the smallest that covers what you mean: reaching for a machine-wide switch
+to serve a per-project intent is how one project's preference becomes everyone's.</p>
+<pre><code>./.stop-guessing.json                     {{"record": false}}   one project
+$CLAUDE_CONFIG_DIR/stop-guessing.json     {{"record": false}}   one profile
+STOP_GUESSING_DISABLE=1                                       everywhere</code></pre>
+<p>Absent means on, and every hook honours it rather than the gate alone. Whichever scope you use,
+the transition is written to the ledger once — absence of records must never be readable as absence
+of activity.</p>
+
+<h2>The options</h2>
+<p>All of these live in <code>.stop-guessing.json</code>, project-local or in the profile, resolved
+project-first. <code>/custody-options</code> documents the same set from inside a session, and
+<code>stop-guessing doctor</code> reports which layer is actually deciding.</p>
+<table>
+<thead><tr><th>Key</th><th>Values</th><th>Effect</th></tr></thead>
+<tbody>
+<tr><td class="mono">posture</td><td class="mono">observe · steer · bar</td><td>how much the gate
+may interrupt. <code>observe</code> is the default: records everything, asks nothing, because the
+host already has a permission model its operator configured and a second gate asking again is a
+recorder overriding a decision its user has already made</td></tr>
+<tr><td class="mono">record</td><td class="mono">true · false</td><td>whether this project is
+recorded at all</td></tr>
+<tr><td class="mono">protect_ledger</td><td class="mono">true · false</td><td>refuse writes to the
+evidence ledger itself — the one refusal that outlives every posture</td></tr>
+<tr><td class="mono">no_ad_hoc_probes<br>check_before_build<br>risk_scoring</td><td class="mono">no-noodles
+keys</td><td>unchanged, and still read from <code>.no-noodles.json</code> too</td></tr>
+</tbody>
+</table>
+<p><code>$CLAUDE_CONFIG_DIR/managed.json</code> sits above all of it as a floor an operator sets
+outside project write authority. A project may tighten past it and is ignored where it would loosen,
+so the party being recorded cannot weaken the policy it is recorded under. Full-depth tracking is the
+default and is never silently reduced; nothing here destroys the accumulated ledger.</p>
 
 <p><strong>Offline by default.</strong> The shipped package is audited for network call sites and
 has none outside the named opt-in anchoring exception. That is a source audit, not proof of no
@@ -521,11 +596,12 @@ runtime. Sigstore and RFC 3161 anchoring are opt-in and announce themselves.</p>
 
 <footer>
 <p><a href="https://github.com/mEllergrace/stop-guessing">github.com/mEllergrace/stop-guessing</a>
-· Apache-2.0 · aligned to CSA AICM v1.1.0 · <a
-href="https://github.com/mEllergrace/stop-guessing/blob/main/IMPLEMENTATION_PLAN.md">implementation
-plan</a> · <a
-href="https://github.com/mEllergrace/stop-guessing/blob/main/docs/REATTESTATION.md">re-attestation
-runbook</a></p>
+· <a href="ai-caiq/AI-CAIQ-stop-guessing-v1.1.0.xlsx">carried AI-CAIQ</a>
+(<a href="ai-caiq/stop-guessing.yaml">source</a>)
+· <a href="claims.yaml">claims and their proofs</a>
+· <a href="#where-the-ledgers-are">where the ledgers are</a>
+· <a href="REATTESTATION.md">re-attestation runbook</a>
+· Apache-2.0 · aligned to CSA AICM v1.1.0</p>
 <p class="genstamp">Generated by <code>stop-guessing page build</code> from the attestation.
 Not hand-written.</p>
 </footer>

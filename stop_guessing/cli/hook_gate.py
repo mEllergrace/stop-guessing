@@ -123,13 +123,18 @@ def run_vendored(
 def _record_missing_rules(missing: list[str], hooks_dir: Path) -> None:
     """A vendored rule that is not on disk is a critical configuration finding, not a no-op."""
     try:
-        from stop_guessing.attest.keys import discover
+        from stop_guessing.attest.keys import discover, keyid_of_ledger
         from stop_guessing.ledger.sink import record
-        from stop_guessing.recorder.daemon import ledger_path
+        from stop_guessing.paths import ledger_file
 
+        # Same defect as `_record_disabled_once`: this wrote to the config-dir ledger with no
+        # `prefer_keyid`, so the append was refused under a mismatched key and the finding went to
+        # a hook's stderr, which nobody reads. Every one of these paths exists to make something
+        # visible, and each was the thing that disappeared.
         cfg = Path(os.environ.get("CLAUDE_CONFIG_DIR") or os.path.expanduser("~/.claude"))
-        got = discover(config_dir=cfg)
-        record(ledger_path(cfg), {
+        target = ledger_file()
+        got = discover(config_dir=cfg, prefer_keyid=keyid_of_ledger(target))
+        record(target, {
             "op": "recorder.selfcheck",
             "actor": "stop-guessing/hook_gate",
             "severity": "critical",
@@ -151,7 +156,7 @@ def _iso_now() -> str:
     return datetime.now(UTC).isoformat(timespec="milliseconds").replace("+00:00", "Z")
 
 
-def _record_disabled_once() -> None:
+def _record_disabled_once(cwd: str | None = None) -> None:
     """Record that custody recording was switched off, exactly once per profile-day.
 
     Deliberately not once per call: a disabled session makes thousands of tool calls and a
@@ -162,17 +167,25 @@ def _record_disabled_once() -> None:
         cfg = Path(os.environ.get("CLAUDE_CONFIG_DIR") or os.path.expanduser("~/.claude"))
         from stop_guessing.paths import data_home
 
-        stamp = data_home() / f"disabled-{_iso_now()[:10]}.marker"
+        stamp = data_home(cwd) / f"disabled-{_iso_now()[:10]}.marker"
         if stamp.exists():
             return
         stamp.parent.mkdir(parents=True, exist_ok=True)
 
-        from stop_guessing.attest.keys import discover
+        from stop_guessing.attest.keys import discover, keyid_of_ledger
         from stop_guessing.ledger.sink import record
-        from stop_guessing.recorder.daemon import ledger_path
+        from stop_guessing.paths import ledger_file
 
-        got = discover(config_dir=cfg)
-        record(ledger_path(cfg), {
+        # `daemon.ledger_path(cfg)` — the agent's config directory — was missed when the gate's
+        # ledger moved project-local, so the ONE record that says "recording was switched off" was
+        # still being appended somewhere nothing reads. Worse, it was failing: that ledger is keyed
+        # independently, `discover` without `prefer_keyid` picked a key it was not written under,
+        # the append was refused, and the exception handler below printed to stderr — where a hook's
+        # stderr goes unread. The marker that exists so silence is never mistaken for inactivity was
+        # itself silent.
+        target = ledger_file(cwd)
+        got = discover(config_dir=cfg, prefer_keyid=keyid_of_ledger(target))
+        record(target, {
             "op": "recorder.selfcheck",
             "actor": "stop-guessing/hook_gate",
             "severity": "critical",
@@ -506,7 +519,7 @@ def main(argv: list[str] | None = None) -> int:
         # activity" rather than "recording was disabled", which is the more dangerous of the two
         # and is indistinguishable after the fact. Record the transition on the way through — once
         # per session, so a disabled session leaves one clear marker rather than a flood.
-        _record_disabled_once()
+        _record_disabled_once(payload.get("cwd"))
         return 0
 
     if recording_disabled_for(payload.get("cwd")):

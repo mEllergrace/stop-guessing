@@ -120,7 +120,8 @@ DEFAULT_POSTURE_SURFACES = (
 )
 
 
-def _lines_asserting_a_stale_default(text: str, stale: tuple[str, ...]) -> list[str]:
+def _lines_asserting_a_stale_default(text: str, stale: tuple[str, ...],
+                                     default: str = "") -> list[str]:
     """Line numbers and text for every line that ASSERTS a default other than the shipped one.
 
     Split out from the scan so the matcher itself can be tested against the real drifted lines. A
@@ -135,6 +136,14 @@ def _lines_asserting_a_stale_default(text: str, stale: tuple[str, ...]) -> list[
                                         or f"<code>{p}</code>" in low for p in stale)):
             continue
         if "moved from" in low or "superseded" in low or "used to" in low:
+            continue
+        # A line that NAMES the shipped default is marking the right one, however many others it
+        # lists beside it: `observe` (default) / `steer` / `bar` enumerates the postures and asserts
+        # the correct default in the same breath. Without this the guard fires on any table that
+        # documents all three, which is exactly the documentation an operator needs — and a guard
+        # that punishes correct docs gets deleted rather than fixed.
+        if default and (f"`{default}`" in low or f'"{default}"' in low
+                        or f"<code>{default}</code>" in low):
             continue
         hits.append(f"{line_no}: {line.strip()}")
     return hits
@@ -155,6 +164,11 @@ MUST_NOT_FLAG = (
     "The default moved from `steer` to `observe` deliberately.",
     "Full-depth tracking is the default and is never silently reduced.",
     "stop-guessing demo --posture steer   # the whole behaviour, every step citing its record id",
+    # The false positive this guard produced against its own documentation: a table row that
+    # enumerates every posture AND marks the correct default. Punishing that would push the
+    # docs toward saying less, which is the opposite of what the guard is for.
+    "| `posture` | `observe` (default) / `steer` / `bar` | how much the gate may interrupt |",
+    "<td class=\"mono\">observe · steer · bar</td><td>... <code>observe</code> is the default",
 )
 
 
@@ -164,10 +178,10 @@ def test_the_drift_matcher_catches_the_drift_it_was_written_for():
 
     stale = tuple(p for p in POSTURE_ORDER if p != DEFAULT_POSTURE)
     for line in HISTORICAL_DRIFT:
-        assert _lines_asserting_a_stale_default(line, stale), (
+        assert _lines_asserting_a_stale_default(line, stale, DEFAULT_POSTURE), (
             f"the matcher no longer catches a line it was written to catch: {line!r}")
     for line in MUST_NOT_FLAG:
-        assert not _lines_asserting_a_stale_default(line, stale), (
+        assert not _lines_asserting_a_stale_default(line, stale, DEFAULT_POSTURE), (
             f"the matcher flags a legitimate mention of a non-default posture: {line!r}")
 
 
@@ -188,7 +202,7 @@ def test_no_shipped_surface_names_a_different_default():
     offenders = []
     for rel in DEFAULT_POSTURE_SURFACES:
         text = (repo_root() / rel).read_text(encoding="utf-8")
-        offenders += [f"{rel}:{hit}" for hit in _lines_asserting_a_stale_default(text, stale)]
+        offenders += [f"{rel}:{hit}" for hit in _lines_asserting_a_stale_default(text, stale, DEFAULT_POSTURE)]
     assert not offenders, (
         f"the shipped default is `{DEFAULT_POSTURE}`, but these surfaces advertise another:\n"
         + "\n".join(offenders))

@@ -43,6 +43,12 @@ it is no longer written by hand.
 
 Chain-of-custody and data provenance for agentic AI. It exists so that what an agent tells you is not a guess.
 
+**[Repository](https://github.com/mEllergrace/stop-guessing) · [Carried AI-CAIQ](docs/ai-caiq/AI-CAIQ-stop-guessing-v1.1.0.xlsx) ([source](docs/ai-caiq/stop-guessing.yaml)) · [Claims and their proofs](docs/claims.yaml) · [Where the ledgers are](#where-the-ledgers-are) · [Reading them](#reading-them)**
+
+The AI-CAIQ is **rendered from the proof records, never written by hand** — a control answers `Yes` only where a ledger record supports it. Nothing is written in the other direction.
+
+The ledger itself is deliberately not published here. It is per-install evidence, not a document: it records the absolute paths of the machine that produced it, and yours is the only one that says anything about your work. `stop-guessing ledger tail` and `stop-guessing export` read your own; the sections below say where it lives and how to verify it.
+
 > **Provenance is evidentiary, not preventive.** A hash-chained log of an exfiltration is still an exfiltration. STOP-GUESSING records what happened and refuses to claim more than it can prove. It is not a prompt-injection defence and must not be sold as one.
 
 ---
@@ -304,18 +310,98 @@ Full depth is the default and is never silently reduced. Removable at four level
 
 STOP-GUESSING vendors [`moonsoup/no-noodles`](https://github.com/moonsoup/no-noodles) byte-identically and is designed to supersede it, preserving every hook, config key, escape marker, state file and CLI. `# noodle-ok`, `# risk-ok` and `# build-ok:` keep working with identical semantics; `/no-noodle` and `/noodle-options` stay invocable and are installed by both paths. The vendored rules run **first** in their original order, and the first refusal wins and stops — so supersession can never be more permissive than no-noodles was. See §10 of the plan for the full matrix and `stop-guessing compat verify` for the acceptance gate.
 
-## Using it
+## Installing and removing
+
+Two supported paths. They deliver the same hooks; the second also installs a pinned Python runtime and can supersede a standalone no-noodles install.
 
 ```bash
-stop-guessing attest --self          # claims -> proofs -> AICM controls, in one command
-stop-guessing demo --posture steer   # the whole behaviour, every step citing its record id
-stop-guessing doctor                 # installation, recorder, and the effective posture
-stop-guessing ledger verify          # is the chain intact, and verified under its key?
-stop-guessing claims check           # the release gate
-stop-guessing prove                  # re-run every proof procedure
+# marketplace
+/plugin marketplace add mEllergrace/stop-guessing
+/plugin install stop-guessing@stop-guessing
+
+# or from a checkout
+git clone https://github.com/mEllergrace/stop-guessing
+cd stop-guessing && ./install.sh --profile ~/.claude
 ```
 
-Every change means re-earning the attestation. That sequence is not optional and has no shortcut for small changes — see **[docs/REATTESTATION.md](docs/REATTESTATION.md)**, which also lists the three ways to confirm the gate can still fail.
+| Flag | What it does |
+|---|---|
+| `--profile <dir>` | install into one `CLAUDE_CONFIG_DIR` (repeatable) |
+| `--all-profiles` | every `~/.claude*` holding a `settings.json` |
+| `--supersede-no-noodles` | remove standalone no-noodles PreToolUse entries; the dispatcher runs the vendored rules in their original order |
+| `--isolated` | run the recorder under its own uid (isolation tier 2) |
+| `--dry-run` | print the exact `settings.json` diff and change nothing |
+| `--uninstall` | remove hooks and registrations |
+
+**`--uninstall` preserves your evidence.** Hooks and registrations go; the ledger, state and observations stay exactly where they are. Removing a recorder should not destroy what it recorded.
+
+Run `./install.sh --dry-run` first if you want to see the settings diff before anything is written. Every write backs up `settings.json` alongside itself.
+
+## Where the ledgers are
+
+Two files, keyed independently. One verifying tells you nothing about the other.
+
+| | Path | What it holds |
+|---|---|---|
+| Custody | `<project>/.stop-guessing/ledger/custody.jsonl` | what the hooks recorded — every tool call, result and derivation edge |
+| Proofs | `<project>/.stop-guessing/proofs.jsonl` | the proof records every claim in `docs/claims.yaml` cites |
+
+Both are **project-local**: they live beside the work they describe, so one ledger per project, attributable by construction. `$STOP_GUESSING_HOME` overrides that for a deliberately shared store — a single-project machine, or a central collector.
+
+Installs predating 0.6.1 wrote to `$CLAUDE_CONFIG_DIR/stop-guessing/`. That location is still read and still reported by `doctor`; nothing was moved, because relocating evidence without recording the move is the alteration this project refuses to make silently.
+
+## Reading them
+
+```bash
+stop-guessing ledger verify          # is the chain intact, and verified under its key?
+stop-guessing ledger tail -n 20      # recent records
+stop-guessing ledger alerts          # what a human should look at, chain first
+stop-guessing doctor                 # install, recorder, effective posture, and which layer set it
+stop-guessing verify --sufficiency   # does this ledger answer a governance question?
+stop-guessing export prov|case|otel  # render it as W3C PROV, CASE/UCO or OpenTelemetry
+```
+
+**Verifying without the key reports `chain-only`, never "tamper-proof."** The chain shape can be checked by anyone; that the records are yours cannot. The two are reported separately rather than blended.
+
+`export` refuses on a ledger that does not verify. Rendering unverifiable records into an authoritative-looking format is laundering, not exporting.
+
+## Switching recording on and off
+
+Three scopes. Prefer the smallest that covers what you mean — reaching for a machine-wide switch to serve a per-project intent is how one project's preference becomes everyone's.
+
+| Scope | How |
+|---|---|
+| One project | `{"record": false}` in `./.stop-guessing.json` |
+| One profile | `{"record": false}` in `$CLAUDE_CONFIG_DIR/stop-guessing.json` |
+| Everywhere | `STOP_GUESSING_DISABLE=1` in the environment |
+
+Absent means on. Every hook honours it, not just the gate. Whichever scope you use, the transition is written to the ledger once — absence of records must never be readable as absence of activity.
+
+## The options
+
+All of these live in `.stop-guessing.json`, project-local or in the profile, resolved project-first.
+
+| Key | Values | Effect |
+|---|---|---|
+| `posture` | `observe` (default) / `steer` / `bar` | how much the gate may interrupt — see [Postures](#postures) |
+| `record` | `true` (default) / `false` | whether this project is recorded at all |
+| `protect_ledger` | `true` (default) / `false` | refuse writes to the evidence ledger itself |
+| `no_ad_hoc_probes`, `check_before_build`, `risk_scoring` | no-noodles keys | unchanged, and still read from `.no-noodles.json` too |
+
+`$CLAUDE_CONFIG_DIR/managed.json` sits above all of it as a floor an operator sets outside project write authority. A project may tighten past it and is ignored where it would loosen — so the party being recorded cannot weaken the policy it is recorded under.
+
+`/custody-options` documents the same set from inside a session, and `stop-guessing doctor` reports which layer is actually deciding.
+
+## Re-attesting
+
+```bash
+stop-guessing prove                  # re-run every proof procedure
+stop-guessing claims check           # the release gate
+stop-guessing attest --self          # claims -> proofs -> AICM controls, in one command
+stop-guessing demo --posture steer   # the whole behaviour, every step citing its record id
+```
+
+Every change means re-earning the attestation. There is no shortcut for small changes — **[docs/REATTESTATION.md](docs/REATTESTATION.md)** has the sequence and the three ways to confirm the gate can still fail.
 
 ---
 
