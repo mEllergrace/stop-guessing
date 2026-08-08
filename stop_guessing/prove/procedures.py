@@ -2057,6 +2057,14 @@ def exercise_commands(*surfaces: str, ledger=None) -> list[str]:
     `plugin:` is reached transitively and only that far: a command whose defining file lives under
     the plugin root could not have dispatched unless the plugin loaded. `skill:` is not reachable
     this way at all — see `COMMAND_EVIDENCE_KINDS`.
+
+    **Only a HUMAN typing the command produces this evidence.** Measured, not assumed: the boundary
+    is recorded from `UserPromptSubmit`, and an agent invoking the same command through its own tool
+    dispatch never raises that event — it produces `tool.result` records and no command record at
+    all. So these surfaces cannot be self-validated by the agent under audit, which is a property
+    worth having rather than a gap: the one party who must not be able to manufacture this evidence
+    is the party being recorded. It does mean `surface_validated` for `command:` and `plugin:` waits
+    on a real operator, and no amount of agent activity substitutes.
     """
     seen = _command_records(ledger)
     if not seen:
