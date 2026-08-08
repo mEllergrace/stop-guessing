@@ -410,6 +410,14 @@ def main(argv: list[str] | None = None) -> int:
     if handler is None:
         return 0
 
+    # Same reason as `hook_post`: a project switched off must be switched off for every hook, or
+    # the session boundaries, prompt lineage and compaction checkpoints keep accumulating for a
+    # project the operator asked to stop recording. The gate writes the single marker.
+    from stop_guessing.cli.hook_gate import recording_disabled_for
+
+    if recording_disabled_for(payload.get("cwd")):
+        return 0
+
     try:
         handler(payload)
     except Exception as exc:  # noqa: BLE001 - an observer must never break the session

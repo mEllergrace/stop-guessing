@@ -124,6 +124,15 @@ def main(argv: list[str] | None = None) -> int:
         payload = json.loads(raw)
     except (json.JSONDecodeError, UnicodeDecodeError):
         return 0
+
+    # A switch that silenced only the gate would leave this hook still writing results and
+    # derivation edges for a project the operator had switched off — the loudest half of the
+    # recording, still running. The gate writes the one marker; this returns quietly.
+    from stop_guessing.cli.hook_gate import recording_disabled_for
+
+    if recording_disabled_for(payload.get("cwd")):
+        return 0
+
     try:
         record_result(payload)
     except Exception as exc:  # noqa: BLE001

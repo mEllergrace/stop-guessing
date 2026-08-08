@@ -238,6 +238,35 @@ This is the recording half. `exercise_commands()`, which reads these records and
 `exercised_surfaces`, is not written yet — and had to come second, since an exerciser can only read
 evidence something is already writing.
 
+### Added — `{"record": false}`, so one project can stop being recorded
+The only off switch was `$STOP_GUESSING_DISABLE`, which silences the recorder on the whole machine.
+An operator who wanted a single project to stop being recorded — this repository recording itself,
+most obviously — had no way to say that, and the nearest available control was a global one.
+
+That gap has a cost beyond inconvenience, and it was paid in this session: asked to turn the
+dogfooding off, the only mechanism that existed was machine-wide, so a per-project intent became a
+per-machine change without anyone deciding it should be. An option that does not exist gets
+substituted for by whatever is nearest.
+
+`record` sits beside `posture` in `.stop-guessing.json` and follows the same precedence — project
+first, profile as the default beneath it. Absent means `true`, so nothing changes for an install
+that never sets it. Three scopes now exist, and `/custody-options` documents them smallest-first:
+
+| Scope | How |
+|---|---|
+| One project | `{"record": false}` in `./.stop-guessing.json` |
+| One profile | `{"record": false}` in `$CLAUDE_CONFIG_DIR/stop-guessing.json` |
+| Everywhere | `STOP_GUESSING_DISABLE=1` |
+
+Every hook honours it, not just the gate: a switch that silenced the gate alone would leave
+`hook_post` still writing results and derivation edges for a project that had been switched off —
+the loudest half of the recording, still running. The transition is recorded once, for the reason
+#83 established for the global switch: absence of records must never read as absence of activity.
+
+A `managed.json` floor overrides it entirely. That file exists so the recorded party cannot weaken
+the policy it is recorded under (#47), and this key would otherwise be the cleanest possible lever
+for exactly that — one line in a project file to stop being recorded at all.
+
 ### Fixed — the installer health-checked the one thing that needs no dependencies
 `install.sh` validated a staged runtime with `import stop_guessing`, which succeeds with no
 third-party module present: `yaml` is not imported until the gate actually classifies something,

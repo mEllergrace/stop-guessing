@@ -33,6 +33,27 @@ it is recorded under. Absent `managed.json` means no floor, which is the shipped
 `~/.claude` and `~/.claude-ies` resolve independently and a change to one does not reach the other.
 Run `stop-guessing doctor` under a profile to see its effective posture and which layer set it.
 
+## Switching recording off
+
+Three scopes, smallest first. Prefer the smallest one that covers what you mean — reaching for a
+machine-wide switch to serve a per-project intent is how one project's preference becomes everyone's.
+
+| Scope | How |
+|---|---|
+| One project | `{"record": false}` in that project's `./.stop-guessing.json` |
+| One profile | `{"record": false}` in `$CLAUDE_CONFIG_DIR/stop-guessing.json` |
+| Everywhere | `STOP_GUESSING_DISABLE=1` in the environment |
+
+`record` follows the same precedence as `posture` — project first, profile as the default beneath
+it — and absent means `true`, so nothing changes for an installation that never sets it. It is
+honoured by every hook, not only the gate: a switch that silenced the gate alone would leave results
+and derivation edges still being written for a project you had switched off.
+
+Whichever scope you use, the transition is recorded once, because absence of records must never be
+readable as absence of activity. A `managed.json` floor overrides `record` entirely — that file
+exists so the recorded party cannot weaken the policy it is recorded under, and this key would
+otherwise be the cleanest possible lever for exactly that.
+
 no-noodles keys (`no_ad_hoc_probes`, `check_before_build`, `risk_scoring`) keep working
 unchanged, as do `# noodle-ok`, `# risk-ok` and `# build-ok:`.
 

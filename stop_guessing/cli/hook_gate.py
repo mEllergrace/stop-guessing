@@ -189,6 +189,81 @@ def _record_disabled_once() -> None:
               file=sys.stderr)
 
 
+def recording_disabled_for(cwd: str | None) -> bool:
+    """Whether recording is switched off for THIS project — `{"record": false}`.
+
+    The only off switch was `$STOP_GUESSING_DISABLE`, which silences the recorder everywhere. So an
+    operator who wanted one project to stop being recorded — this repository recording itself, most
+    obviously — had no way to say that, and the nearest available control was a global one. Reaching
+    for it is how a per-project intent becomes a machine-wide change.
+
+    Read from the same two layers as `posture`, project first, so a project can switch its own
+    recording off without touching the profile and a profile can set a default for everything under
+    it. Absent means `true`, so nothing that exists today changes.
+
+    Deliberately NOT under the managed floor. `managed.json` exists to stop the recorded party
+    weakening the policy it is recorded under (#47), and this key would be exactly that lever — so a
+    profile that sets a managed floor keeps recording regardless of what a project asks for.
+    """
+    import json as _json
+
+    if _managed_posture():
+        return False
+
+    candidates = []
+    if cwd:
+        candidates.append(Path(cwd) / ".stop-guessing.json")
+    cfg = os.environ.get("CLAUDE_CONFIG_DIR") or os.path.expanduser("~/.claude")
+    candidates.append(Path(cfg) / "stop-guessing.json")
+    for c in candidates:
+        try:
+            v = _json.loads(c.read_text(encoding="utf-8")).get("record")
+        except (OSError, ValueError):
+            continue
+        if isinstance(v, bool):
+            return not v
+    return False
+
+
+def _record_project_disabled_once(cwd: str | None) -> None:
+    """One marker per project per day, for the same reason the global switch writes one.
+
+    Absence of records must never be readable as absence of activity. #83 established that for
+    `$STOP_GUESSING_DISABLE`; a per-project switch has exactly the same failure mode and gets
+    exactly the same treatment.
+    """
+    try:
+        from stop_guessing.paths import data_home
+
+        stamp = data_home(cwd) / f"project-disabled-{_iso_now()[:10]}.marker"
+        if stamp.exists():
+            return
+        stamp.parent.mkdir(parents=True, exist_ok=True)
+
+        from stop_guessing.attest.keys import discover
+        from stop_guessing.ledger.sink import record
+        from stop_guessing.paths import ledger_file
+
+        cfg = Path(os.environ.get("CLAUDE_CONFIG_DIR") or os.path.expanduser("~/.claude"))
+        got = discover(config_dir=cfg)
+        record(ledger_file(cwd), {
+            "op": "recorder.selfcheck",
+            "actor": "stop-guessing/hook_gate",
+            "severity": "critical",
+            "at": _iso_now(),
+            "detail": ('custody recording DISABLED for this project via {"record": false} in '
+                       ".stop-guessing.json. Tool calls from this point are not recorded. Absence "
+                       "of records after this entry means recording was off, not that nothing "
+                       "happened."),
+            "known_gaps": ["custody recording disabled for this project by configuration"],
+            "alterations": [],
+        }, got[0] if got else None)
+        stamp.write_text(_iso_now(), encoding="utf-8")
+    except Exception:  # noqa: BLE001 - the disable path must never break the tool call
+        print("STOP-GUESSING: custody recording is DISABLED for this project",
+              file=sys.stderr)
+
+
 def emit_deny(reason: str) -> None:
     """The structured channel no existing hook in this estate uses."""
     print(json.dumps({"hookSpecificOutput": {
@@ -432,6 +507,10 @@ def main(argv: list[str] | None = None) -> int:
         # and is indistinguishable after the fact. Record the transition on the way through — once
         # per session, so a disabled session leaves one clear marker rather than a flood.
         _record_disabled_once()
+        return 0
+
+    if recording_disabled_for(payload.get("cwd")):
+        _record_project_disabled_once(payload.get("cwd"))
         return 0
 
     try:
