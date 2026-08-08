@@ -161,6 +161,24 @@ earlier test could not see: no `claude` component, no `plugins` component, and g
 CLI-read resolving to the same file. The six gate fixtures point `$STOP_GUESSING_HOME` at a
 profile-shaped directory so they keep asserting behaviour rather than encoding a location.
 
+### Fixed — the same key supplied from a different provider was rejected as the wrong key
+`_keyid` is `sg-<provider>-<digest-of-material>`, so identical key material yields
+`sg-env-fd9a5112ed28` when read from the environment and `sg-kf-fd9a5112ed28` when read from a
+keyfile. `discover(prefer_keyid=…)` compared whole keyids, so an operator moving their chain key out
+of the environment and into a mode-600 keyfile — a deliberate improvement, tier 1 to tier 2 — was
+told the ledger had been written under a different key, and every entry was reported as failing its
+MAC. The MAC is computed over the material and verifies fine; only the comparison was wrong.
+
+That is the #90 false-tampering family reached from the other side: there the wrong key was
+selected, here the right key was refused. It also sat directly across the documented recovery path —
+"supply the key via `$STOP_GUESSING_CHAIN_KEY` or `--keyfile`" — where the second option would have
+been rejected for a ledger written under the first.
+
+`keys.key_fingerprint()` strips the provider prefix and `keys.same_key()` compares on it. Both
+`discover` and the page's keyid guard now use it. The provider prefix still distinguishes the
+SOURCE, which is what the tier ordering needs; it is simply no longer treated as part of the key's
+identity.
+
 ### Fixed — the installer health-checked the one thing that needs no dependencies
 `install.sh` validated a staged runtime with `import stop_guessing`, which succeeds with no
 third-party module present: `yaml` is not imported until the gate actually classifies something,

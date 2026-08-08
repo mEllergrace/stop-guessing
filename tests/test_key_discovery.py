@@ -294,3 +294,57 @@ def test_the_right_key_still_appends_normally(tmp_path):
     record(led, {"op": "test", "claim": "CLAIM-02"}, key)
 
     assert sum(1 for line in led.open() if line.strip()) == 2
+
+
+# ── the provider prefix is not part of the key's identity ────────────────────
+
+
+def test_the_same_material_read_from_two_providers_is_the_same_key(tmp_path, monkeypatch):
+    """`_keyid` is `sg-<provider>-<digest>`, so identity must ignore the provider.
+
+    An operator moving their chain key out of the environment and into a mode-600 keyfile is
+    IMPROVING their posture — tier 1 to tier 2. Comparing whole keyids told them the ledger had been
+    written under a different key, so every entry was reported as failing its MAC. The MAC is over
+    the material and verifies fine; only the comparison was wrong. Same false-tampering family as
+    #90, reached from the other direction: there the wrong key was picked, here the right one was
+    rejected.
+    """
+    material = b"m" * keys.KEY_BYTES
+    kf = tmp_path / "chain.key"
+    kf.write_bytes(material)
+    kf.chmod(0o600)
+    monkeypatch.setenv(keys.ENV_VAR, material.decode())
+
+    from_file = keys.from_keyfile(kf)[0].keyid
+    from_env = keys.from_env()[0].keyid
+
+    assert from_file != from_env, "the provider prefix should still distinguish the SOURCE"
+    assert keys.same_key(from_file, from_env), "the same key material read twice is one key"
+    assert keys.key_fingerprint(from_file) == keys.key_fingerprint(from_env)
+
+
+def test_different_material_is_never_the_same_key():
+    """The control: stripping the prefix must not make unrelated keys collide."""
+    a = keys._keyid(b"a" * keys.KEY_BYTES, "env")
+    b = keys._keyid(b"b" * keys.KEY_BYTES, "kf")
+    assert not keys.same_key(a, b)
+
+
+def test_discover_accepts_the_ledgers_key_from_a_different_provider(tmp_path, monkeypatch):
+    """The behaviour that matters: `--keyfile` must satisfy a ledger written under `$ENV`."""
+    material = b"z" * keys.KEY_BYTES
+    kf = tmp_path / "chain.key"
+    kf.write_bytes(material)
+    kf.chmod(0o600)
+    monkeypatch.delenv(keys.ENV_VAR, raising=False)
+
+    wrote_under = keys._keyid(material, "env")          # the ledger says: written from the env
+    got = keys.discover(kf, prefer_keyid=wrote_under)   # the operator supplies it as a keyfile
+    assert got is not None
+    assert keys.same_key(got[0].keyid, wrote_under), (
+        "supplying the ledger's own key via --keyfile was rejected as the wrong key")
+
+
+def test_same_key_is_false_when_either_side_is_missing():
+    assert not keys.same_key(None, "sg-env-abc123abc123")
+    assert not keys.same_key("sg-env-abc123abc123", None)

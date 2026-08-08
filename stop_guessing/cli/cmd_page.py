@@ -15,7 +15,7 @@ from __future__ import annotations
 import html
 import json
 
-from stop_guessing.attest.keys import discover, keyid_of_ledger
+from stop_guessing.attest.keys import discover, keyid_of_ledger, same_key
 from stop_guessing.prove import runner
 from stop_guessing.version import __version__, repo_root
 
@@ -714,8 +714,11 @@ def _render(args) -> str:
     #
     # Reported, not worked around: nothing here re-keys the ledger, because re-keying evidence to
     # make it verify is the alteration this project exists to refuse.
+    # `same_key`, not `!=`: the provider is a prefix on the keyid, so supplying the very key this
+    # ledger was written under via --keyfile rather than the environment would otherwise be refused
+    # as the wrong key. See `keys.key_fingerprint`.
     wrote_under = keyid_of_ledger(runner.DEFAULT_LEDGER)
-    if wrote_under and key.keyid != wrote_under:
+    if wrote_under and not same_key(key.keyid, wrote_under):
         raise NoChainKey(
             f"the proof ledger was written under {wrote_under}, but the key available here is "
             f"{key.keyid}. Every proof would fail its MAC, the attestation would report 0 proven, "

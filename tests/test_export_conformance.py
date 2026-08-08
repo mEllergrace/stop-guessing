@@ -137,6 +137,7 @@ def test_the_export_cli_succeeds_against_the_proof_ledger(fmt):
 
 def test_key_selection_prefers_the_key_the_ledger_was_written_under():
     """The root cause of #90, asserted directly rather than through a command's exit code."""
+    from stop_guessing.attest.keys import same_key
     from stop_guessing.cli import cmd_ops
     from stop_guessing.prove import runner
 
@@ -149,7 +150,7 @@ def test_key_selection_prefers_the_key_the_ledger_was_written_under():
 
     key = cmd_ops._key(Args())
     assert key is not None, "no key discovered at all"
-    assert key.keyid == written_under, (
+    assert same_key(key.keyid, written_under), (
         f"cmd_ops chose {key.keyid} but the ledger was written under {written_under}; every entry "
         "will fail its MAC and the tool will report tampering that did not happen")
 

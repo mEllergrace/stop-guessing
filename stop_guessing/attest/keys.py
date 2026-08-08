@@ -50,6 +50,33 @@ def _keyid(material: bytes, provider: str) -> str:
     return f"sg-{provider}-{hashlib.sha256(material).hexdigest()[:12]}"
 
 
+def key_fingerprint(keyid: str) -> str:
+    """The part of a keyid that identifies the KEY, with the provider prefix stripped.
+
+    `_keyid` is `sg-<provider>-<digest-of-material>`, so the same key material yields a different
+    keyid depending on where it was read from: `sg-env-fd9a5112ed28` from the environment and
+    `sg-kf-fd9a5112ed28` from a keyfile are the SAME KEY.
+
+    Everything that asks "was this ledger written under the key I hold?" must compare the
+    fingerprint, not the keyid. Comparing keyids means an operator who moves their key from the
+    environment into a mode-600 keyfile — a deliberate improvement, tier 1 to tier 2 — is told the
+    ledger was written under a different key, and every entry is reported as failing its MAC. The
+    MAC itself is computed over the material and verifies fine; only the comparison was wrong.
+
+    That is the same false-tampering family as #90, reached by a different route: there the wrong
+    key was chosen, here the right key is rejected.
+    """
+    parts = str(keyid).split("-", 2)
+    return parts[2] if len(parts) == 3 else str(keyid)
+
+
+def same_key(a: str | None, b: str | None) -> bool:
+    """Whether two keyids denote the same key material, regardless of provider."""
+    if not a or not b:
+        return False
+    return key_fingerprint(a) == key_fingerprint(b)
+
+
 # ── providers ────────────────────────────────────────────────────────────────
 
 
@@ -209,8 +236,11 @@ def discover(
     found = [got for got in providers() if got]
 
     if prefer_keyid:
+        # `same_key`, not `==`: the provider is a prefix on the keyid, so the identical key read
+        # from a keyfile rather than the environment compares unequal and the ledger's own key gets
+        # passed over. See `key_fingerprint`.
         for got in found:
-            if got[0].keyid == prefer_keyid:
+            if same_key(got[0].keyid, prefer_keyid):
                 return got
 
     return found[0] if found else None
