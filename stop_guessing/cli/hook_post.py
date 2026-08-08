@@ -133,10 +133,6 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
-if __name__ == "__main__":
-    raise SystemExit(main())
-
-
 def _cfg_dir():
     import os
     from pathlib import Path
@@ -195,3 +191,19 @@ def _content_binding(used: list[dict]) -> dict:
             "execution boundary, which no hook event currently supplies."
         ),
     }
+
+
+# LAST in the file, deliberately. This block sat at line 136, ahead of `_cfg_dir`,
+# `_record_loss` and `_content_binding` — so importing the module defined everything and running it
+# as a script did not: `main()` was called before the interpreter had reached those three `def`s.
+#
+# The PostToolUse hook runs this module as a script (`python -m stop_guessing.cli.hook_post`), so
+# the recorder raised `NameError: name '_content_binding' is not defined` on every tool call and
+# failed open. It was invisible in the ordinary ways — the module imports cleanly, every test that
+# imports it passes, and `doctor` reported the ledger intact and keyed, because the chain of crash
+# records was itself perfectly intact. 200+ consecutive `recorder.selfcheck` entries and not one
+# custody decision.
+#
+# Keep it last. A `def` added below this line is a def that does not exist when the hook runs.
+if __name__ == "__main__":
+    raise SystemExit(main())

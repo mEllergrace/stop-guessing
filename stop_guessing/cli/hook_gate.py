@@ -329,6 +329,40 @@ def resolve_posture(cwd: str | None) -> str:
     return managed or DEFAULT_POSTURE
 
 
+def _gap_frames(exc: BaseException, limit: int = 6) -> list[str]:
+    """`file:line in function` for the last frames of a crash. Never source text.
+
+    Enough to point at the defect, bounded so the ledger stays a record of what happened rather
+    than a copy of the code it happened in.
+    """
+    import traceback
+
+    try:
+        return [f"{f.filename}:{f.lineno} in {f.name}"
+                for f in traceback.extract_tb(exc.__traceback__)[-limit:]]
+    except Exception:  # noqa: BLE001 - diagnosis must never be the thing that fails
+        return []
+
+
+def _gap_runtime() -> dict:
+    """Which interpreter and which copy of the package actually ran.
+
+    A crash that only reproduces under the harness and not when the same hook is run by hand is a
+    question about resolution, not about logic, and this is what answers it.
+    """
+    import sys
+
+    try:
+        import stop_guessing
+
+        return {"python": sys.executable,
+                "package": getattr(stop_guessing, "__file__", None),
+                "version": getattr(stop_guessing, "__version__", None),
+                "cwd": os.getcwd()}
+    except Exception:  # noqa: BLE001
+        return {"python": sys.executable}
+
+
 def _record_gap(payload: dict, exc: BaseException) -> None:
     """Append a critical selfcheck record so a crashed gate is visible, never silent."""
     try:
@@ -354,6 +388,21 @@ def _record_gap(payload: dict, exc: BaseException) -> None:
                 __import__("datetime").UTC).isoformat(timespec="milliseconds"),
             "severity": "critical",
             "detail": f"custody gate raised {type(exc).__name__}: {exc}",
+            # WHERE it was raised, not just what. A critical record reading
+            # "NameError: name '_content_binding' is not defined" and nothing else is very nearly
+            # undiagnosable: it names a symbol without naming the file, the line, or the module the
+            # running interpreter actually loaded — and when several copies of the package are
+            # reachable (a checkout, an installed runtime, a venv), which copy raised it is the
+            # whole question. This was found the hard way against 200-odd such records that could
+            # not be traced to a file.
+            #
+            # Bounded on purpose: the last frames only, and paths as the interpreter resolved them,
+            # so the record stays a diagnostic and does not become a transcript.
+            "traceback": _gap_frames(exc),
+            # Which copy of the package is executing. The same defect looks identical from a repo
+            # checkout and a stale installed runtime, and telling them apart is what says whether
+            # the fix is "edit the source" or "reinstall".
+            "runtime": _gap_runtime(),
             "session_id": payload.get("session_id"),
             "tool": payload.get("tool_name"),
             "enforcement": "failed open — this call was NOT evaluated",

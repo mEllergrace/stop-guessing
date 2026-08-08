@@ -105,3 +105,40 @@ def test_the_walker_descends_into_nested_subcommands():
     paths = {" ".join(p) for p, _ in _walk(parser) if p}
     assert "record emit" in paths, "the walker does not reach nested subcommands"
     assert "claims check" in paths
+
+
+# ── a `def` below `if __name__ == "__main__"` does not exist when the hook runs ──
+
+
+def test_no_cli_module_defines_anything_after_its_main_block():
+    """`hook_post.py` had its `__main__` block at line 136 and three `def`s after it.
+
+    Importing the module defined everything, so every test that imported it passed. Running it as a
+    script — which is exactly how the PostToolUse hook runs it — called `main()` before the
+    interpreter had reached those `def`s, and the recorder raised
+    `NameError: name '_content_binding' is not defined` on every single tool call and failed open.
+
+    It was invisible in all the usual ways: the module imports cleanly, `doctor` reported the ledger
+    "intact and keyed" because the chain of crash records was itself intact, and 200+ consecutive
+    `recorder.selfcheck` entries accumulated without one custody decision among them. A recorder
+    that records nothing while looking installed is the worst failure this project can have, so the
+    shape that caused it is checked structurally rather than trusted to review.
+    """
+    import ast
+
+    from stop_guessing.version import repo_root
+
+    offenders = []
+    for path in sorted((repo_root() / "stop_guessing" / "cli").glob("*.py")):
+        body = ast.parse(path.read_text(encoding="utf-8")).body
+        guard = next((i for i, n in enumerate(body)
+                      if isinstance(n, ast.If) and "__main__" in ast.unparse(n.test)), None)
+        if guard is None:
+            continue
+        for node in body[guard + 1:]:
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                offenders.append(f"{path.name}: {node.name} (line {node.lineno}) is defined after "
+                                 f"the __main__ block (line {body[guard].lineno})")
+    assert not offenders, (
+        "these names do not exist when the module is run as a script, which is how the hooks run "
+        "it:\n" + "\n".join(offenders))
