@@ -1,0 +1,363 @@
+# Which chain-of-custody, provenance and assurance frameworks this toolchain is measured against.
+#
+# The distinction this file exists to keep honest: **"aligned to" is not "benchmarked against."**
+# The README used to list ISO/IEC 27037, SEC 17a-4(f) and FRE 902 in a single "Standards" row, which
+# invites a reader to conclude all three were tested. One was a schema source for a single clause,
+# one was an untested design target, and one had never been exercised at all.
+#
+# `tier` is the whole point, and it is ordered from strongest to weakest:
+#
+#   externally-validated  a third party's validator returns a verdict on our output, AND a control
+#                         confirms that validator rejects a deliberately broken input. Nothing else
+#                         counts as validated.
+#   self-asserted         our own tests check our own reading of the spec. Honest, and weaker.
+#   mapped                clauses or controls mapped to evidence. A mapping is not a conformance
+#                         assessment and must not be described as one.
+#   design-target         it shaped the design; no clause-by-clause mapping exists.
+#   not-benchmarked       a framework a competent reviewer would expect, named with why it is absent.
+#                         Listing these is the point — an omitted framework reads as an oversight,
+#                         a declared one reads as a decision.
+#   out-of-scope          deliberately not pursued, with the reason.
+#
+# Never write a tier this file cannot back. `scripts/benchmark_frameworks.py` measures the
+# externally-validated row and `stop-guessing page build` renders it, so the published claim and the
+# measured result cannot drift apart.
+
+version: 1
+
+frameworks:
+
+  # ── externally validated: a third party's code says yes, and rejects a broken input ──
+
+  - id: case-uco
+    name: CASE/UCO
+    publisher: NIST-involved community (caseontology.org)
+    tier: externally-validated
+    what: Chain-of-custody and chain-of-evidence exports, as separate facets of one graph.
+    validator: case_validate (usnistgov/case-utils 0.17.0) — SHACL against the CASE ontology
+    result: >-
+      Conforms — no Violations, no Warnings, and no severity flags used. Validated over an
+      op-covering sample (every distinct record op represented) because SHACL over the full
+      ledger takes minutes and a suite nobody waits for protects nothing; `--full` validates
+      every record. The bound is stated rather than implied.
+    control: An entity given a class CASE does not define is rejected.
+    evidence: tests/test_export_conformance.py::test_case_export_conforms_to_nist_case_validate
+    note: >-
+      This closes the plan's M6 acceptance criterion, which had been open and unmentioned. It could
+      not have been met before: the export crashed on the real ledger (#89), and once fixed it failed
+      with 4,488 SHACL violations from one root cause (#92). Conformance was reached by emitting
+      typed xsd:dateTime literals and UUIDv5 identifiers, NOT by passing --allow-info.
+
+  - id: otlp
+    name: OpenTelemetry OTLP (traces) / GenAI semconv
+    publisher: CNCF
+    tier: externally-validated
+    what: Spans carrying gen_ai.* and a csa.coc.* extension namespace.
+    validator: opentelemetry-proto 1.44.0 — the generated protobuf JSON parser
+    result: Parsed by the generated model.
+    control: An unknown span field is rejected.
+    evidence: tests/test_otlp_conformance.py, tests/test_export_conformance.py
+    note: >-
+      Hex trace/span ids are a deliberate, documented exception to protobuf JSON's base64 default,
+      per the OTLP JSON mapping.
+
+  - id: w3c-prov
+    name: W3C PROV (PROV-JSON)
+    publisher: W3C (Recommendation, 2013)
+    tier: externally-validated
+    what: Entity/Activity/Agent, used, wasGeneratedBy, wasDerivedFrom, actedOnBehalfOf.
+    validator: prov (python) — deserialisation into the library's own model
+    result: Deserialised without error.
+    control: Malformed PROV-JSON is rejected.
+    evidence: tests/test_export_conformance.py::test_prov_and_otlp_still_validate
+    note: >-
+      actedOnBehalfOf is the delegation edge AICM's draft IAM-AG-03 asks for, which is why PROV is
+      the internal vocabulary rather than an export afterthought.
+
+  - id: ai-caiq-structure
+    name: AI-CAIQ v1.1.0 workbook structure
+    publisher: Cloud Security Alliance
+    tier: externally-validated
+    what: The filled questionnaire this toolchain derives from its own proof records.
+    validator: rich-text's verify_ai_caiq_workbook.py, used UNMODIFIED
+    result: Accepted — sheets, dimensions, editable-cell bounds and vocabulary all unchanged.
+    control: >-
+      The verifier refuses if any non-C:F cell changed, validations changed, or a value falls outside
+      the published vocabulary.
+    evidence: docs/claims.yaml CLAIM-21
+
+  # ── self-asserted: our tests, our reading of the spec ──
+
+  - id: in-toto
+    name: in-toto Attestation Framework v1
+    publisher: CNCF (graduated)
+    tier: self-asserted
+    what: Every record is a Statement v1 with a digest-matched subject; the ledger is the JSONL bundle.
+    validator: none obtainable
+    result: >-
+      in-toto 3.1.0 installs but exposes no Statement-v1 validator, so the shape is checked only by
+      our own test. Measured, not assumed — see scripts/benchmark_frameworks.py.
+    evidence: tests/test_record_and_sufficiency.py::test_statement_is_in_toto_shaped
+    gap: >-
+      Registering the Custody/v1 predicate type through in-toto's documented vetting process is what
+      would convert "private format" into "registered predicate". Not done.
+
+  - id: dsse
+    name: DSSE (Dead Simple Signing Envelope)
+    publisher: Secure Systems Lab / in-toto
+    tier: self-asserted
+    what: PAE encoding for signed segments.
+    result: Our own round-trip tests only. Signing is HMAC, so there is no public verifiability.
+    evidence: tests/test_attest.py
+
+  # ── mapped: clauses or controls tied to evidence, which is not a conformance assessment ──
+
+  - id: aicm
+    name: CSA AI Controls Matrix v1.1.0
+    publisher: Cloud Security Alliance
+    tier: mapped
+    what: 14 controls carry proof-record evidence.
+    controls: [DSP-20, DSP-05, LOG-03, LOG-10, LOG-12, LOG-AG-01, LOG-AG-02, IAM-AG-03,
+               A&A-01, CCC-01, MDS-13, SEF-01, STA-09, "I&S-01"]
+    result: >-
+      14 of roughly 243 AICM controls are evidenced. That is a mapping of the controls this tool
+      touches, NOT coverage of AICM, and not an assessment. Anyone reading a control count as
+      coverage would be misled, so the denominator is stated.
+    evidence: docs/claims.yaml, stop-guessing attest --self
+
+  - id: iso-27037
+    name: ISO/IEC 27037:2012
+    publisher: ISO/IEC
+    tier: mapped
+    clauses_engaged: ["5.4.1"]
+    what: >-
+      The record schema's custody fields — unique identifier, source, operator, method, hash,
+      timestamp, handover, and any unavoidable alteration WITH written justification.
+    result: >-
+      One clause of one standard, used as a schema source. There is no clause-by-clause conformance
+      matrix, and none is claimed. §5.4.1's alterations requirement is the field most tools omit and
+      is what the scope ratchet enforces.
+    evidence: stop_guessing/ledger/entry.py TIER_A, stop_guessing/prove/scope.py
+    gap: >-
+      Clauses 6.x (identification, collection, acquisition, preservation) are not mapped.
+
+  # ── design targets: shaped the build, never clause-mapped ──
+
+  - id: sec-17a-4f
+    name: SEC Rule 17a-4(f), as amended October 2022
+    publisher: US Securities and Exchange Commission
+    tier: design-target
+    what: >-
+      All modifications and deletions recorded, date and time of every operator action, the
+      individuals responsible, and enough to re-create the original record and interim iterations.
+    result: >-
+      It is the best regulator-written specification of an adequate tamper-evident ledger and it
+      informed the append-only design. No clause mapping exists and no filing has been assessed.
+
+  - id: fre-902
+    name: Federal Rules of Evidence 902(13) and 902(14)
+    publisher: US federal judiciary
+    tier: design-target
+    what: A per-segment certification object naming a qualified certifier.
+    result: >-
+      The object and the `ledger certify` command exist. No certifier has ever signed a segment, so
+      the path is UNEXERCISED — the hash is the technical basis, and a named person's certification
+      is the legal operative act that has not happened.
+
+  # ── not benchmarked, ranked by value, each with what was weighed and when to look again ──
+  #
+  # Two fields exist here because a standards choice made once as prose becomes the constraint the
+  # next reader inherits — the same failure as a hand-written status block, one level up:
+  #
+  #   alternatives_considered  what else was weighed and why it lost, so the decision can be
+  #                            re-opened instead of inherited blind.
+  #   review                   a TRIGGER, not a date. Standards move; "re-evaluate when X publishes"
+  #                            survives contact with time in a way "reviewed 2026-08" does not.
+  #
+  # The first entry is a live commercial path, not an aspiration.
+
+  - id: iso-42001
+    name: ISO/IEC 42001
+    publisher: ISO/IEC
+    tier: not-benchmarked
+    priority: 1
+    what: AI management system requirements.
+    why: >-
+      The highest-value target here, and for a specific reason: it is the standard CSA is looking at
+      for **Level 2 STAR for AI listings**. STAR Level 1 is self-assessment — which is what the
+      AI-CAIQ this toolchain already carries and fills from its own proof records. Level 2 is
+      third-party audited, so 42001 is the path from "we assessed ourselves" to "someone else
+      certified us", which is the same gap `independently_reproduced: false` names internally.
+    scope_limit: >-
+      A TOOL cannot be certified to 42001 — an organisation's management system is. What this can do
+      is produce the records specific clauses require (lifecycle traceability, decision records, roles
+      and delegation, change control) so an organisation's own conformance is evidenced rather than
+      asserted. Claiming "42001 compliant" for a piece of software would be exactly the overclaim
+      this file exists to prevent, so the row says supports-evidence-for, not conforms-to.
+    alternatives_considered: >-
+      ISO/IEC 27001 (the classic STAR Level 2 basis) covers information security management but has
+      no AI lifecycle concept, so it cannot carry the agentic provenance argument. NIST AI RMF is a
+      framework rather than a certifiable standard, so it cannot support a listing.
+    review: >-
+      Re-evaluate when ISO/IEC 42006 (requirements for bodies auditing AI management systems)
+      settles, since that determines what an auditor will actually ask for, and whenever CSA
+      publishes its AI STAR Level 2 criteria.
+
+  - id: iso-15026
+    name: ISO/IEC 15026 (systems and software assurance)
+    publisher: ISO/IEC
+    tier: not-benchmarked
+    priority: 2
+    what: Assurance cases — a structured argument that stated claims are justified by evidence.
+    why: >-
+      The closest existing articulation of what this toolchain already is. `docs/claims.yaml` →
+      proof records → `attest --self` is an assurance case in all but name, and 15026 provides the
+      vocabulary (claim, argument, evidence) plus the discipline of stating counter-evidence. Adopting
+      it would give the self-attestation an external shape instead of a bespoke one.
+    alternatives_considered: >-
+      ISO/IEC 27041 was recommended first and demoted on examination: its frame is assuring
+      *incident investigative* methods, and this is a continuous recorder that runs whether or not
+      anything is under investigation. The analogy holds for "assure the method" and strains
+      everywhere else.
+    review: Re-evaluate if a domain-specific assurance-case profile for AI systems is published.
+
+  - id: nist-cftt
+    name: NIST CFTT / SWGDE tool validation
+    publisher: NIST / SWGDE
+    tier: not-benchmarked
+    priority: 3
+    what: Published test methodologies for validating forensic tools against stated capability.
+    why: >-
+      The most concrete option: an actual test methodology rather than guidance, aimed squarely at
+      "does the tool do what it claims". It also speaks to Daubert's known-error-rate limb, which
+      this project currently fails outright.
+    alternatives_considered: >-
+      ISO/IEC 17025 method validation is the heavier, accredited-lab route and the real bar for a
+      quantified error rate; out of proportion until there is a reason to seek accreditation.
+    review: Re-evaluate if CFTT publishes a methodology covering agentic or AI-pipeline tooling.
+
+  - id: eu-ai-act-12
+    name: EU AI Act, Article 12
+    publisher: European Union
+    tier: not-benchmarked
+    priority: 4
+    what: Record-keeping and automatic logging obligations for high-risk AI systems.
+    why: >-
+      The widest-reaching framework for this tool's actual subject matter. Article 12 requires
+      traceability appropriate to purpose across the lifecycle, which is what this records.
+    alternatives_considered: >-
+      Article 12 is the obligation; the harmonised standards that will operationalise it are still
+      in progress, so mapping to the Article directly is currently the only option.
+    review: >-
+      Re-evaluate when CEN-CENELEC JTC21 harmonised standards publish — those, not the Article text,
+      are what conformity will be assessed against.
+
+  - id: iso-27041
+    name: ISO/IEC 27041
+    publisher: ISO/IEC
+    tier: not-benchmarked
+    priority: 5
+    what: Assurance of the suitability and adequacy of incident investigative methods.
+    why: >-
+      Still relevant where this toolchain's output is used in an actual investigation, which is a
+      narrower case than the tool's normal operation.
+    alternatives_considered: >-
+      Recommended first and demoted: see iso-15026. Kept because it is the right standard for the
+      investigation case even though it is the wrong one for continuous recording.
+    review: Re-evaluate if the ledger is used in a real incident investigation.
+
+  - id: acpo
+    name: ACPO Good Practice Guide for Digital Evidence
+    publisher: UK Association of Chief Police Officers
+    tier: not-benchmarked
+    priority: 6
+    what: The four canonical principles for handling digital evidence.
+    why: >-
+      The standard citation for any chain-of-custody claim. Its principles — do not alter the
+      original, competence, an audit trail a third party can follow, responsibility — map closely
+      onto what this ledger already records, so the mapping is cheap and its absence is conspicuous.
+    review: Re-evaluate on any successor guidance from the UK NPCC.
+
+  - id: slsa
+    name: SLSA
+    publisher: OpenSSF
+    tier: not-benchmarked
+    priority: 7
+    what: Supply-chain integrity levels built on in-toto attestations.
+    why: >-
+      We emit in-toto attestations and claim no SLSA level. A supply-chain reviewer will ask, and
+      "we use the substrate but not the framework" is defensible only when stated.
+    review: Re-evaluate once signing moves from HMAC to Ed25519, without which no level is reachable.
+
+  - id: daubert
+    name: Daubert / Frye standards
+    publisher: US courts
+    tier: not-benchmarked
+    priority: 8
+    what: Admissibility of scientific and expert evidence.
+    why: >-
+      FRE 902 buys self-authentication; Daubert governs whether the METHOD is scientifically valid —
+      known error rate, peer review, general acceptance. This project has none of those three, so any
+      claim to be "scientifically defensible" is measured against this and currently fails it.
+    alternatives_considered: Not a standard to adopt but a test to be measured by; listed to be honest about the result.
+    review: Re-evaluate after any independent reproduction or published peer review.
+
+  - id: iso-27042-27043
+    name: ISO/IEC 27042 and 27043
+    publisher: ISO/IEC
+    tier: not-benchmarked
+    priority: 9
+    what: Analysis and interpretation of digital evidence; incident investigation principles.
+    why: We cite one member of the 2703x family and ignore the rest.
+    review: Re-evaluate alongside iso-27041.
+
+  - id: nist-800-86
+    name: NIST SP 800-86
+    publisher: NIST
+    tier: not-benchmarked
+    priority: 10
+    what: Guide to Integrating Forensic Techniques into Incident Response.
+    why: Long-standing reference for forensic process; useful context rather than a conformance target.
+    review: Re-evaluate if superseded.
+
+  - id: nist-ai-rmf
+    name: NIST AI RMF
+    publisher: NIST
+    tier: not-benchmarked
+    priority: 11
+    what: MEASURE and MANAGE functions, which govern exactly this kind of evidence.
+    why: Widely referenced and voluntary; a framework rather than a certifiable standard.
+    alternatives_considered: ISO/IEC 42001 is certifiable and therefore carries the STAR Level 2 path; this does not.
+    review: Re-evaluate on a major RMF revision or an AI RMF profile for agentic systems.
+
+  - id: au-controls
+    name: NIST SP 800-53 AU family / ISO 27001 A.8.15
+    publisher: NIST / ISO-IEC
+    tier: not-benchmarked
+    priority: 12
+    what: Audit logging and log-protection controls.
+    why: Control-level overlap with what the ledger does; mappable cheaply if a customer asks.
+    review: Re-evaluate if 27001 becomes the STAR Level 2 basis for a given listing.
+
+  # ── out of scope, with the reason ──
+
+  - id: blockchain
+    name: Blockchain anchoring
+    tier: out-of-scope
+    why: >-
+      No regulated-audit adoption. RFC 3161 and eIDAS qualified timestamps carry the legal
+      recognition, and including a chain would cost credibility with the intended audience.
+
+  - id: c2pa
+    name: C2PA
+    tier: out-of-scope
+    why: >-
+      Its trust model binds to media byte ranges and a CA trust list we cannot join, and crJSON
+      self-declares as not a general-purpose machine-readable format.
+
+  - id: openlineage
+    name: OpenLineage
+    tier: out-of-scope
+    why: >-
+      The right graph primitive and no integrity semantics, so it must never be presented as the
+      custody record. A documented stub with the field mapping in its docstring.

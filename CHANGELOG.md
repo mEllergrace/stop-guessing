@@ -3,6 +3,174 @@
 All notable changes to STOP-GUESSING. Format follows [Keep a Changelog](https://keepachangelog.com/);
 this project uses semantic versioning and bumps `VERSION` on every code-changing push.
 
+## [0.6.1] — 2026-08-06
+
+### Fixed — evidence was written into the agent's shared config directory
+Found by the operator, who spotted it before distribution: every path for data resolved under
+`$CLAUDE_CONFIG_DIR` (e.g. `~/.claude-ies/stop-guessing/`). That directory belongs to the agent and
+is shared by every session and every project on the profile.
+
+Measured before changing anything: **31 state files, roughly 24 of them real Claude Code session
+UUIDs**, pooled from whatever projects happened to be open. And each record carried `session_id` with
+no `cwd` — so not one of them could be attributed to a project even in principle. A provenance tool
+had produced two dozen unattributable records, in a directory that was not its own.
+
+`stop_guessing/paths.py` is now the single resolver:
+- **Default is `./.stop-guessing/`** — the directory the tool is called from. One ledger per project,
+  attributable by construction.
+- **Every state record carries `project`.** That was the other half of the defect; a record that
+  cannot say where it came from is doing half its job.
+- **`$STOP_GUESSING_HOME` overrides**, so a single-project machine or a central collector can still
+  have one shared store. The default changed; the option did not close.
+- **The old location stays readable and is reported** — 3 ledger records and 31 state files. Nothing
+  was moved: relocating evidence without recording the move is exactly the ISO/IEC 27037 §5.4.1
+  alteration this project refuses to perform silently.
+- **The chain key stays in the profile deliberately** — it is a credential, not data, and a key beside
+  a repository is no key at all. `stop-guessing.json` stays too: that is *configuration*, and the
+  profile config layer is intended.
+
+Scope, stated rather than implied: the **proof** ledger was never affected. `DEFAULT_LEDGER` has been
+`repo_root() / ".stop-guessing" / "proofs.jsonl"` since `1c919e6`, the first commit that built the
+prove machinery. All 1,623 proof records, the 21 claims and the AI-CAIQ derivation were always
+project-local. What sat in the wrong place was 3 runtime records and a taint **cache** that
+`persist.py` already documents as rebuildable from the authoritative ledger. Nothing had to be redone.
+
+Still outstanding: `runtime/` (2.9 MB) remains in the profile directory because the hook sets
+`PYTHONPATH` to it. By the same rule it does not belong there either, and it is flagged rather than
+half-moved, since getting it wrong breaks every hook.
+
+### Added — standards choices that can be re-opened, and 42001 first
+`docs/frameworks.yaml` entries now carry two fields, both test-enforced:
+- `alternatives_considered` — what else was weighed and why it lost, so a later reader can re-open
+  the decision instead of inheriting it blind.
+- `review` — a **trigger, not a date**. "Re-evaluate when ISO/IEC 42006 settles" survives contact
+  with time; "reviewed 2026-08" does not. A standards choice written once as prose becomes the
+  constraint the next reader inherits, which is the hand-written-status-block failure one level up.
+
+**ISO/IEC 42001 now leads the ranking**, because it is the standard CSA is looking at for **Level 2
+STAR for AI listings**. The through-line is exact: STAR Level 1 is self-assessment, which is what the
+AI-CAIQ this toolchain already fills from its own proof records; Level 2 is third-party audited. So
+42001 is the path from "we assessed ourselves" to "someone else certified us" — the same gap
+`independently_reproduced: false` names internally.
+
+Its row carries a **`scope_limit`**, enforced by a test: a management-system standard certifies an
+*organisation*, never a piece of software. "42001 compliant" beside a product name would be precisely
+the overclaim this file exists to prevent, so the row says *supports-evidence-for*, not *conforms-to*,
+and names the clauses it can produce records for.
+
+**ISO/IEC 27041 demoted to 5th, with the demotion recorded** rather than quietly corrected: its frame
+is assuring *incident investigative* methods, and this is a continuous recorder that runs whether or
+not anything is under investigation. It stays, because it remains right for the investigation case.
+**ISO/IEC 15026** takes 2nd — assurance cases are what `claims.yaml` → proofs → `attest --self`
+already is, in a standard vocabulary rather than a bespoke one — and **NIST CFTT / SWGDE** 3rd, being
+an actual test methodology and the only entry that speaks to Daubert's known-error-rate limb.
+
+### Fixed — four shipped surfaces still advertised `steer` as the default
+Reported by the operator, who was still being asked for approval and went to the docs to find out
+why. The default moved to `observe` in 0.5.2, but that changed only `DEFAULT_POSTURE` — and a
+default is the **last** layer `resolve_posture` consults. Four surfaces went on stating the old one:
+
+- `/custody-options` read "Default is `steer`", so the command that exists to explain the posture
+  taught the wrong answer. Its resolution list also predated the managed floor (#47) and showed four
+  layers where there are five.
+- The generated project page said the same, via `cmd_page.py`.
+- `.codex-plugin/plugin.json` declared `"posture_default": "steer"` — machine-readable policy, not
+  prose. Nothing reads the key, which is the only reason it was harmless.
+- `IMPLEMENTATION_PLAN.md` §2 decision 1 is left standing and marked **superseded**, not rewritten:
+  that file records what was decided, and editing it to match the present would falsify the record.
+
+`hook_gate.py:237` already said `DEFAULT_POSTURE` was named once "so `doctor` and the docs cannot
+drift from the resolver". That was an intention with nothing enforcing it. `test_observe_never_prompts.py`
+now scans every surface that asserts a default, and a second test feeds the three real pre-fix lines
+back through the matcher so it cannot be quietly defanged into a test that always passes.
+
+### Added — `scripts/set_posture.py`
+Reads and writes the posture of a live profile, because nothing did. `doctor` reports the effective
+posture but deliberately never changes it, and the resolution chain is per-profile — every layer but
+the project one is keyed on `$CLAUDE_CONFIG_DIR`, so `~/.claude` and `~/.claude-ies` resolve
+independently and fixing one does nothing for the other. Writing the value explicitly is also
+version-robust: a profile running a pre-0.5.2 plugin honours layer 3 regardless of its built-in
+default. Read-modify-write (the no-noodles keys in the same file are preserved), backup, atomic
+replace. It reports a `managed.json` floor that would override the write rather than claiming a
+success that did not happen, and never edits `managed.json` — that file exists so the recorded party
+cannot weaken its own policy.
+
+## [0.6.0] — 2026-08-06
+
+**Benchmarked, not merely aligned.** Asked which chain-of-custody and provenance frameworks this was
+measured against, the honest answer turned out to be three — and the README implied many more. Trying
+to substantiate the claim broke three things open.
+
+### The framework posture is now measured and generated
+- `docs/frameworks.yaml` is the machine-readable source of record: every framework, with a `tier`
+  ordered **externally-validated → self-asserted → mapped → design-target → not-benchmarked →
+  out-of-scope**. `externally-validated` requires a third party's validator to return a verdict AND a
+  control proving it rejects a deliberately broken input. Nothing weaker may use the word.
+- `scripts/benchmark_frameworks.py` runs those validators. `tests/test_frameworks_posture.py` asserts
+  the published tier matches the measured result, so a claim cannot outrun its measurement — if a
+  validator stops being obtainable, the row must drop to self-asserted rather than stay green.
+- Rendered into **both** the README and the Pages site from that one file, replacing the hand-written
+  Standards table that listed ISO/IEC 27037, SEC 17a-4(f) and FRE 902 in a single row — inviting the
+  reader to conclude three frameworks were tested when one was a single-clause schema source, one an
+  untested design target, and one had never been exercised at all.
+- **Ten frameworks a reviewer would expect are now named as absent, with reasons**, rather than
+  omitted: ISO/IEC 27041 (assurance of method — the closest external statement of this project's own
+  goal), ACPO, EU AI Act Art. 12, SLSA, Daubert/Frye, ISO/IEC 27042-27043, NIST SP 800-86, NIST AI
+  RMF, ISO/IEC 42001, NIST 800-53 AU. An omitted framework reads as an oversight; a declared one
+  reads as a decision. Daubert's row records that this project **currently fails it**.
+- The AICM row states its denominator: 14 controls evidenced of roughly 243. A control count read as
+  coverage is the overclaim the denominator prevents.
+
+### Fixed — found by trying to benchmark
+- **#89: all three exporters crashed on the real ledger.** PROV, CASE/UCO and OTLP export were written
+  against the gate's nested predicate, where `actor` is an object; `prove` and the lifecycle hooks
+  write flat events where `actor` is a string. 1,493 live records are flat, so
+  `stop-guessing export prov|case|otel` exited 1 for every format. The only export test fed a pytest
+  *fixture* — the external review's central finding for the third time: a primitive validated while
+  the path a user runs is broken. One shared normaliser now handles both shapes, and it **omits** the
+  operator and delegation fields a flat record genuinely lacks rather than filling them: an export
+  that invents a custodian is not a custody record.
+- **#90: the tool accused its own ledger of tampering.** `cmd_ops._key()` omitted `prefer_keyid`, so
+  it chose the best-protected key rather than the one the ledger was written under. Every entry then
+  failed its MAC and `export`/`verify`/`doctor`/`state` reported *"chain broken at 0 — edited in
+  place"*. Nothing was tampered with. `claims check` and `export` disagreed about whether the same
+  file was forged. `cmd_prove._key` had done it correctly all along and its comment already described
+  the failure mode; the fix existed and had never been applied to the other half of the CLI.
+- **#92: the CASE export did not conform.** 4,488 SHACL violations from NIST's `case_validate`, all
+  one root cause — `uco-action:startTime` emitted as a bare string where UCO requires a typed
+  `xsd:dateTime`. Then 121 Info-level advisories: UCO asks that identifiers end in an RFC-4122 UUID.
+  `case_validate` ships `--allow-info` and using it would have been this project's own worst habit —
+  passing a check by lowering what is checked. The version nibble in UCO's regex permits `[0-5]`, so
+  **UUIDv5 qualifies and is deterministic**; conformance and reproducibility were never in tension.
+  Now **`Conforms: True`, no flags, no suppressions** — closing the plan's M6 acceptance criterion,
+  which had been open and unmentioned since the plan was written and could not have been met while
+  the export crashed.
+
+### Fixed — a verdict must not depend on machine load (#91)
+- `run_vendored()` gave each vendored hook a hard 30 s budget and `compat/replay.py` did the same per
+  corpus case. Under contention — `prove` running beside the suite and a SHACL validator — CLAIM-16
+  and CLAIM-17 both flapped UNPROVEN on `TimeoutExpired` with nothing actually wrong. The timeout is
+  now a parameter with two named values: `VENDORED_TIMEOUT = 30` unchanged for `PreToolUse` (the
+  documented budget is ~40 ms p95, and a long timeout in the hot path means one hung rule stalls every
+  tool call) and `VENDORED_TIMEOUT_BATCH = 300` for proofs and replays. Headroom for measurement, not
+  a relaxed assertion — the claim is that the rules still produce byte-identical output, and how long
+  they take under contention is incidental to it.
+- Recorded because it is the more useful half: threading that parameter through with a regex
+  mismatched twice, once putting `timeout=` inside the inner `payload()` call and once **silently
+  rewriting a fixture string literal** (`"print(1)\n"` became `"print(1, timeout=…)"`). The proof
+  caught both. The string corruption would have changed what the test fed the hook with no error at
+  all — a scripted change to data still has to be verified against the running system, which is the
+  rule that caught it.
+
+### Changed
+- **No single organisation is named as the primary user or target customer.** `scripts/generalise_audience.py`
+  removes that framing. CSA remains cited as the *publisher* of AICM and the AI-CAIQ, because the
+  toolchain genuinely maps to those and reads that workbook — citing a standards body is not the same
+  as naming a customer. `csa.coc/` and `csa-material` stay and are reported: they are technical
+  identifiers already written into signed ledger entries, and renaming them would invalidate evidence.
+- The conformance validators are a declared `[conformance]` extra, never a runtime dependency — a
+  benchmark only its author can run is not a benchmark.
+
 ## [0.5.3] — 2026-08-05
 
 Repo hygiene run properly, and the README rewritten to say what is currently true.

@@ -103,3 +103,106 @@ def test_the_ledger_is_still_protected_under_observe(tmp_path):
                "tool_input": {"file_path": str(ledger), "content": "forged"}}
     assert _decision(_run(payload, str(tmp_path)).stdout.decode()) == "deny", (
         "a write to the evidence ledger was not refused under observe — the one thing that must be")
+
+
+#: Every surface that STATES the default in prose or in machine-readable policy, and must therefore
+#: agree with `DEFAULT_POSTURE`. Paths are repo-relative.
+#:
+#: `IMPLEMENTATION_PLAN.md` and `CHANGELOG.md` are deliberately absent: they are historical-record
+#: files (`depersonalise_paths.SKIP`) that state what WAS decided, and pinning them to the current
+#: value would require falsifying the record to make a test pass. `docs/index.html` is generated, so
+#: the generator `cmd_page.py` is what is pinned — the page itself is covered by `page check`.
+DEFAULT_POSTURE_SURFACES = (
+    ".claude-plugin/plugins/stop-guessing/commands/custody-options.md",
+    ".agents/plugins/stop-guessing/.codex-plugin/plugin.json",
+    "stop_guessing/cli/cmd_page.py",
+    "README.md",
+)
+
+
+def _lines_asserting_a_stale_default(text: str, stale: tuple[str, ...]) -> list[str]:
+    """Line numbers and text for every line that ASSERTS a default other than the shipped one.
+
+    Split out from the scan so the matcher itself can be tested against the real drifted lines. A
+    detector that has only ever been run against a clean tree is not known to detect anything.
+    """
+    hits = []
+    for line_no, line in enumerate(text.splitlines(), 1):
+        low = line.lower()
+        # Only lines that actually ASSERT a default, so prose describing what `steer` does — or
+        # recording that the default moved away from it — is not a false positive.
+        if not ("default" in low and any(f"`{p}`" in low or f'"{p}"' in low
+                                        or f"<code>{p}</code>" in low for p in stale)):
+            continue
+        if "moved from" in low or "superseded" in low or "used to" in low:
+            continue
+        hits.append(f"{line_no}: {line.strip()}")
+    return hits
+
+
+#: The exact lines this test was written for, as they stood before the fix. Verbatim, so the matcher
+#: is proven against the real defect and not a paraphrase of it.
+HISTORICAL_DRIFT = (
+    "Three postures ship. Default is `steer`.",
+    '    "posture_default": "steer",',
+    "<p>Three postures ship; the default is <code>steer</code>. Full-depth tracking is the default "
+    "and",
+)
+
+#: Lines that mention a non-default posture legitimately and must NOT be flagged.
+MUST_NOT_FLAG = (
+    "| `steer` | Asks on first touch of a classified artifact; denies on accumulation or egress. |",
+    "The default moved from `steer` to `observe` deliberately.",
+    "Full-depth tracking is the default and is never silently reduced.",
+    "stop-guessing demo --posture steer   # the whole behaviour, every step citing its record id",
+)
+
+
+def test_the_drift_matcher_catches_the_drift_it_was_written_for():
+    """Guards against the detector being quietly defanged into a test that cannot fail."""
+    from stop_guessing.cli.hook_gate import DEFAULT_POSTURE, POSTURE_ORDER
+
+    stale = tuple(p for p in POSTURE_ORDER if p != DEFAULT_POSTURE)
+    for line in HISTORICAL_DRIFT:
+        assert _lines_asserting_a_stale_default(line, stale), (
+            f"the matcher no longer catches a line it was written to catch: {line!r}")
+    for line in MUST_NOT_FLAG:
+        assert not _lines_asserting_a_stale_default(line, stale), (
+            f"the matcher flags a legitimate mention of a non-default posture: {line!r}")
+
+
+def test_no_shipped_surface_names_a_different_default():
+    """The default was changed in code and four surfaces went on advertising the old one.
+
+    The operator hit this directly: the default moved to `observe`, but `/custody-options` still
+    read "Default is `steer`", the published page said the same, and the Codex plugin manifest
+    still declared `posture_default: steer` as machine-readable policy. Someone reading the docs to
+    find out why they were still being asked for approval was told the asking posture was normal.
+
+    `DEFAULT_POSTURE` exists so that "the docs cannot drift from the resolver" (hook_gate.py:237).
+    That was an intention with nothing enforcing it. This enforces it.
+    """
+    from stop_guessing.cli.hook_gate import DEFAULT_POSTURE, POSTURE_ORDER
+
+    stale = tuple(p for p in POSTURE_ORDER if p != DEFAULT_POSTURE)
+    offenders = []
+    for rel in DEFAULT_POSTURE_SURFACES:
+        text = (repo_root() / rel).read_text(encoding="utf-8")
+        offenders += [f"{rel}:{hit}" for hit in _lines_asserting_a_stale_default(text, stale)]
+    assert not offenders, (
+        f"the shipped default is `{DEFAULT_POSTURE}`, but these surfaces advertise another:\n"
+        + "\n".join(offenders))
+
+
+def test_the_documented_default_is_stated_where_operators_look():
+    """Silence is the other failure mode: drift fixed by deleting the sentence teaches nobody.
+
+    The two surfaces an operator actually reads to answer "why is it asking me?" must say what the
+    default IS, not merely avoid saying the wrong thing.
+    """
+    from stop_guessing.cli.hook_gate import DEFAULT_POSTURE
+
+    for rel in (".claude-plugin/plugins/stop-guessing/commands/custody-options.md", "README.md"):
+        text = (repo_root() / rel).read_text(encoding="utf-8").lower()
+        assert f"default is `{DEFAULT_POSTURE}`" in text, (
+            f"{rel} never states that the default is `{DEFAULT_POSTURE}`")

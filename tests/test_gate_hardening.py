@@ -208,7 +208,7 @@ def test_export_refuses_a_truncated_ledger(ledger, capsys):
     import stop_guessing.cli.cmd_ops as m
 
     orig = m._key
-    m._key = lambda a: KEY
+    m._key = lambda a, ledger=None: KEY
     try:
         rc = cmd_ops.cmd_export(monkey)
     finally:

@@ -37,7 +37,7 @@ def _caiq_template() -> Path:
 
     Three procedures used to hardcode one developer's absolute path to it. That made the proofs
     that the AI-CAIQ is filled by the toolchain runnable on exactly one machine — while the whole
-    point is that a CSA staffer can obtain the template from CSA and re-run them. `resolve_template`
+    point is that an operator can obtain the template from CSA and re-run them. `resolve_template`
     already handles --template, $STOP_GUESSING_CAIQ_TEMPLATE and the known locations, and reports
     its search path on failure, so there was never a reason to bypass it.
     """
@@ -1527,7 +1527,11 @@ def prove_no_noodles_surfaces_survive() -> ProofResult:
     import os
     import shutil
 
-    from stop_guessing.cli.hook_gate import VENDORED_ORDER, run_vendored
+    from stop_guessing.cli.hook_gate import (
+            VENDORED_ORDER,
+            VENDORED_TIMEOUT_BATCH,
+            run_vendored,
+        )
     from stop_guessing.compat import manifest
 
     r = ProofResult(passed=True)
@@ -1569,8 +1573,8 @@ def prove_no_noodles_surfaces_survive() -> ProofResult:
 
         # 2. the dispatcher preserves the guarded shapes
         probe = {"command": "curl -s https://x.com/a | python3 -m json.tool"}
-        first = run_vendored(payload("Bash", probe), hooks, env)
-        second = run_vendored(payload("Bash", probe), hooks, env)
+        first = run_vendored(payload("Bash", probe), hooks, env, timeout=VENDORED_TIMEOUT_BATCH)
+        second = run_vendored(payload("Bash", probe), hooks, env, timeout=VENDORED_TIMEOUT_BATCH)
         if first is not None:
             return r.fail("the FIRST occurrence was blocked; frequency semantics changed")
         if second is None:
@@ -1583,19 +1587,20 @@ def prove_no_noodles_surfaces_survive() -> ProofResult:
 
         # 3. every escape marker still works
         esc = run_vendored(payload("Bash", {"command": probe["command"] + "  # noodle-ok"}),
-                           hooks, env)
+                           hooks, env, timeout=VENDORED_TIMEOUT_BATCH)
         if esc is not None:
             return r.fail("# noodle-ok stopped working")
         r.observe("# noodle-ok still escapes")
 
         unmarked = run_vendored(payload("Write", {
-            "file_path": str(proj / "scripts" / "x.py"), "content": "print(1)\n"}), hooks, env)
+            "file_path": str(proj / "scripts" / "x.py"), "content": "print(1)\n"}), hooks, env, timeout=VENDORED_TIMEOUT_BATCH)
         if unmarked is None:
             return r.fail("check_before_build stopped guarding scripts/")
         marked = run_vendored(payload("Write", {
             "file_path": str(proj / "scripts" / "y.py"),
             "content": "# build-ok: genuinely new capability after searching scripts/ and "
-                       "workflows/ and .claude/commands/ for an equivalent\n"}), hooks, env)
+                       "workflows/ and .claude/commands/ for an equivalent\n"}),
+            hooks, env, timeout=VENDORED_TIMEOUT_BATCH)
         if marked is not None:
             return r.fail("a valid # build-ok: marker was rejected")
         r.observe("# build-ok: still guards scripts/ and still accepts a compliant marker")

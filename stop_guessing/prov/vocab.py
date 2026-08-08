@@ -62,3 +62,73 @@ def agent_id(spiffe_or_name: str) -> str:
 
 def person_id(human: str) -> str:
     return f"sg:person/{human}"
+
+
+# ── record-shape normalisation (#89) ─────────────────────────────────────────
+#
+# Two record shapes exist in the ledger and the exporters only ever handled one.
+#
+#   nested   the gate's CustodyRecord predicate: `actor` is an object carrying agent_id, operator
+#            and acted_on_behalf_of, and the eight regimes are present.
+#   flat     what `prove`, `hook_lifecycle` and `segments` write: a plain event whose `actor` is a
+#            STRING like "stop-guessing/0.5.3", with no regimes at all.
+#
+# Every exporter did `p.get("actor").get("agent_id")`, which raises `AttributeError` on the flat
+# shape. 1,493 of the live records are flat, so PROV, CASE/UCO and OTLP export all crashed against
+# the real ledger while passing on hand-built fixtures — the export CLI exited 1 for all three
+# formats. See issue #89.
+#
+# The rule applied here: a flat record genuinely carries LESS information. There is no operator
+# identity and no delegation edge to report. So those keys are ABSENT rather than present-and-empty.
+# Filling them with "" or "unknown" would manufacture an operator who never existed, which is a
+# worse failure than the crash — an export that invents a custodian is not a custody record.
+
+
+def normalise(record: dict) -> dict:
+    """Return the predicate for either record shape, with `actor` always an object.
+
+    Absent regimes stay absent. `actor.agent_id` is always present because every record has an
+    actor of some kind, and the exporters need something to hang an identity on.
+    """
+    inner = record
+    if isinstance(record.get("statement"), dict):
+        inner = record["statement"].get("predicate", record["statement"])
+    elif isinstance(record.get("predicate"), dict):
+        inner = record["predicate"]
+
+    if not isinstance(inner, dict):
+        return {"actor": {"agent_id": "unknown"}}
+
+    actor = inner.get("actor")
+    if isinstance(actor, dict):
+        return inner
+
+    out = dict(inner)
+    # A flat record's `actor` is the software agent that wrote it. Recorded as a prov:SoftwareAgent
+    # with no operator and no delegation, because it genuinely has neither.
+    out["actor"] = {
+        "prov_type": "prov:SoftwareAgent",
+        "agent_id": str(actor) if actor else "unknown",
+        "agent_type": "recorder",
+    }
+    # Lift the flat timestamp into the `record` regime so exporters find a time where they expect it.
+    rec = out.get("record")
+    if not isinstance(rec, dict):
+        rec = {}
+    rec.setdefault("id", inner.get("id") or f"seq-{inner.get('seq')}")
+    rec.setdefault("at", inner.get("at"))
+    if inner.get("seq") is not None:
+        rec.setdefault("seq", inner["seq"])
+    for k in ("hash", "prev_hash", "hash_alg"):
+        if inner.get(k) is not None:
+            rec.setdefault(k, inner[k])
+    out["record"] = rec
+
+    if inner.get("op") and not isinstance(out.get("action"), dict):
+        out["action"] = {"prov_type": "prov:Activity", "op": inner["op"]}
+    # `known_gaps` and `alterations` are Tier-A assertions and must survive normalisation verbatim:
+    # an exporter that dropped them would turn "nothing was altered" into "nobody looked".
+    for k in ("known_gaps", "alterations"):
+        if k in inner:
+            out[k] = inner[k]
+    return out

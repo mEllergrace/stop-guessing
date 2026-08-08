@@ -67,10 +67,26 @@ def operator_rules_intact(settings: Path | None = None) -> list[str]:
     return [r for r in OPERATOR_RULES if r not in registered]
 
 
+#: Per-hook wall-clock budget in the PRODUCTION path. The documented dispatcher budget is ~40 ms
+#: p95, so 30 s is already 750x headroom and a vendored hook exceeding it is broken, not slow. It
+#: stays short here on purpose: a long timeout in `PreToolUse` means one hung rule stalls every tool
+#: call in the session.
+VENDORED_TIMEOUT = 30
+
+#: What a PROOF or a corpus replay uses instead. Those run many hooks back to back, often while a
+#: test suite and a SHACL validator are competing for the same cores, and CLAIM-16/17 flapped on
+#: exactly that — `no_noodle.sh` and `install.sh` timed out at 30 s under load and two claims went
+#: UNPROVEN with nothing wrong. A verdict that depends on machine load is not a verdict. This is
+#: headroom for measurement, not a relaxed assertion: the claim is that the vendored rules still run
+#: and still produce identical output, and how long they take under contention is incidental to it.
+VENDORED_TIMEOUT_BATCH = 300
+
+
 def run_vendored(
     payload: bytes,
     hooks_dir: Path | None = None,
     env: dict[str, str] | None = None,
+    timeout: int = VENDORED_TIMEOUT,
 ) -> tuple[int, str, str] | None:
     """Run the vendored rules in order. Returns the first refusal, or None if all allow.
 
@@ -94,7 +110,7 @@ def run_vendored(
             missing.append(name)
             continue
         res = subprocess.run(  # noqa: S603
-            ["bash", str(hook)], input=payload, capture_output=True, timeout=30,
+            ["bash", str(hook)], input=payload, capture_output=True, timeout=timeout,
             env=env if env is not None else None,
         )
         if res.returncode != 0:
@@ -144,7 +160,9 @@ def _record_disabled_once() -> None:
     """
     try:
         cfg = Path(os.environ.get("CLAUDE_CONFIG_DIR") or os.path.expanduser("~/.claude"))
-        stamp = cfg / "stop-guessing" / f"disabled-{_iso_now()[:10]}.marker"
+        from stop_guessing.paths import data_home
+
+        stamp = data_home() / f"disabled-{_iso_now()[:10]}.marker"
         if stamp.exists():
             return
         stamp.parent.mkdir(parents=True, exist_ok=True)
@@ -322,9 +340,13 @@ def _record_gap(payload: dict, exc: BaseException) -> None:
         from stop_guessing.attest.keys import discover
         from stop_guessing.ledger.sink import record
 
+        # The KEY still comes from the profile — that is a credential, not data, and it is
+        # deliberately not project-local: a key committed alongside a repo would be no key at all.
         got = discover(config_dir=os.environ.get("CLAUDE_CONFIG_DIR"))
-        cfg = os.environ.get("CLAUDE_CONFIG_DIR") or os.path.expanduser("~/.claude")
-        ledger = Path(cfg) / "stop-guessing" / "ledger" / "custody.jsonl"
+        # Project-local: this used to write into the agent's shared profile dir.
+        from stop_guessing.paths import ledger_file
+
+        ledger = ledger_file()
         record(ledger, {
             "op": "recorder.selfcheck",
             "actor": "stop-guessing/hook_gate",

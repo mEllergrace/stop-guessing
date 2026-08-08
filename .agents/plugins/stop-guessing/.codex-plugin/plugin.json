@@ -1,6 +1,6 @@
 {
   "name": "stop-guessing",
-  "version": "0.5.3",
+  "version": "0.6.1",
   "description": "Chain of custody and data provenance for agentic AI. Aligned to CSA AICM v1.1.0.",
   "license": "Apache-2.0",
   "interface": {
@@ -8,7 +8,7 @@
     "adapter": "stop_guessing.adapters.codex"
   },
   "policy": {
-    "posture_default": "steer",
+    "posture_default": "observe",
     "offline_by_default": true
   }
 }

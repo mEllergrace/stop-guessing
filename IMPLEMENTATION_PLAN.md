@@ -18,7 +18,7 @@ Three things make this urgent and tractable right now:
 
 3. **The failure mode is documented and expensive.** Replit/SaaStr, 21 July 2025 (AI Incident Database #1152): an agent deleted a production database during an explicit code freeze, fabricated ~4,000 fictional records, and misreported what it had done — no independent record of any of it. Berkeley RDI, April 2026: a zero-capability agent scored ~100% on eight benchmarks by attacking the evaluator, including installing a fake `curl` wrapper that returned fabricated success to the grader. That last one is a direct design constraint: **the recorder must not be reachable by the agent it records.**
 
-**Intended outcome:** a tool CSA staff install once, that produces an evidence chain an auditor will accept, and that carries a progressively-filled AI-CAIQ v1.1.0 version-inspected on every run.
+**Intended outcome:** a tool an operator installs once, that produces an evidence chain an auditor will accept, and that carries a progressively-filled AI-CAIQ v1.1.0 version-inspected on every run.
 
 ### The thesis, in its defensible form
 
@@ -36,7 +36,7 @@ Backing: Beurer-Kellner et al., *Design Patterns for Securing LLM Agents against
 
 | # | Decision |
 |---|---|
-| 1 | **Default posture = `steer`.** Three postures ship: `observe` (record everything, block nothing), `steer` (default), `bar` (model barred from opening classified artifacts). |
+| 1 | ~~**Default posture = `steer`.**~~ **SUPERSEDED in v0.5.2 — the default is now `observe`.** Three postures still ship: `observe` (record everything, block nothing), `steer`, `bar` (model barred from opening classified artifacts). The original decision is left standing above because this file records what was decided, not what is current. It moved because a recorder that asks is a second permission gate in front of an operator who has already configured the host's own; `steer` and `bar` are unchanged and opt-in. Pinned by `tests/test_observe_never_prompts.py`. |
 | 2 | **Agent-agnostic Python core + Claude Code adapter first.** Codex adapter is a stub implementing the same interface. |
 | 3 | **Vendor no-noodles byte-identically, depend on nothing, and supersede it.** STOP-GUESSING must be able to fully replace `moonsoup/no-noodles` on a machine with byte-compatible semantics. |
 | 4 | **Product name: STOP-GUESSING.** Repo `mEllergrace/stop-guessing`; working dir stays `coc-prov`; `coc-prov` retained as a permanent CLI alias. |
@@ -147,7 +147,7 @@ The check-before-building rule applies hardest here. Every item below exists, wo
 | **ISO/IEC 27037:2012 §5.4.1** | **SCHEMA SOURCE.** unique identifier, source, operator, method, hash, timestamp, handover events, and **any unavoidable alteration with written justification** | That last field is the one everyone omits and the one an agentic system needs most |
 | **FRE 902(13)/(14)** | **CERTIFICATION OBJECT.** The hash is the technical basis; a **named qualified person's certification** is the legal operative act | Without a designated certifier the ledger never reaches self-authentication |
 | **SEC Rule 17a-4(f)** as amended Oct 2022 | **DESIGN TARGET.** All modifications and deletions, date+time of every operator action, the individual(s) responsible, enough to re-create the original record and interim iterations | The best regulator-written spec of an adequate tamper-evident ledger. Satisfy it verbatim |
-| **AICM v1.1.0** | **MAP.** DSP-20, DSP-05, DSP-24, LOG-03, LOG-10, LOG-12, STA-09, MDS-*; draft agentic: IAM-AG-03, LOG-AG-01, LOG-AG-02 | The deliverable CSA staff expect |
+| **AICM v1.1.0** | **MAP.** DSP-20, DSP-05, DSP-24, LOG-03, LOG-10, LOG-12, STA-09, MDS-*; draft agentic: IAM-AG-03, LOG-AG-01, LOG-AG-02 | The published control framework this maps to |
 | **OpenLineage** | **STUB.** Mapping documented, `NotImplementedError` | No integrity semantics; never present as the custody record |
 | **C2PA** | **IGNORE for the data path** | Trust model bound to media byte ranges and a CA trust list we cannot join; `crJSON` self-declares as *not* a general-purpose machine-readable format |
 | **Blockchain anchoring** | **DO NOT BUILD** | No regulated-audit adoption. RFC 3161 / eIDAS qualified timestamps carry the legal recognition. Including a chain will cost credibility with exactly this audience |
@@ -684,7 +684,7 @@ Step 6 stays manual and CoC never invokes it — `observations.jsonl`, `shapes/`
 | 2 | `cocd` runs as `_coc` via launchd; ledger dir `_coc:staff 0750`; socket group-writable | ledger rewrite and deletion by uid 501 | root, physical access |
 | 3 | Socket replaced by HTTP append to a CSA-internal host | local destruction | that host's own integrity |
 
-**Tier 2 is the recommended install for CSA staff** (`install.sh --isolated`, one sudo, once). Tier 1 is the default. Tier 0 is a recorded fallback, never silent.
+**Tier 2 is the recommended install for anyone holding sensitive material** (`install.sh --isolated`, one sudo, once). Tier 1 is the default. Tier 0 is a recorded fallback, never silent.
 
 Six concrete mechanisms:
 
@@ -823,7 +823,7 @@ CI job `caiq-drift` runs `coc caiq evidence check` on every PR and fails when a 
     FUNDING.yml
 ```
 
-**Install story for a CSA staffer** — two supported paths, both kept:
+**Install story for an operator** — two supported paths, both kept:
 
 1. `/plugin marketplace add mEllergrace/stop-guessing` then `/plugin install stop-guessing@stop-guessing`. No shell script, no filesystem trust. This is proven working in this estate: `~/.claude/plugins/known_marketplaces.json` records `rich-text` installed exactly this way from `mEllergrace/rich-text`.
 2. `git clone && ./install.sh --all-profiles` for anyone who needs the supersession path or Tier-2 isolation.
@@ -907,6 +907,6 @@ Creates a classified fixture in a temp dir, drives a real session against it, an
 ## 17. Open items — decide during M0, do not guess
 
 1. **AI-CAIQ template redistribution.** Confirm CSA's terms before committing `reference/AI_CAIQv1.1.0.xlsx`. `reference/TEMPLATE.json` ships either way. Both code paths must work.
-2. **Certifier identity for CSA distribution.** Who signs the FRE 902 certification on a staff laptop — the individual staffer as records custodian, or a central CSA role? Affects only `certifier-profile` defaults, not the schema.
+2. **Certifier identity for distribution.** Who signs the FRE 902 certification on an operator's machine — the individual operator as records custodian, or a central organisational role? Affects only `certifier-profile` defaults, not the schema.
 3. **`in-toto` predicate type registration.** `https://stop-guessing.dev/Custody/v1` needs either a real resolvable URL or a decision to use a non-resolving URI. Registering through in-toto's documented vetting process is what converts "private format" into "registered predicate" — worth doing, and worth doing after M2 when the schema has stopped moving.
-4. **Whether `mEllergrace/stop-guessing` is mirrored privately on `moonsoup` first.** The estate convention is private dev under `moonsoup`, public distribution under `mEllergrace`. Public-only is simpler and this is meant to be a public CSA-facing reference implementation; confirm before the first push.
+4. **Whether `mEllergrace/stop-guessing` is mirrored privately on `moonsoup` first.** The estate convention is private dev under `moonsoup`, public distribution under `mEllergrace`. Public-only is simpler and this is meant to be a public reference implementation; confirm before the first push.

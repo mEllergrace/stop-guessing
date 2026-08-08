@@ -30,6 +30,21 @@ STATE_VERSION = 1
 
 
 def state_dir() -> Path:
+    """Project-local by default. See `stop_guessing.paths` for why this moved.
+
+    This resolved under `$CLAUDE_CONFIG_DIR`, which belongs to the agent and is shared by every
+    session and project on that profile. It accumulated 31 state files, ~24 of them real session
+    UUIDs from whatever projects happened to be open — and since the record carries `session_id`
+    with no `cwd`, not one of them could be attributed to a project. `$STOP_GUESSING_HOME` still
+    points it anywhere, so a deliberately shared store remains available.
+    """
+    from stop_guessing.paths import state_dir as _resolved
+
+    return _resolved()
+
+
+def legacy_state_dir() -> Path:
+    """The pre-move location. Kept because accumulated evidence is not disposable state."""
     base = os.environ.get("CLAUDE_CONFIG_DIR") or os.path.expanduser("~/.claude")
     return Path(base) / "stop-guessing" / "state"
 
@@ -62,6 +77,11 @@ def save(state: SessionCustodyState) -> Path:
     body = {
         "_version": STATE_VERSION,
         "session_id": state.session_id,
+        # The project this state belongs to. Its absence was the other half of the shared-store
+        # defect: 31 pooled state files recorded `session_id` and nothing else, so not one of them
+        # could be attributed to a project even in principle. A provenance record that cannot say
+        # where it came from is doing half its job.
+        "project": str(Path.cwd()),
         "labels": sorted(state.labels),
         "sources": {k: v.to_dict() for k, v in state.sources.items()},
         "touched": state.touched,

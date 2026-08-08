@@ -28,6 +28,21 @@ dependencies = ["PyYAML>=6"]
 caiq = ["openpyxl>=3.1"]
 dev = ["pytest>=7.4", "ruff>=0.4", "openpyxl>=3.1", "PyYAML>=6"]
 
+# Third-party conformance validators. Deliberately an EXTRA and never a runtime dependency: the
+# offline guarantee (§2, decision 6) is about the runtime, and none of these is imported by any code
+# path a hook executes. They exist so `scripts/benchmark_frameworks.py` can be re-run by someone who
+# is not us — a benchmark only the author can run is not a benchmark.
+#
+#   case-utils           NIST-involved CASE/UCO SHACL validator (`case_validate`)
+#   pyshacl, rdflib      what case-utils validates with
+#   prov                 W3C PROV-JSON model, for round-trip validation
+#   in-toto              the CNCF project; measured as exposing no Statement-v1 validator today
+#   opentelemetry-proto  the generated OTLP protobuf JSON parser
+conformance = [
+    "case-utils>=0.17", "pyshacl>=0.29", "prov>=2.0", "in-toto>=3.0",
+    "opentelemetry-proto>=1.30",
+]
+
 [project.scripts]
 stop-guessing = "stop_guessing.cli.main:main"
 coc-prov = "stop_guessing.cli.main:main"

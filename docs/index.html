@@ -5,13 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>STOP-GUESSING — chain of custody for agentic AI</title>
 <link rel="canonical" href="https://mellergrace.github.io/stop-guessing/">
-<meta name="description" content="Chain of custody and data provenance for agentic AI. 21 of 21 claims proven against its own keyed ledger; the AI-CAIQ is derived from those proofs.">
+<meta name="description" content="Chain of custody and data provenance for agentic AI. 20 of 21 claims proven against its own keyed ledger; the AI-CAIQ is derived from those proofs.">
 <meta name="theme-color" content="#12100e">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="STOP-GUESSING">
 <meta property="og:url" content="https://mellergrace.github.io/stop-guessing/">
 <meta property="og:title" content="STOP-GUESSING — chain of custody for agentic AI">
-<meta property="og:description" content="Everything in this space records actions. Nothing records data flow. 21/21 claims proven against its own keyed ledger.">
+<meta property="og:description" content="Everything in this space records actions. Nothing records data flow. 20/21 claims proven against its own keyed ledger.">
 <meta name="twitter:card" content="summary">
 <style>
 :root{
@@ -105,12 +105,12 @@ footer{margin-top:5rem;padding-top:1.5rem;border-top:1px solid var(--rule);
   <div class="attest">
     <div class="attest-top">
       <div class="verdict">GOAL NOT MET
-        <span class="cmd">stop-guessing attest --self · v0.5.3</span></div>
+        <span class="cmd">stop-guessing attest --self · v0.6.1</span></div>
     </div>
     <div class="grid">
-      <div class="stat"><span class="n">21/21</span><span class="l">claims proven</span></div>
-      <div class="stat"><span class="n">21</span><span class="l">ledger proofs</span></div>
-      <div class="stat"><span class="n">14</span><span class="l">AICM controls</span></div>
+      <div class="stat"><span class="n">20/21</span><span class="l">claims proven</span></div>
+      <div class="stat"><span class="n">20</span><span class="l">ledger proofs</span></div>
+      <div class="stat"><span class="n">13</span><span class="l">AICM controls</span></div>
       <div class="stat"><span class="n">keyed</span><span class="l">chain state</span></div>
     </div>
   </div>
@@ -297,14 +297,13 @@ paths has proven nothing an auditor wants.</p>
 <tr><td class="mono">A&amp;A-01</td><td class="mono">CLAIM-06, CLAIM-14, CLAIM-20, CLAIM-21</td></tr>
 <tr><td class="mono">CCC-01</td><td class="mono">CLAIM-09, CLAIM-16, CLAIM-17</td></tr>
 <tr><td class="mono">DSP-05</td><td class="mono">CLAIM-01, CLAIM-18</td></tr>
-<tr><td class="mono">DSP-20</td><td class="mono">CLAIM-01, CLAIM-07, CLAIM-08, CLAIM-09, CLAIM-10, CLAIM-15, CLAIM-21</td></tr>
+<tr><td class="mono">DSP-20</td><td class="mono">CLAIM-01, CLAIM-08, CLAIM-09, CLAIM-10, CLAIM-15, CLAIM-21</td></tr>
 <tr><td class="mono">I&amp;S-01</td><td class="mono">CLAIM-18</td></tr>
 <tr><td class="mono">IAM-AG-03</td><td class="mono">CLAIM-12</td></tr>
 <tr><td class="mono">LOG-03</td><td class="mono">CLAIM-02, CLAIM-05, CLAIM-06, CLAIM-13</td></tr>
 <tr><td class="mono">LOG-10</td><td class="mono">CLAIM-02, CLAIM-03, CLAIM-04, CLAIM-12, CLAIM-15, CLAIM-19</td></tr>
 <tr><td class="mono">LOG-12</td><td class="mono">CLAIM-04</td></tr>
 <tr><td class="mono">LOG-AG-01</td><td class="mono">CLAIM-01, CLAIM-11</td></tr>
-<tr><td class="mono">LOG-AG-02</td><td class="mono">CLAIM-07</td></tr>
 <tr><td class="mono">MDS-13</td><td class="mono">CLAIM-10</td></tr>
 <tr><td class="mono">SEF-01</td><td class="mono">CLAIM-13</td></tr>
 <tr><td class="mono">STA-09</td><td class="mono">CLAIM-14, CLAIM-20, CLAIM-21</td></tr>
@@ -324,7 +323,7 @@ not conformance.”</em></p>
 <tr><td class="mono">A&amp;A-01</td><td><span class="tag yes">Yes</span></td><td class="mono">3</td><td class="mono">CLAIM-06, CLAIM-14, CLAIM-20</td></tr>
 <tr><td class="mono">CCC-01</td><td><span class="tag yes">Yes</span></td><td class="mono">3</td><td class="mono">CLAIM-09, CLAIM-16, CLAIM-17</td></tr>
 <tr><td class="mono">DSP-05</td><td><span class="tag yes">Yes</span></td><td class="mono">2</td><td class="mono">CLAIM-01, CLAIM-18</td></tr>
-<tr><td class="mono">DSP-20</td><td><span class="tag yes">Yes</span></td><td class="mono">6</td><td class="mono">CLAIM-01, CLAIM-07, CLAIM-08, CLAIM-09, CLAIM-10, CLAIM-15</td></tr>
+<tr><td class="mono">DSP-20</td><td><span class="tag yes">Yes</span></td><td class="mono">5</td><td class="mono">CLAIM-01, CLAIM-08, CLAIM-09, CLAIM-10, CLAIM-15</td></tr>
 <tr><td class="mono">I&amp;S-01</td><td><span class="tag yes">Yes</span></td><td class="mono">1</td><td class="mono">CLAIM-18</td></tr>
 <tr><td class="mono">LOG-03</td><td><span class="tag yes">Yes</span></td><td class="mono">4</td><td class="mono">CLAIM-02, CLAIM-05, CLAIM-06, CLAIM-13</td></tr>
 <tr><td class="mono">LOG-10</td><td><span class="tag yes">Yes</span></td><td class="mono">6</td><td class="mono">CLAIM-02, CLAIM-03, CLAIM-04, CLAIM-12, CLAIM-15, CLAIM-19</td></tr>
@@ -339,11 +338,69 @@ questionnaire of unbroken Yeses is the least believable artifact an auditor can 
 Output passes rich-text's <code>verify_ai_caiq_workbook.py</code> unmodified, and CSA's blank
 template is copy-only: read <code>read_only=True</code>, never saved, digest re-checked every run.</p>
 
-<p><strong>Not written into CSA's workbook:</strong> IAM-AG-03, LOG-AG-01, LOG-AG-02. These are CSA's
+<p><strong>Not written into CSA's workbook:</strong> IAM-AG-03, LOG-AG-01. These are CSA's
 <em>draft</em> agentic controls from the labs space and do not exist in published AICM v1.1.0.
 Their evidence is real and is recorded separately; presenting them as AICM rows would be
 fabrication. The fill refuses them — which is how the first attempt was caught.</p>
 
+<h2>Standards and benchmarks</h2>
+<p><strong>&ldquo;Aligned to&rdquo; is not &ldquo;benchmarked against.&rdquo;</strong> A framework is listed as validated only where a third party&rsquo;s validator returns a verdict on this toolchain&rsquo;s output <em>and</em> a control confirms that validator rejects a deliberately broken input. Everything weaker is labelled as what it is.</p>
+<p class="verdict">4 externally validated &middot; 2 self-asserted &middot; 2 mapped &middot; 2 design targets &middot; 12 named but not benchmarked &middot; 3 out of scope</p>
+<h3>Externally validated</h3><p class="muted">a third party&#x27;s validator returns a verdict on our output, and a control confirms it rejects a deliberately broken input.</p>
+<table><thead><tr>
+<th>Framework</th><th>Validator</th><th>Result</th><th>Control</th>
+</tr></thead><tbody>
+<tr><td><strong>CASE/UCO</strong></td><td><code>case_validate (usnistgov/case-utils 0.17.0) — SHACL against the CASE ontology</code></td><td>Conforms — no Violations, no Warnings, and no severity flags used. Validated over an op-covering sample (every distinct record op represented) because SHACL over the full ledger takes minutes and a suite nobody waits for protects nothing; `--full` validates every record. The bound is stated rather than implied.</td><td>An entity given a class CASE does not define is rejected.</td></tr>
+<tr><td><strong>OpenTelemetry OTLP (traces) / GenAI semconv</strong></td><td><code>opentelemetry-proto 1.44.0 — the generated protobuf JSON parser</code></td><td>Parsed by the generated model.</td><td>An unknown span field is rejected.</td></tr>
+<tr><td><strong>W3C PROV (PROV-JSON)</strong></td><td><code>prov (python) — deserialisation into the library&#x27;s own model</code></td><td>Deserialised without error.</td><td>Malformed PROV-JSON is rejected.</td></tr>
+<tr><td><strong>AI-CAIQ v1.1.0 workbook structure</strong></td><td><code>rich-text&#x27;s verify_ai_caiq_workbook.py, used UNMODIFIED</code></td><td>Accepted — sheets, dimensions, editable-cell bounds and vocabulary all unchanged.</td><td>The verifier refuses if any non-C:F cell changed, validations changed, or a value falls outside the published vocabulary.</td></tr>
+</tbody></table>
+<h3>Self-asserted</h3><p class="muted">our own tests check our own reading of the spec — honest, and weaker.</p>
+<table><thead><tr>
+<th>Framework</th><th>What is claimed, exactly</th>
+</tr></thead><tbody>
+<tr><td><strong>in-toto Attestation Framework v1</strong></td><td>in-toto 3.1.0 installs but exposes no Statement-v1 validator, so the shape is checked only by our own test. Measured, not assumed — see scripts/benchmark_frameworks.py. Gap: Registering the Custody/v1 predicate type through in-toto&#x27;s documented vetting process is what would convert &quot;private format&quot; into &quot;registered predicate&quot;. Not done.</td></tr>
+<tr><td><strong>DSSE (Dead Simple Signing Envelope)</strong></td><td>Our own round-trip tests only. Signing is HMAC, so there is no public verifiability.</td></tr>
+</tbody></table>
+<h3>Mapped</h3><p class="muted">clauses or controls tied to evidence. A mapping is not a conformance assessment.</p>
+<table><thead><tr>
+<th>Framework</th><th>What is claimed, exactly</th>
+</tr></thead><tbody>
+<tr><td><strong>CSA AI Controls Matrix v1.1.0</strong></td><td>14 of roughly 243 AICM controls are evidenced. That is a mapping of the controls this tool touches, NOT coverage of AICM, and not an assessment. Anyone reading a control count as coverage would be misled, so the denominator is stated.</td></tr>
+<tr><td><strong>ISO/IEC 27037:2012</strong></td><td>One clause of one standard, used as a schema source. There is no clause-by-clause conformance matrix, and none is claimed. §5.4.1&#x27;s alterations requirement is the field most tools omit and is what the scope ratchet enforces. Gap: Clauses 6.x (identification, collection, acquisition, preservation) are not mapped.</td></tr>
+</tbody></table>
+<h3>Design target</h3><p class="muted">it shaped the build; no clause-by-clause mapping exists.</p>
+<table><thead><tr>
+<th>Framework</th><th>What is claimed, exactly</th>
+</tr></thead><tbody>
+<tr><td><strong>SEC Rule 17a-4(f), as amended October 2022</strong></td><td>It is the best regulator-written specification of an adequate tamper-evident ledger and it informed the append-only design. No clause mapping exists and no filing has been assessed.</td></tr>
+<tr><td><strong>Federal Rules of Evidence 902(13) and 902(14)</strong></td><td>The object and the `ledger certify` command exist. No certifier has ever signed a segment, so the path is UNEXERCISED — the hash is the technical basis, and a named person&#x27;s certification is the legal operative act that has not happened.</td></tr>
+</tbody></table>
+<h3>Not benchmarked</h3><p class="muted">a framework a competent reviewer would expect, named with why it is absent.</p>
+<table><thead><tr>
+<th>Framework</th><th>Why it is not here</th>
+</tr></thead><tbody>
+<tr><td><strong>ISO/IEC 42001</strong></td><td>The highest-value target here, and for a specific reason: it is the standard CSA is looking at for **Level 2 STAR for AI listings**. STAR Level 1 is self-assessment — which is what the AI-CAIQ this toolchain already carries and fills from its own proof records. Level 2 is third-party audited, so 42001 is the path from &quot;we assessed ourselves&quot; to &quot;someone else certified us&quot;, which is the same gap `independently_reproduced: false` names internally.<br><strong>Scope limit:</strong> A TOOL cannot be certified to 42001 — an organisation&#x27;s management system is. What this can do is produce the records specific clauses require (lifecycle traceability, decision records, roles and delegation, change control) so an organisation&#x27;s own conformance is evidenced rather than asserted. Claiming &quot;42001 compliant&quot; for a piece of software would be exactly the overclaim this file exists to prevent, so the row says supports-evidence-for, not conforms-to.<br><strong>Review when:</strong> Re-evaluate when ISO/IEC 42006 (requirements for bodies auditing AI management systems) settles, since that determines what an auditor will actually ask for, and whenever CSA publishes its AI STAR Level 2 criteria.</td></tr>
+<tr><td><strong>ISO/IEC 15026 (systems and software assurance)</strong></td><td>The closest existing articulation of what this toolchain already is. `docs/claims.yaml` → proof records → `attest --self` is an assurance case in all but name, and 15026 provides the vocabulary (claim, argument, evidence) plus the discipline of stating counter-evidence. Adopting it would give the self-attestation an external shape instead of a bespoke one.<br><strong>Review when:</strong> Re-evaluate if a domain-specific assurance-case profile for AI systems is published.</td></tr>
+<tr><td><strong>NIST CFTT / SWGDE tool validation</strong></td><td>The most concrete option: an actual test methodology rather than guidance, aimed squarely at &quot;does the tool do what it claims&quot;. It also speaks to Daubert&#x27;s known-error-rate limb, which this project currently fails outright.<br><strong>Review when:</strong> Re-evaluate if CFTT publishes a methodology covering agentic or AI-pipeline tooling.</td></tr>
+<tr><td><strong>EU AI Act, Article 12</strong></td><td>The widest-reaching framework for this tool&#x27;s actual subject matter. Article 12 requires traceability appropriate to purpose across the lifecycle, which is what this records.<br><strong>Review when:</strong> Re-evaluate when CEN-CENELEC JTC21 harmonised standards publish — those, not the Article text, are what conformity will be assessed against.</td></tr>
+<tr><td><strong>ISO/IEC 27041</strong></td><td>Still relevant where this toolchain&#x27;s output is used in an actual investigation, which is a narrower case than the tool&#x27;s normal operation.<br><strong>Review when:</strong> Re-evaluate if the ledger is used in a real incident investigation.</td></tr>
+<tr><td><strong>ACPO Good Practice Guide for Digital Evidence</strong></td><td>The standard citation for any chain-of-custody claim. Its principles — do not alter the original, competence, an audit trail a third party can follow, responsibility — map closely onto what this ledger already records, so the mapping is cheap and its absence is conspicuous.<br><strong>Review when:</strong> Re-evaluate on any successor guidance from the UK NPCC.</td></tr>
+<tr><td><strong>SLSA</strong></td><td>We emit in-toto attestations and claim no SLSA level. A supply-chain reviewer will ask, and &quot;we use the substrate but not the framework&quot; is defensible only when stated.<br><strong>Review when:</strong> Re-evaluate once signing moves from HMAC to Ed25519, without which no level is reachable.</td></tr>
+<tr><td><strong>Daubert / Frye standards</strong></td><td>FRE 902 buys self-authentication; Daubert governs whether the METHOD is scientifically valid — known error rate, peer review, general acceptance. This project has none of those three, so any claim to be &quot;scientifically defensible&quot; is measured against this and currently fails it.<br><strong>Review when:</strong> Re-evaluate after any independent reproduction or published peer review.</td></tr>
+<tr><td><strong>ISO/IEC 27042 and 27043</strong></td><td>We cite one member of the 2703x family and ignore the rest.<br><strong>Review when:</strong> Re-evaluate alongside iso-27041.</td></tr>
+<tr><td><strong>NIST SP 800-86</strong></td><td>Long-standing reference for forensic process; useful context rather than a conformance target.<br><strong>Review when:</strong> Re-evaluate if superseded.</td></tr>
+<tr><td><strong>NIST AI RMF</strong></td><td>Widely referenced and voluntary; a framework rather than a certifiable standard.<br><strong>Review when:</strong> Re-evaluate on a major RMF revision or an AI RMF profile for agentic systems.</td></tr>
+<tr><td><strong>NIST SP 800-53 AU family / ISO 27001 A.8.15</strong></td><td>Control-level overlap with what the ledger does; mappable cheaply if a customer asks.<br><strong>Review when:</strong> Re-evaluate if 27001 becomes the STAR Level 2 basis for a given listing.</td></tr>
+</tbody></table>
+<h3>Out of scope</h3><p class="muted">deliberately not pursued, with the reason.</p>
+<table><thead><tr>
+<th>Framework</th><th>Why it is not here</th>
+</tr></thead><tbody>
+<tr><td><strong>Blockchain anchoring</strong></td><td>No regulated-audit adoption. RFC 3161 and eIDAS qualified timestamps carry the legal recognition, and including a chain would cost credibility with the intended audience.</td></tr>
+<tr><td><strong>C2PA</strong></td><td>Its trust model binds to media byte ranges and a CA trust list we cannot join, and crJSON self-declares as not a general-purpose machine-readable format.</td></tr>
+<tr><td><strong>OpenLineage</strong></td><td>The right graph primitive and no integrity semantics, so it must never be presented as the custody record. A documented stub with the field mapping in its docstring.</td></tr>
+</tbody></table>
 <h2>Relationship to no-noodles</h2>
 
 <p>STOP-GUESSING vendors <a href="https://github.com/moonsoup/no-noodles">no-noodles</a>

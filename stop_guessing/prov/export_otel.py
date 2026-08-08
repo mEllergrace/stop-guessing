@@ -18,9 +18,10 @@ CSA_NS = "csa.coc"
 
 
 def _pred(record: dict) -> dict:
-    if "statement" in record and isinstance(record["statement"], dict):
-        return record["statement"].get("predicate", record["statement"])
-    return record.get("predicate", record)
+    """Delegates to the shared normaliser (#89). Kept as a name in case anything calls it."""
+    from stop_guessing.prov.vocab import normalise
+
+    return normalise(record)
 
 
 def export(records: list[dict]) -> list[dict]:

@@ -14,16 +14,42 @@ import subprocess
 import sys
 from pathlib import Path
 
-from stop_guessing.attest.keys import discover
+from stop_guessing.attest.keys import discover, keyid_of_ledger
 from stop_guessing.version import policy_dir, repo_root
 
 
-def _key(args):
-    # discover(), not from_env(): an installed profile keeps its key in a
-    # mode-600 keyfile that install.sh writes, and looking only at the
-    # environment meant that key was never found. --keyfile still wins.
-    got = discover(getattr(args, "keyfile", None))
+def _key(args, ledger: Path | None = None):
+    """The chain key, preferring the one the ledger was actually WRITTEN under.
+
+    #90: this omitted `prefer_keyid`, so it picked the best-protected key available (a mode-600
+    keyfile, tier 2) while the ledger had been written under the environment key. Every entry then
+    failed its MAC and the tool reported
+
+        chain broken at 0 — entry 0 content does not match its own hash — it was edited in place
+
+    which is the single most damaging false positive this software can emit: it accuses its own
+    evidence of tampering when nothing was tampered. `export`, `verify`, `doctor` and `state` all
+    ran through here, so all four cried wolf.
+
+    `cmd_prove._key` already did this correctly and its comment already described the failure —
+    "adding a stronger provider silently re-keys an existing chain and every prior entry starts
+    failing verification — reported, misleadingly, as tampering". The fix existed and was never
+    applied to the other half of the CLI.
+
+    `--keyfile` still wins, exactly as before.
+    """
+    target = ledger or _ledger_for(args)
+    got = discover(getattr(args, "keyfile", None), prefer_keyid=keyid_of_ledger(target))
     return got[0] if got else None
+
+
+def _ledger_for(args) -> Path:
+    """Whichever ledger this invocation is about: --path, --ledger, else the profile default."""
+    for attr in ("path", "ledger"):
+        v = getattr(args, attr, None)
+        if v:
+            return Path(v)
+    return _default_ledger()
 
 
 def _config_dir() -> Path:
@@ -31,7 +57,11 @@ def _config_dir() -> Path:
 
 
 def _default_ledger() -> Path:
-    return _config_dir() / "stop-guessing" / "ledger" / "custody.jsonl"
+    # Project-local by default (see stop_guessing.paths). The profile location is still
+    # readable via --path, and `doctor` reports what it holds so nothing is orphaned.
+    from stop_guessing.paths import ledger_file
+
+    return ledger_file()
 
 
 # ── verify --sufficiency ─────────────────────────────────────────────────────
@@ -42,7 +72,7 @@ def cmd_verify(args) -> int:
     from stop_guessing.verify.sufficiency import assess, format_report
 
     path = Path(args.path) if args.path else _default_ledger()
-    loaded = load(path, _key(args))
+    loaded = load(path, _key(args, path))
     if not loaded.chain.intact:
         print(f"FAIL: chain broken at entry {loaded.chain.broken_at} — {loaded.chain.reason}")
         print("      Sufficiency of a ledger that does not verify is not a meaningful question.")
@@ -148,7 +178,7 @@ def cmd_doctor(args) -> int:
     from stop_guessing.ledger.sink import load
     led = _default_ledger()
     if led.is_file():
-        loaded = load(led, _key(args))
+        loaded = load(led, _key(args, led))
         state = ("intact, keyed" if loaded.chain.verified_keyed else
                  "intact, chain-only" if loaded.chain.intact else
                  f"BROKEN at {loaded.chain.broken_at}")
@@ -173,7 +203,8 @@ def cmd_state(args) -> int:
     from stop_guessing.taint import persist
     from stop_guessing.taint.state import rebuild
 
-    records = load(_default_ledger(), _key(args)).entries if _default_ledger().is_file() else []
+    records = (load(_default_ledger(), _key(args, _default_ledger())).entries
+               if _default_ledger().is_file() else [])
     authoritative = rebuild(records, args.session)
     cached = persist.load(args.session)
 
@@ -282,7 +313,7 @@ def cmd_export(args) -> int:
     from stop_guessing.prov import export_case, export_otel, export_prov
 
     path = Path(args.path) if args.path else _default_ledger()
-    loaded = load(path, _key(args))
+    loaded = load(path, _key(args, path))
     if not loaded.chain.intact:
         print(f"REFUSED: chain broken at {loaded.chain.broken_at} — {loaded.chain.reason}")
         print("         Exporting a ledger that does not verify would launder it into a format "

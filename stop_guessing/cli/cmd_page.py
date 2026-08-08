@@ -25,6 +25,103 @@ README = repo_root() / "README.md"
 BEGIN = "<!-- BEGIN GENERATED STATUS -->"
 END = "<!-- END GENERATED STATUS -->"
 
+# The framework posture is generated for the same reason the status block is: it was hand-written,
+# it drifted, and a hand-written conformance claim is the one thing this project must not ship. The
+# tiers come from docs/frameworks.yaml, whose `externally-validated` rows are checked against
+# scripts/benchmark_frameworks.py by tests/test_frameworks_posture.py — so the published claim cannot
+# outrun the measurement.
+FW_BEGIN = "<!-- BEGIN GENERATED FRAMEWORKS -->"
+FW_END = "<!-- END GENERATED FRAMEWORKS -->"
+
+TIER_LABEL = {
+    "externally-validated": ("Externally validated",
+                             "a third party's validator returns a verdict on our output, and a "
+                             "control confirms it rejects a deliberately broken input"),
+    "self-asserted": ("Self-asserted",
+                      "our own tests check our own reading of the spec — honest, and weaker"),
+    "mapped": ("Mapped",
+               "clauses or controls tied to evidence. A mapping is not a conformance assessment"),
+    "design-target": ("Design target",
+                      "it shaped the build; no clause-by-clause mapping exists"),
+    "not-benchmarked": ("Not benchmarked",
+                        "a framework a competent reviewer would expect, named with why it is absent"),
+    "out-of-scope": ("Out of scope", "deliberately not pursued, with the reason"),
+}
+TIER_ORDER = list(TIER_LABEL)
+
+
+def _frameworks_doc() -> dict:
+    import yaml
+
+    path = repo_root() / "docs" / "frameworks.yaml"
+    return yaml.safe_load(path.read_text(encoding="utf-8")) if path.is_file() else {"frameworks": []}
+
+
+def frameworks_markdown() -> str:
+    """The posture, as markdown, generated from docs/frameworks.yaml."""
+    doc = _frameworks_doc()
+    rows = doc.get("frameworks") or []
+    if not rows:
+        return f"{FW_BEGIN}\n_no framework posture recorded_\n{FW_END}"
+
+    counts = {t: len([r for r in rows if r["tier"] == t]) for t in TIER_ORDER}
+    out = [FW_BEGIN, "",
+           "**\"Aligned to\" is not \"benchmarked against.\"** This table keeps the two apart, and it "
+           "is generated from [`docs/frameworks.yaml`](docs/frameworks.yaml) — whose "
+           "externally-validated rows are checked against the actual validator output by "
+           "`tests/test_frameworks_posture.py`, so a claim here cannot outrun its measurement.", "",
+           f"**{counts['externally-validated']} externally validated · "
+           f"{counts['self-asserted']} self-asserted · {counts['mapped']} mapped · "
+           f"{counts['design-target']} design targets · "
+           f"{counts['not-benchmarked']} named but not benchmarked · "
+           f"{counts['out-of-scope']} out of scope**", ""]
+
+    for tier in TIER_ORDER:
+        group = [r for r in rows if r["tier"] == tier]
+        if not group:
+            continue
+        label, meaning = TIER_LABEL[tier]
+        out += [f"### {label}", "", f"*{meaning}.*", ""]
+        if tier == "externally-validated":
+            out += ["| Framework | Validator | Result | Control |", "|---|---|---|---|"]
+            for r in group:
+                out.append(f"| **{r['name']}** | `{r.get('validator','')}` | "
+                           f"{_one_line(r.get('result'))} | {_one_line(r.get('control'))} |")
+        elif tier == "not-benchmarked":
+            out += ["Ranked by value. Each carries what else was weighed and a **review trigger** — a "
+                    "condition, not a date, because a standards choice written once as prose becomes "
+                    "the constraint the next reader inherits.", "",
+                    "| # | Framework | Why it matters, and when to look again |", "|---|---|---|"]
+            for r in sorted(group, key=lambda x: x.get("priority", 99)):
+                cell = _one_line(r.get("why") or r.get("what"))
+                if r.get("scope_limit"):
+                    cell += f" **Scope limit:** {_one_line(r['scope_limit'])}"
+                if r.get("alternatives_considered"):
+                    cell += f" *Weighed against:* {_one_line(r['alternatives_considered'])}"
+                if r.get("review"):
+                    cell += f" **Review when:** {_one_line(r['review'])}"
+                out.append(f"| {r.get('priority', '')} | **{r['name']}** | {cell} |")
+        elif tier == "out-of-scope":
+            out += ["| Framework | Why it is not here |", "|---|---|"]
+            for r in group:
+                out.append(f"| **{r['name']}** | {_one_line(r.get('why') or r.get('what'))} |")
+        else:
+            out += ["| Framework | What is claimed, exactly |", "|---|---|"]
+            for r in group:
+                detail = _one_line(r.get("result") or r.get("what"))
+                if r.get("gap"):
+                    detail += f" **Gap:** {_one_line(r['gap'])}"
+                out.append(f"| **{r['name']}** | {detail} |")
+        out.append("")
+    out.append(FW_END)
+    return "\n".join(out)
+
+
+def _one_line(text) -> str:
+    if not text:
+        return ""
+    return " ".join(str(text).split()).replace("|", "\\|")
+
 CSS = """
 :root{
   --ink:#12100e; --paper:#faf8f5; --muted:#6b625a; --rule:#e2dcd3; --rule-soft:#efeae3;
@@ -112,6 +209,7 @@ def _esc(s) -> str:
 
 
 def build(attest: dict, claims: dict, caiq: dict | None) -> str:
+    FRAMEWORKS_HTML = frameworks_html()
     proven, total = attest["proven"], attest["total"]
     controls = attest["aicm_controls_evidenced"]
     # SG-HARD-053: current live evidence, not every historical re-run. See readme_status().
@@ -390,6 +488,7 @@ template is copy-only: read <code>read_only=True</code>, never saved, digest re-
 Their evidence is real and is recorded separately; presenting them as AICM rows would be
 fabrication. The fill refuses them — which is how the first attempt was caught.</p>
 
+{FRAMEWORKS_HTML}
 <h2>Relationship to no-noodles</h2>
 
 <p>STOP-GUESSING vendors <a href="https://github.com/moonsoup/no-noodles">no-noodles</a>
@@ -408,7 +507,10 @@ paths is the acceptance gate.</p>
 git clone https://github.com/mEllergrace/stop-guessing
 cd stop-guessing &amp;&amp; ./install.sh --all-profiles --supersede-no-noodles</code></pre>
 
-<p>Three postures ship; the default is <code>steer</code>. Full-depth tracking is the default and
+<p>Three postures ship; the default is <code>observe</code> — records everything, asks nothing. The
+host already has a permission model its operator has configured, and a second gate asking again is
+a recorder overriding a decision its user has already made. <code>steer</code> and <code>bar</code>
+do ask, and are one config key away — opt-in, not removed. Full-depth tracking is the default and
 is never silently reduced. Removable at four levels — posture, per-rule, per-project, full
 uninstall — none of which destroys the accumulated ledger.</p>
 
@@ -596,6 +698,81 @@ def _render(args) -> str:
     return build(attest, claims, caiq)
 
 
+def frameworks_html() -> str:
+    """The same posture as `frameworks_markdown`, for the published page.
+
+    One source (docs/frameworks.yaml), two renderers. The page and the README cannot disagree about
+    what has been benchmarked, which is exactly how the old hand-written Standards table went wrong.
+    """
+    rows = (_frameworks_doc().get("frameworks") or [])
+    if not rows:
+        return ""
+    counts = {tier: len([r for r in rows if r["tier"] == tier]) for tier in TIER_ORDER}
+
+    out = ['<h2>Standards and benchmarks</h2>',
+           '<p><strong>&ldquo;Aligned to&rdquo; is not &ldquo;benchmarked against.&rdquo;</strong> '
+           'A framework is listed as validated only where a third party&rsquo;s validator returns a '
+           'verdict on this toolchain&rsquo;s output <em>and</em> a control confirms that validator '
+           'rejects a deliberately broken input. Everything weaker is labelled as what it is.</p>',
+           f'<p class="verdict">{counts["externally-validated"]} externally validated &middot; '
+           f'{counts["self-asserted"]} self-asserted &middot; {counts["mapped"]} mapped &middot; '
+           f'{counts["design-target"]} design targets &middot; '
+           f'{counts["not-benchmarked"]} named but not benchmarked &middot; '
+           f'{counts["out-of-scope"]} out of scope</p>']
+
+    for tier in TIER_ORDER:
+        group = [r for r in rows if r["tier"] == tier]
+        if not group:
+            continue
+        label, meaning = TIER_LABEL[tier]
+        out.append(f'<h3>{_esc(label)}</h3><p class="muted">{_esc(meaning)}.</p>')
+        out.append('<table><thead><tr>')
+        if tier == "externally-validated":
+            out.append('<th>Framework</th><th>Validator</th><th>Result</th><th>Control</th>')
+        elif tier in ("not-benchmarked", "out-of-scope"):
+            out.append('<th>Framework</th><th>Why it is not here</th>')
+        else:
+            out.append('<th>Framework</th><th>What is claimed, exactly</th>')
+        out.append('</tr></thead><tbody>')
+        if tier == "not-benchmarked":
+            group = sorted(group, key=lambda x: x.get("priority", 99))
+        for r in group:
+            name = f'<strong>{_esc(r["name"])}</strong>'
+            if tier == "externally-validated":
+                out.append(f'<tr><td>{name}</td><td><code>{_esc(r.get("validator",""))}</code></td>'
+                           f'<td>{_esc(_one_line(r.get("result")))}</td>'
+                           f'<td>{_esc(_one_line(r.get("control")))}</td></tr>')
+            elif tier in ("not-benchmarked", "out-of-scope"):
+                cell = _one_line(r.get("why") or r.get("what"))
+                extra = ""
+                if r.get("scope_limit"):
+                    extra += f'<br><strong>Scope limit:</strong> {_esc(_one_line(r["scope_limit"]))}'
+                if r.get("review"):
+                    extra += f'<br><strong>Review when:</strong> {_esc(_one_line(r["review"]))}'
+                out.append(f'<tr><td>{name}</td><td>{_esc(cell)}{extra}</td></tr>')
+            else:
+                detail = _one_line(r.get("result") or r.get("what"))
+                if r.get("gap"):
+                    detail += f' Gap: {_one_line(r["gap"])}'
+                out.append(f'<tr><td>{name}</td><td>{_esc(detail)}</td></tr>')
+        out.append('</tbody></table>')
+    return "\n".join(out)
+
+
+def _esc(s) -> str:
+    import html as _html
+
+    return _html.escape(str(s or ""))
+
+def replace_frameworks(text: str, block: str) -> str:
+    """Swap the generated framework block, or append it if the markers are absent."""
+    if FW_BEGIN in text and FW_END in text:
+        head = text[:text.index(FW_BEGIN)]
+        tail = text[text.index(FW_END) + len(FW_END):]
+        return head + block + tail
+    return text.rstrip() + "\n\n## Standards and benchmarks\n\n" + block + "\n"
+
+
 def _render_readme(args) -> str:
     import yaml
 
@@ -627,8 +804,14 @@ def cmd_build(args) -> int:
         return 2
     PAGE.write_text(html_out, encoding="utf-8")
     print(f"wrote {PAGE.relative_to(repo_root())} ({len(html_out)} bytes)")
-    README.write_text(_splice(README.read_text(encoding="utf-8"), block), encoding="utf-8")
-    print(f"wrote the generated status block in {README.name}")
+    text = _splice(README.read_text(encoding="utf-8"), block)
+    # The framework posture, from docs/frameworks.yaml. Generated for the same reason the status
+    # block is: the hand-written Standards table drifted into claiming three frameworks were tested
+    # when one was a single-clause schema source, one an untested design target, and one had never
+    # been exercised. A conformance claim is the last thing this project should maintain by hand.
+    text = replace_frameworks(text, frameworks_markdown())
+    README.write_text(text, encoding="utf-8")
+    print(f"wrote the generated status and framework blocks in {README.name}")
     return 0
 
 

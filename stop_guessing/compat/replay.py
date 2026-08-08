@@ -121,7 +121,9 @@ def run_case(case: Case, hooks: list[str] | None = None) -> list[Outcome]:
                     capture_output=True,
                     cwd=str(proj),
                     env=env,
-                    timeout=30,
+                    # Batch budget, not the production one: a corpus replay runs
+                    # hundreds of hooks under contention (#91).
+                    timeout=300,
                 )
             assert last is not None
             outcomes.append(

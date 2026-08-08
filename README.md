@@ -1,7 +1,7 @@
 # STOP-GUESSING
 
 <!-- BEGIN GENERATED STATUS -->
-**Version 0.5.3 — `stop-guessing attest --self` reports SELF-ATTESTATION INCOMPLETE: 21/21 claims
+**Version 0.6.1 — `stop-guessing attest --self` reports SELF-ATTESTATION INCOMPLETE: 20/21 claims
 executed, witnessed and chain-verified on the maintainer's machine.**
 
 **This is self-attestation. It has not been independently verified, and the gate that produces it
@@ -10,9 +10,9 @@ headline is exactly who they matter to.**
 
 | | |
 |---|---|
-| Claims executed | **21/21**, by 21 current ledger record(s) |
+| Claims executed | **20/21**, by 20 current ledger record(s) |
 | Proof kinds | 3 adversarial, 8 live-run, 7 negative, 3 property — negative and adversarial are not optional |
-| AICM controls evidenced | 14 |
+| AICM controls evidenced | 13 |
 | Chain | intact, keyed-verified |
 | Carried AI-CAIQ | 11 published controls answered (9 Yes, 2 No), derived from those proofs |
 | Judge panel | 27 deferred disapprovals, recorded not blocking — including `independence` on every claim |
@@ -203,19 +203,86 @@ The eleven withdrawn surfaces were restored and fixed the other way: `demo --pos
 
 ---
 
-## Standards
+## Standards and benchmarks
 
-| | |
+<!-- BEGIN GENERATED FRAMEWORKS -->
+
+**"Aligned to" is not "benchmarked against."** This table keeps the two apart, and it is generated from [`docs/frameworks.yaml`](docs/frameworks.yaml) — whose externally-validated rows are checked against the actual validator output by `tests/test_frameworks_posture.py`, so a claim here cannot outrun its measurement.
+
+**4 externally validated · 2 self-asserted · 2 mapped · 2 design targets · 12 named but not benchmarked · 3 out of scope**
+
+### Externally validated
+
+*a third party's validator returns a verdict on our output, and a control confirms it rejects a deliberately broken input.*
+
+| Framework | Validator | Result | Control |
+|---|---|---|---|
+| **CASE/UCO** | `case_validate (usnistgov/case-utils 0.17.0) — SHACL against the CASE ontology` | Conforms — no Violations, no Warnings, and no severity flags used. Validated over an op-covering sample (every distinct record op represented) because SHACL over the full ledger takes minutes and a suite nobody waits for protects nothing; `--full` validates every record. The bound is stated rather than implied. | An entity given a class CASE does not define is rejected. |
+| **OpenTelemetry OTLP (traces) / GenAI semconv** | `opentelemetry-proto 1.44.0 — the generated protobuf JSON parser` | Parsed by the generated model. | An unknown span field is rejected. |
+| **W3C PROV (PROV-JSON)** | `prov (python) — deserialisation into the library's own model` | Deserialised without error. | Malformed PROV-JSON is rejected. |
+| **AI-CAIQ v1.1.0 workbook structure** | `rich-text's verify_ai_caiq_workbook.py, used UNMODIFIED` | Accepted — sheets, dimensions, editable-cell bounds and vocabulary all unchanged. | The verifier refuses if any non-C:F cell changed, validations changed, or a value falls outside the published vocabulary. |
+
+### Self-asserted
+
+*our own tests check our own reading of the spec — honest, and weaker.*
+
+| Framework | What is claimed, exactly |
 |---|---|
-| **Emits** | [in-toto Attestation Framework v1](https://github.com/in-toto/attestation) Statements, DSSE-enveloped, JSONL bundle |
-| **Signs** | [Sigstore](https://docs.sigstore.dev/) bundle format — **opt-in, offline by default**, no public Rekor upload unless explicitly enabled |
-| **Speaks** | [W3C PROV](https://www.w3.org/TR/prov-dm/) vocabulary, [CASE/UCO](https://caseontology.org/) chain-of-custody and chain-of-evidence, [OpenTelemetry GenAI](https://github.com/open-telemetry/semantic-conventions-genai) spans |
-| **Structured by** | ISO/IEC 27037:2012 §5.4.1 custody fields · SEC Rule 17a-4(f) audit-trail alternative · FRE 902(13)/(14) certification |
-| **Maps to** | CSA AICM v1.1.0 — DSP-20, DSP-05, DSP-24, LOG-03, LOG-10, LOG-12, STA-09, and the draft agentic controls IAM-AG-03, LOG-AG-01, LOG-AG-02 |
+| **in-toto Attestation Framework v1** | in-toto 3.1.0 installs but exposes no Statement-v1 validator, so the shape is checked only by our own test. Measured, not assumed — see scripts/benchmark_frameworks.py. **Gap:** Registering the Custody/v1 predicate type through in-toto's documented vetting process is what would convert "private format" into "registered predicate". Not done. |
+| **DSSE (Dead Simple Signing Envelope)** | Our own round-trip tests only. Signing is HMAC, so there is no public verifiability. |
 
-CSA has published the requirement and drafted the agentic controls. [*Data Security within AI Environments*](https://cloudsecurityalliance.org/artifacts/data-security-within-ai-environments) (December 2025) recommends, verbatim, *"cryptographically signed data provenance tracking using blockchain or merkle trees"* and *"tamper-evident logs (e.g. AWS QLDB, Sigstore)."* None of it has a reference implementation. That gap is what this is.
+### Mapped
 
-**Blockchain anchoring is deliberately not built.** It has no regulated-audit adoption; RFC 3161 and eIDAS qualified timestamps carry the legal recognition. Including a chain would cost credibility with exactly this audience.
+*clauses or controls tied to evidence. A mapping is not a conformance assessment.*
+
+| Framework | What is claimed, exactly |
+|---|---|
+| **CSA AI Controls Matrix v1.1.0** | 14 of roughly 243 AICM controls are evidenced. That is a mapping of the controls this tool touches, NOT coverage of AICM, and not an assessment. Anyone reading a control count as coverage would be misled, so the denominator is stated. |
+| **ISO/IEC 27037:2012** | One clause of one standard, used as a schema source. There is no clause-by-clause conformance matrix, and none is claimed. §5.4.1's alterations requirement is the field most tools omit and is what the scope ratchet enforces. **Gap:** Clauses 6.x (identification, collection, acquisition, preservation) are not mapped. |
+
+### Design target
+
+*it shaped the build; no clause-by-clause mapping exists.*
+
+| Framework | What is claimed, exactly |
+|---|---|
+| **SEC Rule 17a-4(f), as amended October 2022** | It is the best regulator-written specification of an adequate tamper-evident ledger and it informed the append-only design. No clause mapping exists and no filing has been assessed. |
+| **Federal Rules of Evidence 902(13) and 902(14)** | The object and the `ledger certify` command exist. No certifier has ever signed a segment, so the path is UNEXERCISED — the hash is the technical basis, and a named person's certification is the legal operative act that has not happened. |
+
+### Not benchmarked
+
+*a framework a competent reviewer would expect, named with why it is absent.*
+
+Ranked by value. Each carries what else was weighed and a **review trigger** — a condition, not a date, because a standards choice written once as prose becomes the constraint the next reader inherits.
+
+| # | Framework | Why it matters, and when to look again |
+|---|---|---|
+| 1 | **ISO/IEC 42001** | The highest-value target here, and for a specific reason: it is the standard CSA is looking at for **Level 2 STAR for AI listings**. STAR Level 1 is self-assessment — which is what the AI-CAIQ this toolchain already carries and fills from its own proof records. Level 2 is third-party audited, so 42001 is the path from "we assessed ourselves" to "someone else certified us", which is the same gap `independently_reproduced: false` names internally. **Scope limit:** A TOOL cannot be certified to 42001 — an organisation's management system is. What this can do is produce the records specific clauses require (lifecycle traceability, decision records, roles and delegation, change control) so an organisation's own conformance is evidenced rather than asserted. Claiming "42001 compliant" for a piece of software would be exactly the overclaim this file exists to prevent, so the row says supports-evidence-for, not conforms-to. *Weighed against:* ISO/IEC 27001 (the classic STAR Level 2 basis) covers information security management but has no AI lifecycle concept, so it cannot carry the agentic provenance argument. NIST AI RMF is a framework rather than a certifiable standard, so it cannot support a listing. **Review when:** Re-evaluate when ISO/IEC 42006 (requirements for bodies auditing AI management systems) settles, since that determines what an auditor will actually ask for, and whenever CSA publishes its AI STAR Level 2 criteria. |
+| 2 | **ISO/IEC 15026 (systems and software assurance)** | The closest existing articulation of what this toolchain already is. `docs/claims.yaml` → proof records → `attest --self` is an assurance case in all but name, and 15026 provides the vocabulary (claim, argument, evidence) plus the discipline of stating counter-evidence. Adopting it would give the self-attestation an external shape instead of a bespoke one. *Weighed against:* ISO/IEC 27041 was recommended first and demoted on examination: its frame is assuring *incident investigative* methods, and this is a continuous recorder that runs whether or not anything is under investigation. The analogy holds for "assure the method" and strains everywhere else. **Review when:** Re-evaluate if a domain-specific assurance-case profile for AI systems is published. |
+| 3 | **NIST CFTT / SWGDE tool validation** | The most concrete option: an actual test methodology rather than guidance, aimed squarely at "does the tool do what it claims". It also speaks to Daubert's known-error-rate limb, which this project currently fails outright. *Weighed against:* ISO/IEC 17025 method validation is the heavier, accredited-lab route and the real bar for a quantified error rate; out of proportion until there is a reason to seek accreditation. **Review when:** Re-evaluate if CFTT publishes a methodology covering agentic or AI-pipeline tooling. |
+| 4 | **EU AI Act, Article 12** | The widest-reaching framework for this tool's actual subject matter. Article 12 requires traceability appropriate to purpose across the lifecycle, which is what this records. *Weighed against:* Article 12 is the obligation; the harmonised standards that will operationalise it are still in progress, so mapping to the Article directly is currently the only option. **Review when:** Re-evaluate when CEN-CENELEC JTC21 harmonised standards publish — those, not the Article text, are what conformity will be assessed against. |
+| 5 | **ISO/IEC 27041** | Still relevant where this toolchain's output is used in an actual investigation, which is a narrower case than the tool's normal operation. *Weighed against:* Recommended first and demoted: see iso-15026. Kept because it is the right standard for the investigation case even though it is the wrong one for continuous recording. **Review when:** Re-evaluate if the ledger is used in a real incident investigation. |
+| 6 | **ACPO Good Practice Guide for Digital Evidence** | The standard citation for any chain-of-custody claim. Its principles — do not alter the original, competence, an audit trail a third party can follow, responsibility — map closely onto what this ledger already records, so the mapping is cheap and its absence is conspicuous. **Review when:** Re-evaluate on any successor guidance from the UK NPCC. |
+| 7 | **SLSA** | We emit in-toto attestations and claim no SLSA level. A supply-chain reviewer will ask, and "we use the substrate but not the framework" is defensible only when stated. **Review when:** Re-evaluate once signing moves from HMAC to Ed25519, without which no level is reachable. |
+| 8 | **Daubert / Frye standards** | FRE 902 buys self-authentication; Daubert governs whether the METHOD is scientifically valid — known error rate, peer review, general acceptance. This project has none of those three, so any claim to be "scientifically defensible" is measured against this and currently fails it. *Weighed against:* Not a standard to adopt but a test to be measured by; listed to be honest about the result. **Review when:** Re-evaluate after any independent reproduction or published peer review. |
+| 9 | **ISO/IEC 27042 and 27043** | We cite one member of the 2703x family and ignore the rest. **Review when:** Re-evaluate alongside iso-27041. |
+| 10 | **NIST SP 800-86** | Long-standing reference for forensic process; useful context rather than a conformance target. **Review when:** Re-evaluate if superseded. |
+| 11 | **NIST AI RMF** | Widely referenced and voluntary; a framework rather than a certifiable standard. *Weighed against:* ISO/IEC 42001 is certifiable and therefore carries the STAR Level 2 path; this does not. **Review when:** Re-evaluate on a major RMF revision or an AI RMF profile for agentic systems. |
+| 12 | **NIST SP 800-53 AU family / ISO 27001 A.8.15** | Control-level overlap with what the ledger does; mappable cheaply if a customer asks. **Review when:** Re-evaluate if 27001 becomes the STAR Level 2 basis for a given listing. |
+
+### Out of scope
+
+*deliberately not pursued, with the reason.*
+
+| Framework | Why it is not here |
+|---|---|
+| **Blockchain anchoring** | No regulated-audit adoption. RFC 3161 and eIDAS qualified timestamps carry the legal recognition, and including a chain would cost credibility with the intended audience. |
+| **C2PA** | Its trust model binds to media byte ranges and a CA trust list we cannot join, and crJSON self-declares as not a general-purpose machine-readable format. |
+| **OpenLineage** | The right graph primitive and no integrity semantics, so it must never be presented as the custody record. A documented stub with the field mapping in its docstring. |
+
+<!-- END GENERATED FRAMEWORKS -->
+
+CSA published the requirement and drafted the agentic controls: [*Data Security within AI Environments*](https://cloudsecurityalliance.org/artifacts/data-security-within-ai-environments) (December 2025) recommends, verbatim, *"cryptographically signed data provenance tracking using blockchain or merkle trees"* and *"tamper-evident logs (e.g. AWS QLDB, Sigstore)."* None of it had a reference implementation. That gap is what this is.
 
 **Prior art, credited rather than reinvented:** `Helixar-AI/HDP` (delegation custody), `agent-receipts/obsigna` (Ed25519 hash-chained receipts with a working Claude Code hook), Microsoft's `agent-governance-toolkit` (the best published provenance schema, unimplemented), [PROV-AGENT](https://arxiv.org/abs/2508.02866) (ORNL/Argonne, IEEE e-Science 2025), and Agent-Sentry (the argument for per-*argument* provenance).
 
