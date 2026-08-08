@@ -20,6 +20,33 @@ _POLICIES = None
 
 
 def ledger_path() -> Path:
+    """Where the gate WRITES custody records: the project being audited, never the agent's config.
+
+    This resolved under `$CLAUDE_CONFIG_DIR`, so every decision the deployed hook recorded landed in
+    the agent's shared profile — the directory `stop_guessing.paths` exists to keep evidence out of.
+    The 0.6.1 migration moved the state files (`taint.persist.state_dir`) and everything the CLI
+    READS (`cmd_ops._default_ledger`), and missed this one, which is the write side of the gate
+    itself. The result was a split: `doctor`, `verify`, `export` and `state` all reported on
+    `<project>/.stop-guessing/ledger/custody.jsonl` while the gate appended somewhere else entirely.
+    A ledger nothing reads is not evidence, and two ledgers that disagree are worse than one.
+
+    The operator's requirement, stated directly: nothing is written to Claude's config directory or
+    the plugins directory during operation, and the ledger belongs in the project whose chain of
+    custody it records. `paths.ledger_file()` is that, and `$STOP_GUESSING_HOME` still redirects it
+    for a deliberately shared store.
+
+    `legacy_ledger_path()` below keeps the old location reachable. Nothing is moved and nothing is
+    deleted: relocating evidence without recording the move is the ISO 27037 §5.4.1 alteration this
+    project refuses to perform silently, so records already written there stay where they are and
+    stay readable.
+    """
+    from stop_guessing.paths import ledger_file
+
+    return ledger_file()
+
+
+def legacy_ledger_path() -> Path:
+    """The pre-0.6.1 location, kept readable. Accumulated evidence is not disposable state."""
     cfg = os.environ.get("CLAUDE_CONFIG_DIR") or os.path.expanduser("~/.claude")
     return Path(cfg) / "stop-guessing" / "ledger" / "custody.jsonl"
 

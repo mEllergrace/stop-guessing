@@ -25,6 +25,10 @@ def profile(tmp_path, monkeypatch):
     key.write_bytes(b"a-test-key-that-is-32-bytes-ok!!")
     key.chmod(0o600)
     monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(cfg))
+    # 0.6.1: the gate writes project-local now, so point the data home at this profile's
+    # shape — these assert the gate's WRITE behaviour, not the default location, which
+    # tests/test_data_location.py and test_the_gate_never_writes_to_the_config_dir own.
+    monkeypatch.setenv("STOP_GUESSING_HOME", str(cfg / "stop-guessing"))
     monkeypatch.delenv("STOP_GUESSING_CHAIN_KEY", raising=False)
     return cfg
 

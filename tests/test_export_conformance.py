@@ -94,8 +94,39 @@ def test_a_nested_predicate_record_is_passed_through_unchanged():
 # ── #90: the CLI must not accuse its own ledger of tampering ─────────────────
 
 
+def _require_the_proof_ledgers_key():
+    """Skip when the key the proof ledger was written under is not held here.
+
+    These tests run against the live ledger on purpose (see the module docstring) — which means
+    they need the key that ledger was written under. Without it every entry fails its MAC and the
+    CLI correctly refuses, so a failure would report the ENVIRONMENT'S missing key rather than the
+    defect under test. The guard is narrow on purpose: it fires only when no provider holds that
+    keyid, so a genuine key-SELECTION bug (#90) still fails loudly whenever the key is available.
+    """
+    from stop_guessing.attest.keys import keyid_of_ledger
+    from stop_guessing.prove import runner
+
+    ledger = runner.DEFAULT_LEDGER
+    if not ledger.exists():
+        pytest.skip("no proof ledger")
+    wrote_under = keyid_of_ledger(ledger)
+    if not wrote_under:
+        pytest.skip("the proof ledger records no keyid")
+
+    sys.path.insert(0, str(REPO / "scripts"))
+    from goal_status import available_keyids
+
+    if wrote_under not in available_keyids():
+        pytest.skip(
+            f"the proof ledger was written under {wrote_under}, which no provider here holds — "
+            "this asserts key selection, and selection cannot be tested when the key is absent. "
+            "Supply it via $STOP_GUESSING_CHAIN_KEY to run this for real.")
+    return wrote_under
+
+
 @pytest.mark.parametrize("fmt", ["prov", "case", "otel"])
 def test_the_export_cli_succeeds_against_the_proof_ledger(fmt):
+    _require_the_proof_ledgers_key()
     res = subprocess.run(  # noqa: S603
         [sys.executable, "-m", "stop_guessing.cli.main", "export", fmt,
          "--path", ".stop-guessing/proofs.jsonl"],
@@ -106,16 +137,11 @@ def test_the_export_cli_succeeds_against_the_proof_ledger(fmt):
 
 def test_key_selection_prefers_the_key_the_ledger_was_written_under():
     """The root cause of #90, asserted directly rather than through a command's exit code."""
-    from stop_guessing.attest.keys import keyid_of_ledger
     from stop_guessing.cli import cmd_ops
     from stop_guessing.prove import runner
 
+    written_under = _require_the_proof_ledgers_key()
     ledger = runner.DEFAULT_LEDGER
-    if not ledger.exists():
-        pytest.skip("no ledger")
-    written_under = keyid_of_ledger(ledger)
-    if not written_under:
-        pytest.skip("ledger records no keyid")
 
     class Args:
         keyfile = None

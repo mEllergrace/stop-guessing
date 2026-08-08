@@ -242,8 +242,27 @@ install_profile() {
 
     # Health-check the staged runtime BEFORE it becomes the live one. A runtime that cannot
     # import is a broken profile, and swapping it in first would mean discovering that per hook.
+    #
+    # The check imported ONLY `stop_guessing`, which succeeds with no third-party module present —
+    # `yaml` is not pulled in until the gate actually decides something, because the policy and
+    # classification rules are YAML. So the `cp -R` fallback above (taken whenever pip is missing,
+    # and it copies the package WITHOUT its dependencies) produced a staged runtime that passed this
+    # check, was swapped in as live, and then failed on every real decision. `sg-hook` fails open by
+    # design, so the result was a plugin that recorded nothing and said nothing — the worst failure
+    # available to a chain-of-custody tool, since it does not look like a failure at all.
+    #
+    # `yaml` is therefore imported here too, under the same interpreter that will run the hooks, so
+    # the check now mirrors the conditions the gate will actually meet.
     if ! python3 -c "import sys; sys.path.insert(0, '$staging'); import stop_guessing" 2>/dev/null; then
       echo "  REFUSED: the staged runtime at $staging does not import; leaving the existing one."
+      rm -rf "$staging"
+      return 1
+    fi
+    if ! python3 -c "import sys; sys.path.insert(0, '$staging'); import yaml" 2>/dev/null; then
+      echo "  REFUSED: the staged runtime at $staging imports, but PyYAML is not available to it."
+      echo "           The gate needs it the moment it classifies anything, and the hook fails open,"
+      echo "           so this would install a recorder that silently records nothing."
+      echo "           Install PyYAML for this interpreter, or re-run where pip is available."
       rm -rf "$staging"
       return 1
     fi

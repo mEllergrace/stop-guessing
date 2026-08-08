@@ -167,6 +167,10 @@ def test_internal_failure_leaves_a_selfcheck_record(tmp_path, monkeypatch):
 
     cfg = tmp_path / "claude"
     monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(cfg))
+    # 0.6.1: the gate writes project-local now, so point the data home at this profile's
+    # shape — these assert the gate's WRITE behaviour, not the default location, which
+    # tests/test_data_location.py and test_the_gate_never_writes_to_the_config_dir own.
+    monkeypatch.setenv("STOP_GUESSING_HOME", str(cfg / "stop-guessing"))
     monkeypatch.setenv("STOP_GUESSING_CHAIN_KEY", "fuzz-key-" + "x" * 24)
     hook_gate._record_gap(
         {"tool_name": "Read", "tool_input": {"file_path": "/tmp/roster.csv"},

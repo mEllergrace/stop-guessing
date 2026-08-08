@@ -95,6 +95,83 @@ replace. It reports a `managed.json` floor that would override the write rather 
 success that did not happen, and never edits `managed.json` — that file exists so the recorded party
 cannot weaken its own policy.
 
+### Fixed — a test run wrote its evidence into the repository and then read it back
+`paths.py` moved data out of the agent's shared config directory and into the directory the tool is
+called from. Under pytest that directory is the repository, so every test touching a session wrote
+`./.stop-guessing/state/<id>.json` into the working tree and left it there. State is cumulative by
+design, which is what made it bite: the second run of the suite started with the first run's taint
+already on disk, so a session that should have been on first touch of a classified artifact was over
+the accumulation threshold instead.
+
+    test_a_direct_read_of_the_real_path_still_works   expected `ask`, got `deny`
+    test_dot_dot_traversal_to_a_classified_path...    expected `ask`, got `deny`
+    test_subagent_merge_actually_changes_the_parent   parent already carried `restricted`
+
+All three passed on a clean checkout and failed on a second run — order-and-history dependence
+arriving through a filesystem rather than a fixture. `tests/conftest.py` now points
+`$STOP_GUESSING_HOME` at a per-test temporary directory, which is the override `paths.py` already
+documents. No product code changed and no assertion was weakened. The stale files were deliberately
+NOT deleted: that directory also holds live session state, and this project does not delete evidence
+to make a number look better.
+
+### Fixed — `page build` refused while holding a perfectly good key (#90, third instance)
+`cmd_page._key` looked at `--keyfile` and `$STOP_GUESSING_CHAIN_KEY` and nowhere else, so the
+mode-600 keyfile `install.sh` writes was invisible and the page refused with "no chain key
+available". `cmd_prove` had already fixed exactly this and said so in a comment; `cmd_ops` was fixed
+next; the page was the half still doing it the old way. It now uses `discover(..., prefer_keyid=…)`
+like the rest of the CLI. `--keyfile` still wins and the environment is still consulted.
+
+Widening it exposed a second, worse failure that the narrow version had been accidentally hiding:
+having *a* key is not having *the* key. A key that verifies nothing in the proof ledger satisfies a
+`is None` check, `attest_self` then reads 0 proven because every entry fails its MAC, and the page
+renders that as fact. `_render` now refuses on a keyid mismatch and names the key it needs, rather
+than publishing a page that understates the project. Nothing re-keys the ledger — re-keying evidence
+so that it verifies is the alteration this project exists to refuse.
+
+### Added — `scripts/goal_status.py`
+Answers "what stands between here and GOAL MET" **without** the chain key. `prove` and `attest` are
+the real gate and correctly refuse unkeyed, but refusing also means an operator with no key learns
+nothing — including which key is missing. Keyids are disclosable by construction, so this reports,
+per ledger, the keyid it was written under and whether any provider here holds it; and splits every
+declared surface by whether a proof run can drive it at all. It never prints key material, which is
+asserted directly in its tests. It found that the custody ledger and the proof ledger are keyed
+differently, and that only 5 surfaces across 2 claims genuinely require a live session.
+
+### Fixed — the gate still wrote its ledger into the agent's config directory
+The 0.6.1 entry above moved data out of `$CLAUDE_CONFIG_DIR`. It moved the `paths` resolvers and
+`taint.persist.state_dir`, and it moved everything the CLI READS — and it missed `cli.gate.
+ledger_path()`, which is the path the gate APPENDS every decision to. The regression test written
+for that fix passed throughout, because it only ever asked the `paths` resolvers and never asked the
+gate.
+
+The result was a split ledger. `doctor`, `verify`, `export` and `state` all reported on
+`<project>/.stop-guessing/ledger/custody.jsonl` while the gate wrote to the profile, so `doctor`
+could report "138 records, intact, keyed, PASS" about a file that contained none of the gate's
+records. A ledger nothing reads is not evidence, and two ledgers that disagree are worse than one.
+
+The operator's requirement, stated directly: nothing is written to Claude's config directory or the
+plugins directory during operation, and the ledger belongs to the project whose chain of custody it
+records. `ledger_path()` is now `paths.ledger_file()`; `$STOP_GUESSING_HOME` still redirects it.
+`gate.legacy_ledger_path()` keeps the old location reachable — records already written there are
+left exactly where they are, because relocating evidence without recording the move is the
+ISO 27037 §5.4.1 alteration this project refuses to perform silently.
+
+`test_the_gate_never_writes_to_the_config_dir` now owns the location property and asserts what the
+earlier test could not see: no `claude` component, no `plugins` component, and gate-write and
+CLI-read resolving to the same file. The six gate fixtures point `$STOP_GUESSING_HOME` at a
+profile-shaped directory so they keep asserting behaviour rather than encoding a location.
+
+### Fixed — the installer health-checked the one thing that needs no dependencies
+`install.sh` validated a staged runtime with `import stop_guessing`, which succeeds with no
+third-party module present: `yaml` is not imported until the gate actually classifies something,
+because the policy and classification rules are YAML. The `cp -R` fallback taken whenever pip is
+unavailable copies the package WITHOUT its dependencies — so the check passed, the runtime was
+swapped in as live, and every real decision then failed on `import yaml`. `sg-hook` fails open by
+design, so the outcome was a recorder that silently recorded nothing while looking installed. That
+is the worst failure mode available to a chain-of-custody tool, because it does not look like one.
+The staged runtime is now also checked for PyYAML, under the same interpreter that will run the
+hooks, and refuses with a message naming the missing dependency.
+
 ## [0.6.0] — 2026-08-06
 
 **Benchmarked, not merely aligned.** Asked which chain-of-custody and provenance frameworks this was

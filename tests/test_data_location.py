@@ -37,6 +37,41 @@ def test_nothing_resolves_into_the_agent_config_dir(tmp_path, monkeypatch):
         assert "claude" not in resolved.parts, f"{resolved} still resolves under the agent's dir"
 
 
+def test_the_gate_never_writes_to_the_config_dir(tmp_path, monkeypatch):
+    """The write side, which the 0.6.1 migration missed.
+
+    `paths.*` was moved and so was `taint.persist.state_dir`, but `cli.gate.ledger_path` — the path
+    the gate APPENDS every decision to — still resolved under `$CLAUDE_CONFIG_DIR`. The test above
+    passed throughout, because it only ever asked the `paths` resolvers. So the CLI read
+    `<project>/.stop-guessing/ledger/custody.jsonl` while the gate wrote to the agent's profile, and
+    `doctor` reported an intact ledger that did not contain the gate's records at all.
+
+    The operator's requirement, stated directly: nothing is written to Claude's config directory or
+    the plugins directory during operation; the ledger belongs to the project being audited.
+    """
+    from stop_guessing.cli import gate
+
+    monkeypatch.delenv("STOP_GUESSING_HOME", raising=False)
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path / "claude"))
+    monkeypatch.chdir(tmp_path)
+
+    resolved = gate.ledger_path()
+    assert "claude" not in resolved.parts, (
+        f"the gate writes custody records to {resolved}, inside the agent's config directory")
+    assert "plugins" not in resolved.parts, (
+        f"the gate writes custody records to {resolved}, inside the plugins directory")
+    assert resolved == paths.ledger_file(), (
+        "the gate writes somewhere the CLI does not read; two ledgers that disagree are worse "
+        "than one")
+
+
+def test_the_legacy_ledger_location_is_still_reachable():
+    """Nothing is removed. Records already written to the old path stay readable."""
+    from stop_guessing.cli import gate
+
+    assert callable(gate.legacy_ledger_path)
+
+
 def test_the_override_keeps_a_shared_store_available(tmp_path, monkeypatch):
     """Never close an option: a single-project machine or a central collector may want one store."""
     shared = tmp_path / "central"

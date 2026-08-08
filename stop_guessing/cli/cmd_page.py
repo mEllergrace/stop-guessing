@@ -15,7 +15,7 @@ from __future__ import annotations
 import html
 import json
 
-from stop_guessing.attest.keys import from_env, from_keyfile
+from stop_guessing.attest.keys import discover, keyid_of_ledger
 from stop_guessing.prove import runner
 from stop_guessing.version import __version__, repo_root
 
@@ -664,11 +664,24 @@ it is no longer written by hand.
 
 
 def _key(args):
-    if getattr(args, "keyfile", None):
-        got = from_keyfile(args.keyfile)
-        if got:
-            return got[0]
-    got = from_env()
+    """The chain key, resolved the way the rest of the CLI resolves it.
+
+    #90, third instance. This looked at `--keyfile` and then `$STOP_GUESSING_CHAIN_KEY` and nowhere
+    else — so the mode-600 keyfile `install.sh` writes was never found, and a machine holding a
+    perfectly good tier-2 key was told "no chain key available" and refused to render. `cmd_prove`
+    fixed exactly this and said so in a comment; `cmd_ops` was fixed next. The page was the half
+    still doing it the old way.
+
+    `prefer_keyid` matters here for the same reason it matters there: this attests from the PROOF
+    ledger, so the key that ledger was written under beats the best-protected key available.
+    Promoting a stronger key mid-chain makes every prior entry fail verification and surface as
+    tampering — the one false positive this software must never emit about its own evidence.
+
+    `--keyfile` still wins, exactly as before, and `$STOP_GUESSING_CHAIN_KEY` is still consulted.
+    Nothing that worked before stops working; two providers that were invisible become visible.
+    """
+    got = discover(getattr(args, "keyfile", None),
+                   prefer_keyid=keyid_of_ledger(runner.DEFAULT_LEDGER))
     return got[0] if got else None
 
 
@@ -690,6 +703,26 @@ def _render(args) -> str:
             "no chain key available. Without it the attestation reports 0 proven, and a page "
             "rendered from that would misstate the project. Set STOP_GUESSING_CHAIN_KEY or "
             "pass --keyfile."
+        )
+
+    # Having A key is not having THE key. Widening `_key` to `discover()` fixed a real defect — the
+    # installed keyfile was invisible — but it also introduced this: a key that verifies nothing in
+    # the proof ledger now satisfies the `is None` guard above, `attest_self` reads 0 proven because
+    # every entry fails its MAC, and the page renders that as fact. Refusing without a key while
+    # rendering 0/21 with the wrong one would be a worse bug than the one being fixed, and the same
+    # false-tampering family as #90.
+    #
+    # Reported, not worked around: nothing here re-keys the ledger, because re-keying evidence to
+    # make it verify is the alteration this project exists to refuse.
+    wrote_under = keyid_of_ledger(runner.DEFAULT_LEDGER)
+    if wrote_under and key.keyid != wrote_under:
+        raise NoChainKey(
+            f"the proof ledger was written under {wrote_under}, but the key available here is "
+            f"{key.keyid}. Every proof would fail its MAC, the attestation would report 0 proven, "
+            "and the page would state that as fact. This is a missing key, not damaged evidence — "
+            f"supply {wrote_under} via $STOP_GUESSING_CHAIN_KEY or --keyfile. If it is genuinely "
+            "lost, the proofs must be re-run under a new key (docs/REATTESTATION.md); they cannot "
+            "be re-keyed in place."
         )
     attest = runner.attest_self(key)
     claims = runner.load_claims()
