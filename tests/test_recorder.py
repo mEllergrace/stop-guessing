@@ -112,11 +112,29 @@ def test_concurrent_callers_produce_one_contiguous_chain(running):
 # ── it fails closed on integrity, open on availability ───────────────────────
 
 
-def test_absent_daemon_falls_back_and_records_the_tier(tmp_path):
+def test_absent_daemon_falls_back_and_records_the_tier(tmp_path, monkeypatch):
+    """The tier-0 fallback writes to the PROJECT ledger, not the agent's config directory.
+
+    This read `daemon.ledger_path(cfg)` because that is where the fallback used to write — into
+    `$CLAUDE_CONFIG_DIR`. Tier 0 is what an ordinary install actually runs, so every successful
+    custody record went to the agent's shared profile while the gate's gap records had already been
+    moved project-local: the two halves of one session, split across two files, neither of them the
+    record of what happened.
+
+    The assertion it makes is unchanged — a fallback write must declare its tier. Only the location
+    it looks in moved, to the one the product now writes to.
+    """
+    from stop_guessing.paths import ledger_file
+
     cfg = tmp_path / "claude"
+    monkeypatch.setenv("STOP_GUESSING_HOME", str(tmp_path / "project"))
     out = client.append(cfg, _event(), fallback_key=KEY)
     assert out.ref and out.isolation_tier == 0 and out.via == "in-process"
-    entry = load(daemon.ledger_path(cfg), KEY).entries[0]
+
+    assert not (cfg / "stop-guessing" / "ledger" / "custody.jsonl").exists(), (
+        "the tier-0 fallback wrote into the agent's config directory")
+
+    entry = load(ledger_file(), KEY).entries[0]
     assert any("isolation tier 0" in g for g in entry["known_gaps"]), (
         "a fallback write must say so in the record, never silently"
     )

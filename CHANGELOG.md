@@ -179,6 +179,42 @@ been rejected for a ledger written under the first.
 SOURCE, which is what the tier ordering needs; it is simply no longer treated as part of the key's
 identity.
 
+### Fixed — the recorder recorded nothing but its own crash
+`hook_post.py` had `if __name__ == "__main__": raise SystemExit(main())` at line 136, with
+`_cfg_dir`, `_record_loss` and `_content_binding` defined at 140, 147 and 175 — after it. Importing
+the module defines all three; running it as a script does not, because `main()` is called before the
+interpreter reaches those `def`s. The PostToolUse hook runs this module as a script, so the recorder
+raised `NameError: name '_content_binding' is not defined` on every tool call and failed open.
+
+Found live rather than by review: the project ledger held 220 records, every one of them a
+`recorder.selfcheck` gap, growing by one per tool call, with not a single custody decision among
+them. It had been that way since at least 2026-08-06.
+
+Every signal said healthy. The module imports cleanly, so every test that imports it passed.
+`doctor` reported "216 records, intact, keyed, PASS" — correctly, because a chain of crash records
+is still an intact, correctly keyed chain. A recorder that records nothing while looking installed
+is the worst failure available to this project, and it presented as a green check.
+
+`_record_gap` made it far harder to find than it should have been: it wrote `NameError: <symbol>`
+and nothing else — no file, no line, and no indication of which copy of the package was executing,
+which is the whole question when a checkout, an installed runtime and a venv are all reachable. It
+now records bounded frames (`file:line in function`, last 6, never source text) plus the resolved
+interpreter, package path, version and cwd. The first record written after that change named the
+defect immediately. `test_no_cli_module_defines_anything_after_its_main_block` checks the shape
+across every CLI module, because this class is invisible to any test that imports rather than runs.
+
+### Fixed — successful custody records went to the config directory, only the failures went home
+With the gate's gap records moved project-local, the two halves of a session ended up in different
+files: `recorder.client._direct` — the tier-0 in-process append, which is what an ordinary install
+actually runs — still wrote through `daemon.ledger_path(cfg)` into `$CLAUDE_CONFIG_DIR`. So the
+project ledger held only the failures and the profile ledger held only the successes, and neither
+was the record of what happened.
+
+Tier 0 now writes to `paths.ledger_file()`. Deliberately scoped: the daemon path is untouched,
+because a daemon is per-profile while a ledger is per-project and reconciling those is a design
+decision rather than a path substitution. Verified live — `tool.result`, `artifact.write` and
+`artifact.derive` records now land in the project ledger.
+
 ### Fixed — the installer health-checked the one thing that needs no dependencies
 `install.sh` validated a staged runtime with `import stop_guessing`, which succeeds with no
 third-party module present: `yaml` is not imported until the gate actually classifies something,

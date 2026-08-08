@@ -99,15 +99,33 @@ def append(config_dir: str | os.PathLike, event: dict, *, fallback_key=None) -> 
 
 
 def _direct(cfg: Path, event: dict, key, why: str) -> Appended:
+    """The in-process append (tier 0), written to the PROJECT being recorded.
+
+    This wrote to `daemon.ledger_path(cfg)` — `$CLAUDE_CONFIG_DIR/stop-guessing/ledger/` — so at
+    tier 0, which is what an ordinary install actually runs, every successful custody record landed
+    in the agent's shared profile. The gate's gap records had already been moved project-local, so
+    the two halves of the same session were split across two files: the project ledger held only the
+    failures and the profile ledger held only the successes, and neither was the record of what
+    happened.
+
+    The operator's requirement, stated directly: nothing is written to Claude's config directory or
+    the plugins directory during operation, and these ledgers belong to the project whose chain of
+    custody they record.
+
+    Deliberately scoped to tier 0. The DAEMON path above is untouched, because a daemon is
+    per-profile while a ledger is per-project, and reconciling those two is a design decision rather
+    than a path substitution. `daemon.ledger_path` is unchanged and still resolves for the daemon
+    that owns it; `$STOP_GUESSING_HOME` still redirects the tier-0 write for a shared store.
+    """
     from stop_guessing.ledger.sink import LedgerError, record
-    from stop_guessing.recorder.daemon import ledger_path
+    from stop_guessing.paths import ledger_file
 
     event = dict(event)
     gaps = list(event.get("known_gaps") or [])
     gaps.append(f"isolation tier 0: {why}")
     event["known_gaps"] = gaps
     try:
-        entry = record(ledger_path(cfg), event, key)
+        entry = record(ledger_file(), event, key)
     except LedgerError as exc:
         return Appended(None, 0, "in-process", str(exc))
     return Appended(f"sg:{entry['seq']}:{entry['hash'][:16]}", 0, "in-process")
