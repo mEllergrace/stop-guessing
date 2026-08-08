@@ -273,10 +273,24 @@ def run_one(
     except Exception:  # noqa: BLE001 - a hook that cannot be driven stays a finding
         hooks_run = []
 
-    if (reachable or hooks_run) and result.passed:
+    # The `live session` half. plugin/skill/command surfaces cannot be DRIVEN from a proof run, so
+    # this drives nothing: it reads the custody ledger a real session already wrote and reports what
+    # that evidence reaches. Before it existed those surfaces could not be validated by any means,
+    # because the ledger recorded a prompt digest and never which command it was.
+    try:
+        from stop_guessing.prove.procedures import exercise_commands
+
+        live_declared = [s for s in surfaces_declared
+                         if s.partition(":")[0] in LIVE_SESSION_KINDS]
+        commands_seen = exercise_commands(*live_declared) if live_declared else []
+    except Exception:  # noqa: BLE001 - a surface with no evidence stays a finding
+        commands_seen = []
+
+    if (reachable or hooks_run or commands_seen) and result.passed:
         result.evidence = dict(result.evidence or {})
         result.evidence["exercised_surfaces"] = sorted(
-            set(result.evidence.get("exercised_surfaces") or []) | set(reachable) | set(hooks_run))
+            set(result.evidence.get("exercised_surfaces") or [])
+            | set(reachable) | set(hooks_run) | set(commands_seen))
         scope_notes = []
         if reachable:
             scope_notes.append(
@@ -289,6 +303,12 @@ def run_one(
                 "DEPLOYED code path with a SYNTHETIC caller: stronger than 'registered in "
                 "settings.json', weaker than 'a live Claude Code session exercised it'. The "
                 "difference is stated rather than left to the reader")
+        if commands_seen:
+            scope_notes.append(
+                "command and plugin surfaces were evidenced from the custody ledger a LIVE session "
+                "wrote, verified under its own key: a real Claude Code session dispatched them. "
+                "That establishes the command RAN, not that its behaviour was correct — recording "
+                "an invocation is not testing an outcome")
         result.evidence["surface_exercise_scope"] = " | ".join(scope_notes)
 
 

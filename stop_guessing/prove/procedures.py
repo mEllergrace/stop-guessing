@@ -1991,3 +1991,89 @@ def prove_caiq_filled_from_proofs() -> ProofResult:
                   "template_digest": before,
                   "ledger_ref": str(runner.DEFAULT_LEDGER)}
     return r
+
+
+#: Which surface kinds `exercise_commands` can speak to, and what evidences each.
+#:
+#: `skill:` is deliberately absent. A skill is loaded into a model's context, not dispatched as a
+#: command, so no command record evidences one. Claiming it from a sibling command's record would be
+#: the overclaim this whole audit exists to prevent — it stays unvalidated, with the reason stated,
+#: until something actually observes a skill being loaded.
+COMMAND_EVIDENCE_KINDS = ("command", "plugin")
+
+
+def _command_records(ledger=None) -> list[dict]:
+    """`prompt.submit` records carrying a command boundary, from the VERIFIED custody ledger.
+
+    Verified, not merely read: an unverified ledger is forgeable by the party whose surfaces it
+    would be validating, which is exactly the party running this. If the chain does not verify under
+    its own key, this returns nothing rather than counting records it cannot vouch for.
+    """
+    from stop_guessing.attest.keys import discover, keyid_of_ledger
+    from stop_guessing.ledger.sink import load
+    from stop_guessing.paths import ledger_file
+
+    path = Path(ledger) if ledger else ledger_file()
+    if not path.is_file():
+        return []
+    got = discover(None, prefer_keyid=keyid_of_ledger(path))
+    loaded = load(path, got[0] if got else None)
+    if not loaded.usable:
+        return []
+
+    out = []
+    for entry in loaded.entries:
+        pred = entry.get("predicate", entry)
+        if pred.get("op") != "prompt.submit":
+            continue
+        try:
+            detail = json.loads(pred.get("detail") or "{}")
+        except ValueError:
+            continue
+        command = detail.get("command")
+        if isinstance(command, dict) and command.get("name"):
+            out.append(command)
+    return out
+
+
+def exercise_commands(*surfaces: str, ledger=None) -> list[str]:
+    """Surfaces evidenced by a slash command actually invoked in a live session.
+
+    `plugin:`, `skill:` and `command:` cannot be driven from a proof run — `runner.py` says so and
+    is right: a slash command needs a live session to invoke it. So this does not drive them. It
+    reads the custody ledger the live session already wrote and reports which surfaces that evidence
+    reaches, at the boundary the operator defined: the command's name and the file it is defined in.
+
+    **What this establishes.** A real Claude Code session dispatched this command, and the deployed
+    hooks recorded it in a keyed ledger that still verifies. That is strictly stronger than "the file
+    ships in the right place" (which is `structural_findings`, feeding `structurally_validated`) and
+    is the live-session evidence `surface_validated` has always asked for.
+
+    **What it does not establish.** That the command's BEHAVIOUR was correct — only that it ran.
+    Recording an invocation is not testing an outcome, and the two are kept apart here for the same
+    reason `exercise_cli` says CLI surfaces are "reachable and runs, NOT that the claim's behaviour
+    was observed through it".
+
+    `plugin:` is reached transitively and only that far: a command whose defining file lives under
+    the plugin root could not have dispatched unless the plugin loaded. `skill:` is not reachable
+    this way at all — see `COMMAND_EVIDENCE_KINDS`.
+    """
+    seen = _command_records(ledger)
+    if not seen:
+        return []
+    names = {c["name"] for c in seen}
+    plugin_root = repo_root() / ".claude-plugin" / "plugins"
+
+    done: list[str] = []
+    for surface in surfaces:
+        kind, _, rest = str(surface).partition(":")
+        if kind not in COMMAND_EVIDENCE_KINDS:
+            continue
+        if kind == "command":
+            if rest.strip() in names:
+                done.append(surface)
+        elif kind == "plugin":
+            root = plugin_root / rest.strip()
+            if any(c.get("path", "").startswith(str(root)) for c in seen):
+                done.append(surface)
+    return done
