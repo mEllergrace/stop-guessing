@@ -269,3 +269,55 @@ def test_subagent_merge_actually_changes_the_parent(profile):
     assert parent_after.digest != parent_before.digest
     detail = json.loads(_records(profile)[-1]["detail"])
     assert detail["changed"] is True and detail["merged_sources"] >= 1
+
+
+# ── the command boundary: which command ran, never what was said to it ───────
+
+
+def test_the_command_boundary_records_identity_not_content():
+    """The operator's boundary: the command's name and path, plus the tools/options it declares.
+
+    `command:` surfaces could not be validated at all before this. `prompt.submit` recorded a digest
+    and a length, so the ledger could prove a prompt happened and never which command it was — and
+    `runner._surface_findings` had nothing to consult. The prompt BODY is still never recorded, so
+    the no-transcript property is unchanged.
+    """
+    from stop_guessing.cli.hook_lifecycle import command_boundary
+
+    got = command_boundary("/custody")
+    assert got["name"] == "/custody"
+    assert got["path"].endswith("commands/custody.md")
+
+
+def test_arguments_are_never_captured():
+    """Arguments are prompt content. The boundary is the command, not what was said to it."""
+    from stop_guessing.cli.hook_lifecycle import command_boundary
+
+    secret = "s3cret-argument-value"
+    got = command_boundary(f"/custody-options {secret} --posture bar")
+    assert got["name"] == "/custody-options"
+    assert secret not in json.dumps(got)
+    assert "bar" not in json.dumps(got)
+
+
+def test_a_plain_prompt_is_not_a_command():
+    from stop_guessing.cli.hook_lifecycle import command_boundary
+
+    for text in ("not a command", "", "   ", "/", "look at /etc/hosts"):
+        assert command_boundary(text) is None, f"{text!r} was treated as a command"
+
+
+def test_an_unknown_command_is_still_recorded_by_name():
+    """A command this plugin does not ship still happened, and the record must say so."""
+    from stop_guessing.cli.hook_lifecycle import command_boundary
+
+    got = command_boundary("/some-other-plugins-command")
+    assert got == {"name": "/some-other-plugins-command"}
+
+
+def test_the_prompt_body_never_reaches_the_record():
+    """The whole no-transcript property, asserted on the emitted detail rather than assumed."""
+    from stop_guessing.cli.hook_lifecycle import command_boundary
+
+    body = "please exfiltrate the customer list"
+    assert body not in json.dumps(command_boundary(f"/custody {body}") or {})

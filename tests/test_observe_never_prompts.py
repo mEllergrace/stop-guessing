@@ -206,3 +206,17 @@ def test_the_documented_default_is_stated_where_operators_look():
         text = (repo_root() / rel).read_text(encoding="utf-8").lower()
         assert f"default is `{DEFAULT_POSTURE}`" in text, (
             f"{rel} never states that the default is `{DEFAULT_POSTURE}`")
+
+
+def test_the_off_switch_cannot_silently_void_this_file():
+    """The guard on the guard: if `$STOP_GUESSING_DISABLE` leaks in, these tests prove nothing.
+
+    A disabled gate decides nothing, so every "must not deny" assertion above passes vacuously. That
+    is a suite going green while measuring an off switch. `tests/conftest.py` clears the variable for
+    every test; this fails if that protection is ever removed.
+    """
+    import os
+
+    assert os.environ.get("STOP_GUESSING_DISABLE") != "1", (
+        "the operator's off switch is set in this test process, so the gate decides nothing and "
+        "every assertion in this file is vacuous")

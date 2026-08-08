@@ -100,21 +100,88 @@ def session_start(payload: dict) -> str | None:
     })
 
 
+def command_boundary(prompt: str) -> dict | None:
+    """The invoked slash command's IDENTITY, or None when the prompt is not a command.
+
+    The operator set this boundary explicitly: *"the tracking boundary is the name of the slash
+    command with its full path including tool names and options. The tracking of those tools belongs
+    inside those tool boundaries."*
+
+    So this records WHICH command ran and WHERE it is defined — plus the tools and options that
+    command declares, because those are what it is authorised to do. It records nothing about what
+    the command then did: each tool it invokes is recorded at its own boundary by the PreToolUse and
+    PostToolUse hooks, which already carry the whole story.
+
+    Everything here is already public — a command's name, file and frontmatter ship in the plugin.
+    The prompt BODY is still never recorded, so the no-transcript property is untouched: this says
+    "`/custody` was invoked", not what was said around it.
+
+    Without this, `command:` surfaces could never be validated at all. `prompt.submit` recorded a
+    digest and a length, so the ledger could prove a prompt happened and never which command it was,
+    and `runner._surface_findings` had no evidence to consult.
+    """
+    from stop_guessing.version import repo_root
+
+    text = (prompt or "").strip()
+    if not text.startswith("/"):
+        return None
+    name = text[1:].split()[0] if len(text) > 1 and text[1:].split() else ""
+    if not name:
+        return None
+    # Arguments are deliberately NOT captured. They are prompt content, and the boundary is the
+    # command, not what was said to it.
+    out = {"name": "/" + name}
+    for root in (repo_root() / ".claude-plugin" / "plugins" / "stop-guessing" / "commands",):
+        path = root / f"{name.split(':')[-1]}.md"
+        if path.is_file():
+            out["path"] = str(path)
+            out.update(_command_frontmatter(path))
+            break
+    return out
+
+
+def _command_frontmatter(path) -> dict:
+    """`allowed-tools` and `argument-hint` from a command's frontmatter, when present.
+
+    The tools a command declares are the options it carries, which is the half of the boundary that
+    says what it was permitted to do. Parsed narrowly and never fatally: a command whose frontmatter
+    cannot be read is still recorded by name and path.
+    """
+    out: dict = {}
+    try:
+        text = path.read_text(encoding="utf-8")
+        if not text.startswith("---"):
+            return out
+        block = text.split("---", 2)[1]
+        for line in block.splitlines():
+            key, _, value = line.partition(":")
+            key, value = key.strip(), value.strip()
+            if key in ("allowed-tools", "argument-hint", "model") and value:
+                out[key.replace("-", "_")] = value
+    except OSError:
+        pass
+    return out
+
+
 def prompt_submit(payload: dict) -> str | None:
     """The root of the delegation chain: every later action acted on behalf of this request."""
     from stop_guessing.artifacts.digest import bytes_digest
 
     prompt = payload.get("prompt") or ""
+    detail = {
+        # The prompt DIGEST, never the prompt. A custody ledger that quietly accumulated every
+        # prompt would be a transcript, and a transcript is the thing this tool exists to not need.
+        "prompt_digest": "sha256:" + bytes_digest(prompt.encode("utf-8")),
+        "prompt_chars": len(prompt),
+        "prompt_id": payload.get("prompt_id"),
+    }
+    command = command_boundary(prompt)
+    if command:
+        detail["command"] = command
     return _emit({
         "op": "prompt.submit",
         "session_id": _session(payload),
-        # The prompt DIGEST, never the prompt. A custody ledger that quietly accumulated every
-        # prompt would be a transcript, and a transcript is the thing this tool exists to not need.
-        "detail": json.dumps({
-            "prompt_digest": "sha256:" + bytes_digest(prompt.encode("utf-8")),
-            "prompt_chars": len(prompt),
-            "prompt_id": payload.get("prompt_id"),
-        }, sort_keys=True),
+        "detail": json.dumps(detail, sort_keys=True),
     })
 
 

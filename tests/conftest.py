@@ -36,6 +36,25 @@ import pytest
 
 
 @pytest.fixture(autouse=True)
+def _never_inherit_the_operators_off_switch(monkeypatch):
+    """`$STOP_GUESSING_DISABLE` must never decide what the suite proves.
+
+    Found the hard way: the flag was set in a real profile's `settings.json` to stop the recorder on
+    this machine, which put it in the environment of the process running pytest — and every test
+    that drives the gate as a subprocess inherits it. `hook_gate.main` then returns before deciding
+    anything, exactly as designed.
+
+    The visible half was `test_the_ledger_is_still_protected_under_observe` failing, which is loud
+    and honest. The dangerous half is silent: any test asserting the gate does NOT deny something
+    passes vacuously, because a gate that has been switched off denies nothing. A whole suite can go
+    green while proving nothing at all.
+
+    Tests that want the disable path exercise it explicitly with their own `monkeypatch.setenv`.
+    """
+    monkeypatch.delenv("STOP_GUESSING_DISABLE", raising=False)
+
+
+@pytest.fixture(autouse=True)
 def _isolate_stop_guessing_home(tmp_path_factory, monkeypatch):
     """Give every test its own data home, inherited by subprocesses via the environment.
 

@@ -215,6 +215,29 @@ because a daemon is per-profile while a ledger is per-project and reconciling th
 decision rather than a path substitution. Verified live — `tool.result`, `artifact.write` and
 `artifact.derive` records now land in the project ledger.
 
+### Added — the command boundary, so `command:` surfaces can be evidenced at all
+`plugin:`, `skill:` and `command:` surfaces had no exerciser, and could not have had one: the
+custody ledger deliberately records a prompt DIGEST and never the prompt, so it could prove that a
+prompt happened and never which command it was. `runner._surface_findings` had nothing to consult,
+and those five surfaces across CLAIM-17 and CLAIM-20 were structurally unvalidatable.
+
+The operator set the boundary: *"the tracking boundary is the name of the slash command with its
+full path including tool names and options. The tracking of those tools belongs inside those tool
+boundaries."* `hook_lifecycle.command_boundary()` records exactly that — the command's name, the
+file it is defined in, and the tools/options its frontmatter declares. All of it already ships
+publicly in the plugin.
+
+Arguments are deliberately not captured: they are prompt content, and the boundary is the command,
+not what was said to it. What the command then *does* is recorded at each tool's own boundary by the
+PreToolUse and PostToolUse hooks, which already carry it. The no-transcript property is therefore
+unchanged — the ledger now says "`/custody` was invoked" and still nothing about the surrounding
+prompt. Two of the five tests assert precisely that: arguments never reach the record, and neither
+does the prompt body.
+
+This is the recording half. `exercise_commands()`, which reads these records and feeds
+`exercised_surfaces`, is not written yet — and had to come second, since an exerciser can only read
+evidence something is already writing.
+
 ### Fixed — the installer health-checked the one thing that needs no dependencies
 `install.sh` validated a staged runtime with `import stop_guessing`, which succeeds with no
 third-party module present: `yaml` is not imported until the gate actually classifies something,
