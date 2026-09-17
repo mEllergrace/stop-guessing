@@ -1085,10 +1085,24 @@ def prove_recorder_isolation() -> ProofResult:
         hook.write_text("#!/bin/sh\nexit 0\n")
         manifest = build_manifest(binary, {"coc_gate.sh": hook})
 
-        base = self_check(argv0=str(binary), manifest=manifest, root=root)
+        # A CLEAN INSTALL IS FIRST ON ITS OWN PATH, and it ships both console scripts.
+        # Without this the baseline self-check asked whether the OPERATOR's installation
+        # shadows this temp one -- and on any machine with stop-guessing installed the
+        # answer is yes, correctly, so this proof was only ever green on machines without
+        # the product on them. That put it in direct conflict with CLAIM-20, which requires
+        # the console script to BE installed: the two could never both pass. Step (3) below
+        # still plants a shadow and proves it is caught, which is the property that matters.
+        (root / "coc").symlink_to(binary)
+        ambient_path = os.environ.get("PATH", "")
+        os.environ["PATH"] = f"{root}{os.pathsep}{ambient_path}"
+        try:
+            base = self_check(argv0=str(binary), manifest=manifest, root=root)
+        finally:
+            os.environ["PATH"] = ambient_path
         if not base.ok:
             return r.fail(f"a clean install did not pass its own self-check: {base.findings}")
-        r.observe(f"clean install passes self-check ({len(base.checked)} checks)")
+        r.observe(f"clean install passes self-check ({len(base.checked)} checks), with the "
+                  "install first on PATH and both console scripts present")
 
         # (1) substitute the recorder binary itself
         binary.write_text("#!/bin/sh\necho 'I am definitely the real recorder'\n")
@@ -1158,7 +1172,13 @@ def prove_recorder_isolation() -> ProofResult:
                               f"{d.determining_policy}")
         r.observe("ledger writes denied under observe, steer AND bar (postureless forbid)")
 
-        clean = self_check(argv0=str(binary), manifest=manifest, root=root)
+        # Same PATH discipline as the baseline: recovery is about whether the tampering was
+        # undone, not about whether the operator has the product installed.
+        os.environ["PATH"] = f"{root}{os.pathsep}{ambient_path}"
+        try:
+            clean = self_check(argv0=str(binary), manifest=manifest, root=root)
+        finally:
+            os.environ["PATH"] = ambient_path
         if not clean.ok:
             return r.fail(f"self-check did not recover after restoration: {clean.findings}")
         r.observe(f"restored -> passes again; isolation_tier reported as {clean.isolation_tier} "
@@ -1892,13 +1912,19 @@ def runner_ledger():
 def prove_caiq_filled_from_proofs() -> ProofResult:
     import yaml
 
-    from stop_guessing.attest.keys import from_env
+    from stop_guessing.attest.keys import discover
     from stop_guessing.caiq.answers import derive, split_published, to_yaml_doc
     from stop_guessing.caiq.fill import fill, verify_with_rich_text
     from stop_guessing.prove import runner
 
     r = ProofResult(passed=True)
-    got = from_env()
+    # discover(), not from_env(): an installed profile keeps its key in a mode-600
+    # keyfile, and env-only resolution meant this claim could never be proved there --
+    # so `attest --self` could never reach GOAL MET on a normal installation. Same fix
+    # as #61/#66 applied to hook_gate and the CLI commands; this call site was missed.
+    from stop_guessing.version import config_dir
+
+    got = discover(config_dir=config_dir())
     if got is None:
         return r.fail("no chain key — answers derived from an unverifiable ledger are not answers")
     key, _ = got

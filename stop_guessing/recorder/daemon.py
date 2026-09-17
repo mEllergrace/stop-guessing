@@ -384,9 +384,13 @@ def main(argv: list[str] | None = None) -> int:
         got = from_keyfile(args.keyfile)
         key = got[0] if got else None
     else:
-        from stop_guessing.attest.keys import from_env
+        # discover(), not from_env(): an installed profile keeps its key in a mode-600
+        # keyfile, so env-only resolution made the recorder refuse to run on exactly the
+        # installations it is meant to protect. Same fix as #61/#66 elsewhere.
+        from stop_guessing.attest.keys import discover
+        from stop_guessing.version import config_dir
 
-        got = from_env()
+        got = discover(config_dir=config_dir())
         key = got[0] if got else None
 
     if key is None:

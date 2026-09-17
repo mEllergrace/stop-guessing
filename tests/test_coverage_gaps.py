@@ -344,3 +344,40 @@ def test_loaded_log_exposes_the_verdict(tmp_path):
     loaded = load(p, KEY)
     assert loaded.chain.intact and not loaded.truncated and len(loaded.entries) == 1
     assert json.loads(json.dumps(loaded.chain.to_dict()))["intact"] is True
+
+
+def test_a_chain_only_seal_still_opens_a_KEYED_next_segment(tmp_path):
+    """Found 2026-09-17 on a real profile ledger, and it stranded an attestation.
+
+    A segment whose chain key is gone can only be sealed chain-only (`seal`
+    rightly refuses to certify a chain it cannot verify). Rotation then wrote
+    the next segment's genesis record with the SAME absent key, so the fresh
+    segment opened unkeyed — and every later keyed verification failed with
+    "a keyed ledger with an unkeyed entry has been spliced". The live segment's
+    key availability has nothing to do with the sealed one's.
+    """
+    from stop_guessing.ledger.chain import verify
+    from stop_guessing.ledger.sink import load
+
+    p = tmp_path / "custody.jsonl"
+    for i in range(3):
+        record(p, {"op": "artifact.read", "at": "t", "detail": str(i)}, None)
+
+    segments.seal(p, at="t", key=None, new_key=KEY, index=0)
+
+    fresh = load(p, KEY)
+    assert fresh.entries, "rotation left no genesis record"
+    assert fresh.entries[0]["hash_alg"] == "hmac-sha256", fresh.entries[0]
+    assert fresh.entries[0]["keyid"] == KEY.keyid
+    assert verify(fresh.entries, KEY).intact, verify(fresh.entries, KEY).reason
+
+
+def test_rotation_still_uses_the_verifying_key_when_no_new_key_is_named(tmp_path):
+    """The default must not change for the ordinary case."""
+    from stop_guessing.ledger.sink import load
+
+    p = tmp_path / "custody.jsonl"
+    for i in range(3):
+        record(p, {"op": "artifact.read", "at": "t", "detail": str(i)}, KEY)
+    segments.seal(p, at="t", key=KEY, index=0)
+    assert load(p, KEY).entries[0]["keyid"] == KEY.keyid

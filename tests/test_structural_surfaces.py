@@ -145,3 +145,36 @@ def test_the_verdict_names_the_live_session_surfaces():
 
 def test_the_kinds_needing_a_live_session_are_named_explicitly():
     assert set(LIVE_SESSION_KINDS) == {"plugin", "skill", "command"}
+
+
+def test_a_missing_installer_is_a_finding_not_a_crash(monkeypatch, tmp_path):
+    """A vendored install has no install.sh, and the read was unguarded: every
+    `claims check` and `attest --self` from a vendored runtime died with
+    FileNotFoundError instead of producing a verdict
+    (mEllergrace/stop-guessing#94 defect 4).
+
+    Absent is not sound and not fatal: the two install paths cannot be compared
+    without the installer, and that is exactly the kind of thing this gate
+    exists to say out loud."""
+    monkeypatch.setattr("stop_guessing.prove.runner.repo_root", lambda: tmp_path)
+    cmds = tmp_path / ".claude-plugin/plugins/stop-guessing/commands"
+    cmds.mkdir(parents=True)
+    (cmds / "custody.md").write_text("# doc\n", encoding="utf-8")
+    # no install.sh at all -- the vendored case
+
+    found = structural_findings("command:/custody")
+
+    assert found, "a tree with no installer was reported structurally sound"
+    joined = " ".join(found)
+    assert "install.sh" in joined and "not present" in joined, found
+
+
+def test_the_installer_check_still_passes_when_it_installs_the_command(
+        monkeypatch, tmp_path):
+    """The capability must survive the guard."""
+    monkeypatch.setattr("stop_guessing.prove.runner.repo_root", lambda: tmp_path)
+    cmds = tmp_path / ".claude-plugin/plugins/stop-guessing/commands"
+    cmds.mkdir(parents=True)
+    (cmds / "custody.md").write_text("# doc\n", encoding="utf-8")
+    (tmp_path / "install.sh").write_text("for doc in custody; do :; done\n", encoding="utf-8")
+    assert structural_findings("command:/custody") == []

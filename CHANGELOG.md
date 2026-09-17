@@ -3,6 +3,57 @@
 All notable changes to STOP-GUESSING. Format follows [Keep a Changelog](https://keepachangelog.com/);
 this project uses semantic versioning and bumps `VERSION` on every code-changing push.
 
+## [0.5.4] — 2026-09-17
+
+Four defects that together made a correct attestation unreachable on a normal installation. Found
+while a consumer (moonsoup/ziggurat) tried to bind its AI-CAIQ answers to ledger evidence and could
+not; reported as mEllergrace/stop-guessing#94.
+
+### Fixed — `ledger --path` could not reach any ledger
+`_path()` called itself instead of reading `args.path`, so every `--path` invocation recursed until
+the interpreter gave up. The per-project ledgers are where the evidence is — one consumer's holds
+492 records, tracked in git — and none of them could be verified at all, while the option parsed
+and `--help` advertised it. The same class as the retract command in `test_cli_dispatch`:
+registered, and never driven. The test runs it.
+
+### Fixed — a wrong key was reported as tampering
+A recomputed hash that disagrees has two very different explanations, and the recorded `keyid`
+distinguishes them. A profile ledger chained under an env-sourced key that no longer existed
+reported *"entry 0 content does not match its own hash — it was edited in place"*, and the reader
+concluded the custody record had been altered. It had not. The verifier now names the mismatch and
+says it is not evidence of alteration; a genuinely edited entry, verified under the right key, still
+reports tampering.
+
+### Fixed — a chain-only seal opened the next segment unkeyed
+A segment whose key is gone can only be sealed chain-only, and `seal` rightly refuses to certify a
+chain it cannot verify. Rotation then wrote the *next* segment's genesis record with that same
+absent key, so the fresh segment opened unkeyed and every later keyed verification read it as a
+splice. The live segment's key availability has nothing to do with the sealed one's: `seal` takes
+`new_key`, and the CLI resolves whatever key the profile actually has.
+
+### Fixed — three surfaces still resolved the chain key from the environment alone
+#61 and #66 landed this fix one call site at a time, and three were missed: CLAIM-21's proof
+procedure, `page build`, and the recorder daemon. On a profile whose key lives in a mode-600
+keyfile — which is what `install.sh` writes — CLAIM-21 failed with *"no chain key"*, so it could
+never be proved and `attest --self` could never reach GOAL MET. `tests/test_key_resolution_is_uniform.py`
+now scans for the pattern instead of trusting the next fix to be complete.
+
+### Fixed — the recorder-isolation proof required the product NOT to be installed
+CLAIM-12 builds a clean install in a temp directory and self-checks it. The check asks whether
+PATH resolves `stop-guessing` to the pinned binary — a real guard, the fake-`curl` attack exactly
+— but the temp install was never put first on its own PATH, so on any machine with the product
+installed the operator's own binary was reported as a shadow. That put CLAIM-12 in direct
+conflict with CLAIM-20, which requires the console scripts to BE installed: the two could never
+both pass, and the proof had only ever been green on machines without stop-guessing on them. The
+clean install now leads its own PATH and ships both console-script names; the planted-shadow step
+still proves detection works, which is the property that matters.
+
+### Fixed — `claims check` and `attest --self` crashed on a vendored install
+`structural_findings` read `install.sh` unconditionally, and a vendored runtime ships no installer,
+so the gate died with `FileNotFoundError` instead of producing a verdict. Absent is neither sound
+nor fatal: without the installer the two install paths cannot be compared, and a gate that cannot
+compare them says so.
+
 ## [0.5.3] — 2026-08-05
 
 Repo hygiene run properly, and the README rewritten to say what is currently true.

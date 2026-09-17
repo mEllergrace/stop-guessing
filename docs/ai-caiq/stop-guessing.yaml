@@ -37,19 +37,19 @@ answers:
     and slash-commands as things that must be PROVEN TO RUN, and §15 names `demo` as the single command
     a reviewer runs. The surface is declared again and is NOT exercised: `surface_validated` is false
     because it is false. Proven by 3 record(s) in this toolchain''s own keyed chain-of-custody ledger
-    (sg:1461:e7cc6126236ac65b, sg:1477:dca5f77404ee6a35, sg:1489:b1e0ca04f461b2c0), each produced by an
-    executable procedure and re-verified by `stop-guessing claims check`.'
+    (sg:114:fed0e279c767f6cf, sg:132:7b34f83e02876f1a, sg:98:3433c363e49c905a), each produced by an executable
+    procedure and re-verified by `stop-guessing claims check`.'
   claims:
   - CLAIM-06
   - CLAIM-14
   - CLAIM-20
   evidence:
   - type: ledger
-    ref: sg:1461:e7cc6126236ac65b
+    ref: sg:114:fed0e279c767f6cf
   - type: ledger
-    ref: sg:1477:dca5f77404ee6a35
+    ref: sg:132:7b34f83e02876f1a
   - type: ledger
-    ref: sg:1489:b1e0ca04f461b2c0
+    ref: sg:98:3433c363e49c905a
 - control: CCC-01
   answer: 'Yes'
   ssrm: Owned by OSP
@@ -67,20 +67,20 @@ answers:
     metric rather than reporting the gap. IMPLEMENTATION_PLAN.md §2.1 names plugins, skills and slash-commands
     as things that must be PROVEN TO RUN, and §15 names `demo` as the single command a reviewer runs.
     The surface is declared again and is NOT exercised: `surface_validated` is false because it is false.
-    Proven by 3 record(s) in this toolchain''s own keyed chain-of-custody ledger (sg:1467:0584d45d76a63934,
-    sg:1481:2dbfc7aa506461dd, sg:1483:ca8653cd01b651f9), each produced by an executable procedure and
-    re-verified by `stop-guessing claims check`.'
+    Proven by 3 record(s) in this toolchain''s own keyed chain-of-custody ledger (sg:104:4c33f70f742c9220,
+    sg:118:89d93f7e16a6b952, sg:120:63bd2c474bbb9276), each produced by an executable procedure and re-verified
+    by `stop-guessing claims check`.'
   claims:
   - CLAIM-09
   - CLAIM-16
   - CLAIM-17
   evidence:
   - type: ledger
-    ref: sg:1467:0584d45d76a63934
+    ref: sg:104:4c33f70f742c9220
   - type: ledger
-    ref: sg:1481:2dbfc7aa506461dd
+    ref: sg:118:89d93f7e16a6b952
   - type: ledger
-    ref: sg:1483:ca8653cd01b651f9
+    ref: sg:120:63bd2c474bbb9276
 - control: DSP-05
   answer: 'Yes'
   ssrm: Owned by OSP
@@ -100,16 +100,16 @@ answers:
     doctor --network", which the CLI does not provide — argparse rejects it. Replaced with cli:"stop-guessing
     doctor". A claim naming a command that does not exist is an overclaim, and it survived because non-hook
     surfaces were never executed. Proven by 2 record(s) in this toolchain''s own keyed chain-of-custody
-    ledger (sg:1451:b47381c648536197, sg:1485:c321c7b25edd65eb), each produced by an executable procedure
+    ledger (sg:122:453c48ce6a105499, sg:88:ae8a190ddb6d8e0b), each produced by an executable procedure
     and re-verified by `stop-guessing claims check`.'
   claims:
   - CLAIM-01
   - CLAIM-18
   evidence:
   - type: ledger
-    ref: sg:1451:b47381c648536197
+    ref: sg:122:453c48ce6a105499
   - type: ledger
-    ref: sg:1485:c321c7b25edd65eb
+    ref: sg:88:ae8a190ddb6d8e0b
 - control: DSP-20
   answer: 'Yes'
   ssrm: Owned by OSP
@@ -141,9 +141,9 @@ answers:
     of reporting that the proof does not drive the deployed hook. It is declared again and is NOT exercised,
     so this claim is UNPROVEN until a proof drives the hook in a real process; The blank AI-CAIQ template
     is never modified. A fill leaves its digest and mtime unchanged, and an altered template refuses regeneration.
-    Proven by 6 record(s) in this toolchain''s own keyed chain-of-custody ledger (sg:1451:b47381c648536197,
-    sg:1463:8d8bab12ee4081be, sg:1465:08702db24217888b, sg:1467:0584d45d76a63934, sg:1469:7270ea13b82dadcb,
-    sg:1479:86fe43a9e97990e3), each produced by an executable procedure and re-verified by `stop-guessing
+    Proven by 6 record(s) in this toolchain''s own keyed chain-of-custody ledger (sg:100:75dd1dacad49d24b,
+    sg:102:ab1bef79ca5cc124, sg:104:4c33f70f742c9220, sg:106:a31706f0ddd6fefe, sg:116:b74c3e9e217cff12,
+    sg:88:ae8a190ddb6d8e0b), each produced by an executable procedure and re-verified by `stop-guessing
     claims check`.'
   claims:
   - CLAIM-01
@@ -154,17 +154,17 @@ answers:
   - CLAIM-15
   evidence:
   - type: ledger
-    ref: sg:1451:b47381c648536197
+    ref: sg:100:75dd1dacad49d24b
   - type: ledger
-    ref: sg:1463:8d8bab12ee4081be
+    ref: sg:102:ab1bef79ca5cc124
   - type: ledger
-    ref: sg:1465:08702db24217888b
+    ref: sg:104:4c33f70f742c9220
   - type: ledger
-    ref: sg:1467:0584d45d76a63934
+    ref: sg:106:a31706f0ddd6fefe
   - type: ledger
-    ref: sg:1469:7270ea13b82dadcb
+    ref: sg:116:b74c3e9e217cff12
   - type: ledger
-    ref: sg:1479:86fe43a9e97990e3
+    ref: sg:88:ae8a190ddb6d8e0b
 - control: I&S-01
   answer: 'Yes'
   ssrm: Owned by OSP
@@ -178,13 +178,13 @@ answers:
     CORRECTED 2026-08-05 (R2-003/R2-039): this claim declared cli:"stop-guessing doctor --network", which
     the CLI does not provide — argparse rejects it. Replaced with cli:"stop-guessing doctor". A claim
     naming a command that does not exist is an overclaim, and it survived because non-hook surfaces were
-    never executed. Proven by 1 record(s) in this toolchain''s own keyed chain-of-custody ledger (sg:1485:c321c7b25edd65eb),
+    never executed. Proven by 1 record(s) in this toolchain''s own keyed chain-of-custody ledger (sg:122:453c48ce6a105499),
     each produced by an executable procedure and re-verified by `stop-guessing claims check`.'
   claims:
   - CLAIM-18
   evidence:
   - type: ledger
-    ref: sg:1485:c321c7b25edd65eb
+    ref: sg:122:453c48ce6a105499
 - control: LOG-03
   answer: 'Yes'
   ssrm: Owned by OSP
@@ -203,7 +203,7 @@ answers:
     finding, which narrowed the claim to fit the metric instead of reporting that the proof does not drive
     the deployed hook. It is declared again and is NOT exercised, so this claim is UNPROVEN until a proof
     drives the hook in a real process. Proven by 4 record(s) in this toolchain''s own keyed chain-of-custody
-    ledger (sg:1453:99e2337da1b42770, sg:1459:725af837a1edbd5d, sg:1461:e7cc6126236ac65b, sg:1475:fdc3575b6fdcdeca),
+    ledger (sg:112:7ad24af175861839, sg:90:aeb95838fb0714ff, sg:96:2646bf8acb800ae8, sg:98:3433c363e49c905a),
     each produced by an executable procedure and re-verified by `stop-guessing claims check`.'
   claims:
   - CLAIM-02
@@ -212,13 +212,13 @@ answers:
   - CLAIM-13
   evidence:
   - type: ledger
-    ref: sg:1453:99e2337da1b42770
+    ref: sg:112:7ad24af175861839
   - type: ledger
-    ref: sg:1459:725af837a1edbd5d
+    ref: sg:90:aeb95838fb0714ff
   - type: ledger
-    ref: sg:1461:e7cc6126236ac65b
+    ref: sg:96:2646bf8acb800ae8
   - type: ledger
-    ref: sg:1475:fdc3575b6fdcdeca
+    ref: sg:98:3433c363e49c905a
 - control: LOG-10
   answer: 'Yes'
   ssrm: Owned by OSP
@@ -235,9 +235,9 @@ answers:
     The blank AI-CAIQ template is never modified. A fill leaves its digest and mtime unchanged, and an
     altered template refuses regeneration; A full uninstall removes hooks and registrations while preserving
     the accumulated ledger and observation log. Proven by 6 record(s) in this toolchain's own keyed chain-of-custody
-    ledger (sg:1453:99e2337da1b42770, sg:1455:cb3428b0d3e9fcbe, sg:1457:3b2dcebc80d9819b, sg:1473:2ff0807cb078087f,
-    sg:1479:86fe43a9e97990e3, sg:1487:1eca758caa70e29e), each produced by an executable procedure and
-    re-verified by `stop-guessing claims check`.
+    ledger (sg:110:cb449ec500a6b481, sg:116:b74c3e9e217cff12, sg:124:8e78ee6c25074dbc, sg:90:aeb95838fb0714ff,
+    sg:92:5a92da37a4d9b55f, sg:94:549f1489b4640294), each produced by an executable procedure and re-verified
+    by `stop-guessing claims check`.
   claims:
   - CLAIM-02
   - CLAIM-03
@@ -247,17 +247,17 @@ answers:
   - CLAIM-19
   evidence:
   - type: ledger
-    ref: sg:1453:99e2337da1b42770
+    ref: sg:110:cb449ec500a6b481
   - type: ledger
-    ref: sg:1455:cb3428b0d3e9fcbe
+    ref: sg:116:b74c3e9e217cff12
   - type: ledger
-    ref: sg:1457:3b2dcebc80d9819b
+    ref: sg:124:8e78ee6c25074dbc
   - type: ledger
-    ref: sg:1473:2ff0807cb078087f
+    ref: sg:90:aeb95838fb0714ff
   - type: ledger
-    ref: sg:1479:86fe43a9e97990e3
+    ref: sg:92:5a92da37a4d9b55f
   - type: ledger
-    ref: sg:1487:1eca758caa70e29e
+    ref: sg:94:549f1489b4640294
 - control: LOG-12
   answer: 'No'
   ssrm: Owned by OSP
@@ -268,7 +268,7 @@ answers:
   - CLAIM-04
   evidence:
   - type: ledger
-    ref: sg:1457:3b2dcebc80d9819b
+    ref: sg:94:549f1489b4640294
 - control: MDS-13
   answer: 'Yes'
   ssrm: Owned by OSP
@@ -277,13 +277,13 @@ answers:
     an audit finding, which narrowed the claim to fit the metric instead of reporting that the proof does
     not drive the deployed hook. It is declared again and is NOT exercised, so this claim is UNPROVEN
     until a proof drives the hook in a real process. Proven by 1 record(s) in this toolchain''s own keyed
-    chain-of-custody ledger (sg:1469:7270ea13b82dadcb), each produced by an executable procedure and re-verified
+    chain-of-custody ledger (sg:106:a31706f0ddd6fefe), each produced by an executable procedure and re-verified
     by `stop-guessing claims check`.'
   claims:
   - CLAIM-10
   evidence:
   - type: ledger
-    ref: sg:1469:7270ea13b82dadcb
+    ref: sg:106:a31706f0ddd6fefe
 - control: SEF-01
   answer: 'Yes'
   ssrm: Owned by OSP
@@ -292,13 +292,13 @@ answers:
     hook:Stop was withdrawn from this claim while closing an audit finding, which narrowed the claim to
     fit the metric instead of reporting that the proof does not drive the deployed hook. It is declared
     again and is NOT exercised, so this claim is UNPROVEN until a proof drives the hook in a real process.
-    Proven by 1 record(s) in this toolchain''s own keyed chain-of-custody ledger (sg:1475:fdc3575b6fdcdeca),
+    Proven by 1 record(s) in this toolchain''s own keyed chain-of-custody ledger (sg:112:7ad24af175861839),
     each produced by an executable procedure and re-verified by `stop-guessing claims check`.'
   claims:
   - CLAIM-13
   evidence:
   - type: ledger
-    ref: sg:1475:fdc3575b6fdcdeca
+    ref: sg:112:7ad24af175861839
 - control: STA-09
   answer: 'No'
   ssrm: Owned by OSP
@@ -310,9 +310,9 @@ answers:
   - CLAIM-20
   evidence:
   - type: ledger
-    ref: sg:1477:dca5f77404ee6a35
+    ref: sg:114:fed0e279c767f6cf
   - type: ledger
-    ref: sg:1489:b1e0ca04f461b2c0
+    ref: sg:132:7b34f83e02876f1a
 proposed_agentic_controls:
   note: 'CSA''s DRAFT agentic controls (labs.cloudsecurityalliance.org). Proposed, not published: they
     do not exist in the AICM v1.1.0 workbook and are NOT written into it. Recorded here because the evidence
@@ -327,13 +327,13 @@ proposed_agentic_controls:
       can actually deliver (0 and 1) the recorder runs under the agent's own uid, the chain key is a mode-600
       file that anything the agent runs can read, and the socket authenticates ordering rather than the
       caller. The four named attacks are refused or detected. An agent that simply reads the key is not
-      among them. Proven by 1 record(s) in this toolchain's own keyed chain-of-custody ledger (sg:1473:2ff0807cb078087f),
+      among them. Proven by 1 record(s) in this toolchain's own keyed chain-of-custody ledger (sg:110:cb449ec500a6b481),
       each produced by an executable procedure and re-verified by `stop-guessing claims check`.
     claims:
     - CLAIM-12
     evidence:
     - type: ledger
-      ref: sg:1473:2ff0807cb078087f
+      ref: sg:110:cb449ec500a6b481
   - control: LOG-AG-01
     answer: 'Yes'
     ssrm: Owned by OSP
@@ -348,16 +348,16 @@ proposed_agentic_controls:
       claim to fit the metric instead of reporting that the proof does not drive the deployed hook. It
       is declared again and is NOT exercised, so this claim is UNPROVEN until a proof drives the hook
       in a real process. Proven by 2 record(s) in this toolchain''s own keyed chain-of-custody ledger
-      (sg:1451:b47381c648536197, sg:1471:18b3bce10072deaa), each produced by an executable procedure and
+      (sg:108:3f6fea2453b2f76e, sg:88:ae8a190ddb6d8e0b), each produced by an executable procedure and
       re-verified by `stop-guessing claims check`.'
     claims:
     - CLAIM-01
     - CLAIM-11
     evidence:
     - type: ledger
-      ref: sg:1451:b47381c648536197
+      ref: sg:108:3f6fea2453b2f76e
     - type: ledger
-      ref: sg:1471:18b3bce10072deaa
+      ref: sg:88:ae8a190ddb6d8e0b
   - control: LOG-AG-02
     answer: 'Yes'
     ssrm: Owned by OSP
@@ -369,10 +369,10 @@ proposed_agentic_controls:
       gap. IMPLEMENTATION_PLAN.md §2.1 names plugins, skills and slash-commands as things that must be
       PROVEN TO RUN, and §15 names `demo` as the single command a reviewer runs. The surface is declared
       again and is NOT exercised: `surface_validated` is false because it is false. Proven by 1 record(s)
-      in this toolchain''s own keyed chain-of-custody ledger (sg:1463:8d8bab12ee4081be), each produced
+      in this toolchain''s own keyed chain-of-custody ledger (sg:100:75dd1dacad49d24b), each produced
       by an executable procedure and re-verified by `stop-guessing claims check`.'
     claims:
     - CLAIM-07
     evidence:
     - type: ledger
-      ref: sg:1463:8d8bab12ee4081be
+      ref: sg:100:75dd1dacad49d24b

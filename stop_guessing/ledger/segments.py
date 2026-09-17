@@ -99,6 +99,7 @@ def seal(
     *,
     at: str,
     key: ChainKey | None = None,
+    new_key: ChainKey | None = None,
     prev_seal_digest: str = GENESIS,
     index: int = 0,
     rotate: bool = True,
@@ -141,7 +142,13 @@ def seal(
         json.dumps(s.to_dict(), indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
     if rotate:
-        _rotate(p, s, at=at, key=key, index=index)
+        # THE NEXT SEGMENT'S KEY IS NOT THE SEALED ONE'S. A segment whose key is gone can only
+        # be sealed chain-only, and rotation used to open the fresh segment with that same
+        # absent key -- so the new segment started unkeyed and every later keyed verification
+        # failed as "a keyed ledger with an unkeyed entry has been spliced". Stranded a real
+        # attestation on 2026-09-17. `new_key` defaults to `key`, so the ordinary case is
+        # unchanged.
+        _rotate(p, s, at=at, key=new_key if new_key is not None else key, index=index)
     return s
 
 

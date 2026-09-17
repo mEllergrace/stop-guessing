@@ -136,6 +136,30 @@ def test_wrong_key_does_not_verify():
     assert v.broken_at == 0
 
 
+def test_the_wrong_key_says_so_rather_than_alleging_tampering():
+    """The reason this matters, found 2026-09-17: a profile ledger chained under
+    an env-sourced key that no longer exists reported "entry 0 content does not
+    match its own hash -- it was edited in place". A reader (this one) concluded
+    the custody record had been altered. It had not: the key was wrong.
+
+    A verifier may only claim what it established. "This is not the key that
+    chained this ledger" is established by the recorded keyid; tampering is not.
+    """
+    v = verify(_build(10, KEY), OTHER)
+    assert "test-key" in v.reason and "other-key" in v.reason, v.reason
+    assert "edited in place" not in v.reason, v.reason
+
+
+def test_a_genuinely_altered_entry_still_reports_tampering():
+    """The capability must survive: with the RIGHT key, an edited entry is an
+    edited entry."""
+    log = _build(5, KEY)
+    log[2]["detail"] = "altered after the fact"
+    v = verify(log, KEY)
+    assert not v.intact
+    assert "edited in place" in v.reason, v.reason
+
+
 def test_splicing_an_unkeyed_entry_into_a_keyed_ledger_is_caught():
     log = _build(5, KEY)
     forged = {"op": "x", "actor": "a", "detail": "spliced", "at": "t", "seq": 5,

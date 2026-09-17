@@ -291,3 +291,32 @@ def test_a_connection_that_never_speaks_does_not_hold_a_thread_forever(running):
         assert client.daemon_info(running) is not None
     finally:
         s.close()
+
+
+def test_the_isolation_proof_holds_when_the_tool_is_actually_installed(tmp_path, monkeypatch):
+    """The proof of recorder isolation must not depend on the operator NOT having
+    stop-guessing installed.
+
+    Found 2026-09-17 while clearing the blockers to an attestation: CLAIM-20
+    requires the console script to be installed, and installing it made CLAIM-12
+    fail — its clean temp install self-checked against the ambient PATH, where a
+    real `stop-guessing` (and `coc`) sits earlier, and the guard correctly called
+    that a shadow. So the two claims could never both pass, and the proof had only
+    ever been green on machines without the product on them.
+
+    A clean install is first on its own PATH. That is what makes the shadow
+    question meaningful, and step (3) still proves a planted shadow is caught.
+    """
+    from stop_guessing.prove.procedures import prove_recorder_isolation
+
+    installed = tmp_path / "bin"
+    installed.mkdir()
+    for name in ("stop-guessing", "coc"):
+        shim = installed / name
+        shim.write_text("#!/bin/sh\necho 'the operator's real install'\n")
+        shim.chmod(0o755)
+    monkeypatch.setenv("PATH", f"{installed}:{os.environ.get('PATH', '')}")
+
+    result = prove_recorder_isolation()
+
+    assert result.passed, result.observations

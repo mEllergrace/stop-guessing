@@ -467,12 +467,23 @@ def structural_findings(surface: str) -> list[str]:
         if not (plugin / "commands" / f"{name}.md").is_file():
             out.append(f"{surface}: the plugin ships no commands/{name}.md, so the slash command "
                        "is not registered by the marketplace install path")
-        installed_by_script = any(
-            "for doc in" in ln and name in ln
-            for ln in (root / "install.sh").read_text(encoding="utf-8").splitlines())
-        if not installed_by_script:
-            out.append(f"{surface}: install.sh does not install {name}.md, so the two supported "
-                       "install paths deliver different products")
+        installer = root / "install.sh"
+        if not installer.is_file():
+            # A vendored runtime ships no installer, and this read was unguarded, so
+            # every `claims check` and `attest --self` from a vendored install died with
+            # FileNotFoundError instead of producing a verdict (#94). Absent is neither
+            # sound nor fatal: without the installer the two install paths cannot be
+            # compared, and a gate that cannot compare them has to say so.
+            out.append(f"{surface}: install.sh is not present in {root}, so the two "
+                       "supported install paths cannot be compared (a vendored runtime "
+                       "ships no installer)")
+        else:
+            installed_by_script = any(
+                "for doc in" in ln and name in ln
+                for ln in installer.read_text(encoding="utf-8").splitlines())
+            if not installed_by_script:
+                out.append(f"{surface}: install.sh does not install {name}.md, so the two "
+                           "supported install paths deliver different products")
     elif kind == "skill":
         skill = plugin / "skills" / rest / "SKILL.md"
         if not skill.is_file():

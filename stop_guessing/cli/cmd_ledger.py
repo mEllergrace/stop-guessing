@@ -46,6 +46,16 @@ def _key(args: argparse.Namespace) -> ChainKey | None:
     return got[0] if got else None
 
 
+def _available_key() -> ChainKey | None:
+    """Whatever key this profile actually has, regardless of how the caller chose to
+    VERIFY. Sealing a segment whose key is lost is still chain-only; the segment that
+    opens afterwards should be keyed if a key exists."""
+    from stop_guessing.attest.keys import discover
+
+    got = discover(config_dir=config_dir())
+    return got[0] if got else None
+
+
 def _now() -> str:
     return datetime.now(UTC).isoformat(timespec="milliseconds").replace("+00:00", "Z")
 
@@ -96,7 +106,7 @@ def cmd_verify(args: argparse.Namespace) -> int:
 def cmd_seal(args: argparse.Namespace) -> int:
     try:
         s = segments.seal(
-            _path(args), at=_now(), key=_key(args),
+            _path(args), at=_now(), key=_key(args), new_key=_available_key(),
             prev_seal_digest=args.prev_seal or segments.GENESIS, index=args.index,
         )
     except LedgerError as exc:

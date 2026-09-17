@@ -150,6 +150,21 @@ def verify(log: list[dict], key: ChainKey | None = None) -> ChainVerdict:
             )
         recomputed = hash_entry(e, key if keyed else None)
         if not hmac.compare_digest(recomputed, e["hash"]):
+            # WHICH FAILURE IS THIS. A recomputation that disagrees has two very
+            # different explanations, and the recorded keyid distinguishes them. Saying
+            # "edited in place" for a key mismatch alleges tampering the verifier has not
+            # established -- it happened on 2026-09-17 to a profile ledger chained under
+            # an env-sourced key that no longer existed, and the reader concluded the
+            # custody record had been altered. A verifier may only claim what it proved.
+            recorded = e.get("keyid")
+            if keyed and recorded and key is not None and recorded != key.keyid:
+                return ChainVerdict(
+                    False, i,
+                    f"entry {i} was chained under keyid {recorded!r}, but the key supplied "
+                    f"is {key.keyid!r} — this is the wrong key for this ledger, which is "
+                    "not evidence that anything was altered",
+                    checked=i,
+                )
             return ChainVerdict(
                 False, i,
                 f"entry {i} content does not match its own hash — it was edited in place",

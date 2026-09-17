@@ -15,7 +15,7 @@ from __future__ import annotations
 import html
 import json
 
-from stop_guessing.attest.keys import from_env, from_keyfile
+from stop_guessing.attest.keys import from_keyfile
 from stop_guessing.prove import runner
 from stop_guessing.version import __version__, repo_root
 
@@ -566,7 +566,11 @@ def _key(args):
         got = from_keyfile(args.keyfile)
         if got:
             return got[0]
-    got = from_env()
+    # discover(), not from_env(): see the note in prove/procedures.py for CLAIM-21.
+    from stop_guessing.attest.keys import discover
+    from stop_guessing.version import config_dir as _config_dir
+
+    got = discover(config_dir=_config_dir())
     return got[0] if got else None
 
 
