@@ -19,7 +19,8 @@ def _path(args) -> Path:
     """The ledger to operate on. #66: one resolver, and it names what it resolved."""
     from stop_guessing.version import installed_ledger
 
-    return Path(_path(args)) if getattr(args, "path", None) else installed_ledger()
+    given = getattr(args, "path", None)
+    return Path(given) if given else installed_ledger()
 
 
 def _key(args: argparse.Namespace) -> ChainKey | None:
